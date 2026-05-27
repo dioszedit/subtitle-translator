@@ -188,6 +188,47 @@ a változás a következő futáskor automatikusan érvényesül — a translate
   alapján fájlba menti, így a párhuzamos agent-ek és az ismételt futások is
   cache-hit-tel indulhatnak — drasztikus költségcsökkenés.
 
+## Utómunka — a review után
+
+A review riport (`_REVIEW_CLAUDE.txt` / `_REVIEW_GEMINI.txt`) csak **jelzi**
+a hibákat — a javítást neked kell elvégezni. A teljes folyamat innen még
+három lépés:
+
+### 1. Review-hibák javítása
+
+A riportban listázott hibákat kétféleképpen javíthatod:
+
+- **Claude Code-dal**: nyisd meg a magyar SRT-t Claude Code-ban, és add át
+  neki a review riportot — végigmegy a hibákon és javítja.
+- **Manuálisan**: szövegszerkesztőben (VSCode, Notepad++, Subtitle Edit,
+  stb.) sorszám szerint megkeresed és javítod.
+
+### 2. Technikai javítás Subtitle Edit-tel
+
+A nyelvi review nem foglalkozik a felirat **olvasási sebességével** és
+egyéb technikai paraméterekkel. Ezt a [Subtitle Edit](https://www.nikse.dk/subtitleedit)
+(ingyenes, Windows + Mac) intézi:
+
+- **CPS (Characters Per Second)** — túl gyors feliratok jelzése
+- **Min/max megjelenési idő** ellenőrzés
+- **Átfedések** detektálása
+- **Sortörés-optimalizálás** (max sor-hossz)
+- **Helyesírás-ellenőrzés** magyar nyelvre
+
+Tools → "Fix common errors" / "Apply min duration" / stb. funkciókkal
+automatikusan vagy félautomatikusan rendezhető.
+
+### 3. Végső kézi lektorálás
+
+A fordító és a review modellek sosem tökéletesek, és az automatikus
+javítás után is érdemes egyszer **végigolvasni** a kész feliratot —
+ideálisan a videóval szinkronban, lejátszás közben. Ekkor jönnek elő
+azok a finomságok (kontextus-érzékeny tegezés/magázás, karakterek
+beszédstílusa, dialógus-ritmus), amiket egyik LLM sem fog megbízhatóan.
+
+Ez a három utómunka-lépés teszi teljessé a folyamatot — nélkülük a fordítás
+nyelvileg jó lehet, de a néző-élmény nem lesz az.
+
 ## Hivatkozott dokumentumok
 
 - `CLAUDE.md` — fordítási szabályok, sorozat-kontextus sablon
