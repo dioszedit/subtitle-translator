@@ -50,13 +50,31 @@ import time
 from pathlib import Path
 from typing import List
 
-from dotenv import load_dotenv
-from pydantic import BaseModel
-from google import genai
-from google.genai import types
-from google.genai import errors as genai_errors
+sys.stdout.reconfigure(encoding='utf-8')
+sys.stderr.reconfigure(encoding='utf-8')
 
 from glossary_categories import CATEGORIES
+
+# Külső függőségek — lazy try/except, hogy a --help akkor is fusson, ha még
+# nincsenek telepítve. A main() ellenőrzi a _DEPS_OK flag-et a tényleges
+# munka előtt; ha hiányzik függőség, friendly üzenettel kilép.
+_DEPS_OK = True
+_DEPS_ERROR = None
+try:
+    from dotenv import load_dotenv
+    from pydantic import BaseModel
+    from google import genai
+    from google.genai import types
+    from google.genai import errors as genai_errors
+except ImportError as _e:
+    _DEPS_OK = False
+    _DEPS_ERROR = str(_e)
+    # Stub BaseModel — a class definíciók (ErrorItem, ErrorReport) így import
+    # időben nem hasalnak el. Az osztályokat csak a main()-ből hívjuk meg
+    # tényleges használatra, ami ellenőrzi a _DEPS_OK-ot.
+    class BaseModel:  # type: ignore[no-redef]
+        pass
+
 
 DEFAULT_CHUNK_SIZE = 100
 MODEL_FLASH = "gemini-2.5-flash"
@@ -241,6 +259,12 @@ def main():
     parser.add_argument("--suffix", type=str, default="",
                         help="Riport fájl utótag, pl. '_part2' → _REVIEW_GEMINI_part2.txt")
     args = parser.parse_args()
+
+    # Függőség-ellenőrzés (a --help-hez nem kellettek az import-ok)
+    if not _DEPS_OK:
+        print(f"HIBA: Hiányzó Python függőség: {_DEPS_ERROR}")
+        print(f"      Telepítés: pip install google-genai python-dotenv pydantic")
+        sys.exit(1)
 
     load_dotenv()
     api_key = os.environ.get("GEMINI_API_KEY")
