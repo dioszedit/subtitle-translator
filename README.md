@@ -132,8 +132,9 @@ python review_with_gemini.py "output\hun.srt"
 python review_with_gemini.py "output\hun.srt" --pro
 
 # Tetszőleges modell-azonosító (--pro felülírva)
-python review_with_gemini.py "output\hun.srt" --model gemini-3-flash-preview
-python review_with_gemini.py "output\hun.srt" --model gemini-3.1-flash-lite-preview
+python review_with_gemini.py "output\hun.srt" --model gemini-3.1-flash
+python review_with_gemini.py "output\hun.srt" --model gemini-3.1-flash-lite
+python review_with_gemini.py "output\hun.srt" --model gemini-3.1-pro-preview
 # Modell-lista: https://ai.google.dev/gemini-api/docs/models
 
 # Csak egy chunk-tartomány lefuttatása (pl. kvótahiba utáni pótlás)

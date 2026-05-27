@@ -21,7 +21,7 @@ py review_with_gemini.py "output\Sorozat - S01E01.hun.srt"
 # Opcionálisan:
 #   --chunk-size 150            nagyobb chunkok = kevesebb API hívás
 #   --pro                       gemini-2.5-pro a default gemini-2.5-flash helyett
-#   --model <név>               tetszőleges modell (pl. gemini-3-flash-preview)
+#   --model <név>               tetszőleges modell (pl. gemini-3.1-flash, gemini-3.1-flash-lite)
 #   --start-chunk N             chunk-tartomány pl. kvótahiba utáni pótlásra
 #   --end-chunk N --suffix _part2  hogy ne írja felül a meglévő riportot
 # Kimenet: output\Sorozat - S01E01.hun_REVIEW_GEMINI.txt

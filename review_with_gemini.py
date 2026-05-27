@@ -9,7 +9,7 @@ Használat:
     python review_with_gemini.py "output/Sorozat - S01E01.hun.srt"
     python review_with_gemini.py "output/Sorozat - S01E01.hun.srt" --chunk-size 100
     python review_with_gemini.py "output/Sorozat - S01E01.hun.srt" --pro
-    python review_with_gemini.py "output/Sorozat - S01E01.hun.srt" --model gemini-3-flash-preview
+    python review_with_gemini.py "output/Sorozat - S01E01.hun.srt" --model gemini-3.1-flash
 
     Csak egy konkrét chunk(tartomány) lefuttatása (pl. kvótahiba utáni pótlás):
         python review_with_gemini.py "output/Sorozat - S01E01.hun.srt" --start-chunk 9 --suffix _part2
@@ -19,8 +19,9 @@ Modellek:
     Alapértelmezett: gemini-2.5-flash (gyors, olcsó, stabil GA)
     --pro flag-gel: gemini-2.5-pro (alaposabb, drágább)
     --model <név>: tetszőleges Gemini modell-azonosító (felülírja a --pro flag-et)
-        Példák: gemini-3-flash-preview, gemini-3.1-flash-lite-preview,
-                gemini-3.1-pro-preview, gemini-2.5-flash-lite
+        Példák (stabil): gemini-3.1-flash, gemini-3.1-flash-lite,
+                          gemini-2.5-flash-lite
+        Példák (preview): gemini-3.1-pro-preview
         Modell-lista: https://ai.google.dev/gemini-api/docs/models
 
 Tartomány-paraméterek:
@@ -230,7 +231,7 @@ def main():
                         help="Gemini 2.5 Pro használata Flash helyett (drágább, alaposabb)")
     parser.add_argument("--model", type=str, default=None,
                         help="Tetszőleges Gemini modell-azonosító (felülírja a --pro flag-et). "
-                             "Pl. gemini-3-flash-preview, gemini-3.1-flash-lite-preview")
+                             "Pl. gemini-3.1-flash, gemini-3.1-flash-lite, gemini-3.1-pro-preview")
     parser.add_argument("--start-chunk", type=int, default=1,
                         help="Csak ettől a chunktól kezdje (1-alapú). Default: 1")
     parser.add_argument("--end-chunk", type=int, default=None,
