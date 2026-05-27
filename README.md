@@ -184,6 +184,12 @@ a változás a következő futáskor automatikusan érvényesül — a translate
 - **Két review összevetése:** ugyanazon a fájlon futtasd mindkét review-t —
   a két modell más-más típusú hibákat talál (Claude inkább kontextus,
   Gemini inkább morfológia / ikes igék).
+- **Review modell-választás — tapasztalati javaslat:** kezdetben Claude
+  Opus-szal (`review_with_claude.py`) review-oztam, ami minőségileg jó,
+  de drága. Később átálltam a Gemini API-ra (`review_with_gemini.py`
+  alapból `gemini-2.5-flash`-t használ), és nem bántam meg — töredék
+  költséggel hasonló minőséget ad a felirat-review feladathoz.
+  Ha most kezdesz, érdemes Gemini-vel próbálkozni elsőként.
 - **Prompt cache:** a `translate_parallel.py` a system promptot tartalom-hash
   alapján fájlba menti, így a párhuzamos agent-ek és az ismételt futások is
   cache-hit-tel indulhatnak — drasztikus költségcsökkenés.
