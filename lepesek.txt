@@ -1,0 +1,33 @@
+# 1. SRT szétvágás (ezt TE futtatod, nem kell hozzá Claude)
+py split_srt.py "input\Sorozat - S01E01.eng.srt"
+
+# 2. Fordítás Claude Code-dal (ez indítja a párhuzamos agent-eket)
+py translate_parallel.py "blocks\Sorozat - S01E01.eng" --agents 3
+
+# 3. Összefűzés (megint csak sima Python)
+py merge_srt.py "blocks\Sorozat - S01E01.eng" "output\Sorozat - S01E01.hun.srt"
+
+# 4. Ellenőrzés — ✓ vagy ✗ jelzi ha valami nem stimmel
+py verify_srt.py "input\Sorozat - S01E01.eng.srt" "output\Sorozat - S01E01.hun.srt"
+
+# 5. Stilisztikai review Claude-dal (tükörfordítások, ragozási hibák)
+py review_with_claude.py "output\Sorozat - S01E01.hun.srt"
+# Opcionálisan: --chunk-size 150 (nagyobb chunkok = kevesebb Claude hívás)
+# Kimenet: output\Sorozat - S01E01.hun_REVIEW_CLAUDE.txt (a talált hibák listája)
+# A riport alapján manuálisan javítod a fordítást
+
+# 5b. Stilisztikai review Gemini-vel (alternatív / kiegészítő, Te döntöd mikor futtatod)
+py review_with_gemini.py "output\Sorozat - S01E01.hun.srt"
+# Opcionálisan: --chunk-size 150, --pro (Pro modell Flash helyett)
+# Kimenet: output\Sorozat - S01E01.hun_REVIEW_GEMINI.txt
+# Előfeltétel: pip install google-genai python-dotenv pydantic
+# Előfeltétel: .env fájl GEMINI_API_KEY=... bejegyzéssel
+
+# 6. Szójegyzék bővítése (opcionális, de ajánlott az első néhány rész után)
+py glossary_extract.py "input\Sorozat - S01E01.eng.srt" "output\Sorozat - S01E01.hun.srt"
+# Interaktívan jóváhagyod a javasolt kifejezéseket (y/n/e/q)
+# A glossary.json-t a translate_parallel.py automatikusan használja a következő fordításnál
+
+
+A translate_parallel.py-ban a kulcsfontosságú sor a claude -p hívás — lehet, hogy a te Claude Code verziódnál kicsit más a szintaxis.
+Érdemes lenne először egy blokkot tesztelni --agents 1-gyel, és ha az megy, utána emelni 3-ra.

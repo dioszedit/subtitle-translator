@@ -1,0 +1,43 @@
+# Secrets — SOHA ne commitold!
+.env
+.env.local
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+
+# Claude Code local settings (user-specifikus permissions)
+.claude/settings.local.json
+
+# Auto-generated system prompt files
+.translate_sys_prompt_*.txt
+.review_claude_sys_prompt.txt
+.review_gemini_sys_prompt.txt
+
+# Munkamenet-fájlok — projektenként / epizódonként mások
+input/*.srt
+output/*.srt
+output/*.txt
+blocks/**
+!blocks/.gitkeep
+!input/.gitkeep
+!output/.gitkeep
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*~
+
+# Backup files
+*.bak
+*.tmp
+*.old
