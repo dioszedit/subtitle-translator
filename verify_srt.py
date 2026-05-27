@@ -20,9 +20,10 @@ def extract_numbers(filepath: str) -> list[str]:
 
 
 def extract_timestamps(filepath: str) -> list[str]:
-    """Időbélyegek kinyerése."""
+    """Időbélyegek kinyerése — szigorú SRT/WebVTT formátum (--> arrow kötelező),
+    hogy ne akadjon be dialógusban szereplő óra-formátumokba (pl. '14:30:00')."""
     with open(filepath, 'r', encoding='utf-8-sig') as f:
-        return [line.strip() for line in f if re.match(r'^\d{2}:\d{2}:\d{2}', line.strip())]
+        return [line.strip() for line in f if re.match(r'^\d{2}:\d{2}:\d{2}[,.]\d{3}\s*-->', line.strip())]
 
 
 def parse_sections(filepath: str) -> list[dict]:

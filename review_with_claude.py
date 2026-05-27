@@ -19,7 +19,6 @@ import os
 import re
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 DEFAULT_CHUNK_SIZE = 100  # Ennyi felirat kerül egy chunkba

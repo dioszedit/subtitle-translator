@@ -138,10 +138,17 @@ beszélt magyar nyelvre. NEM tükörfordítasz.
         f.write(content)
     try:
         os.replace(tmp_path, sys_path)  # atomi op
+        return sys_path, True
     except Exception:
+        # Rename sikertelen — talán másik process időközben létrehozta.
         if os.path.isfile(tmp_path):
-            os.remove(tmp_path)
-    return sys_path, True
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
+        if os.path.isfile(sys_path):
+            return sys_path, False  # másik process megírta — használhatjuk
+        raise RuntimeError(f"Nem sikerült létrehozni a sys prompt fájlt: {sys_path}")
 
 
 def cleanup_stale_sys_prompts(max_age_days: int = SYS_PROMPT_MAX_AGE_DAYS):
@@ -278,7 +285,8 @@ def main():
     else:
         pending = get_pending_blocks(args.blocks_dir)
 
-    done = total - len(pending) if args.block else total - len(get_pending_blocks(args.blocks_dir))
+    # Tényleges lemez-állapot — figyelembe veszi az imént törölt --block HUN fájlt
+    done = total - len(get_pending_blocks(args.blocks_dir))
 
     claude_md = load_claude_md()
     glossary = load_glossary()
