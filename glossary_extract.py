@@ -19,6 +19,8 @@ import argparse
 import shutil
 import subprocess
 
+from glossary_categories import CATEGORIES
+
 sys.stdout.reconfigure(encoding='utf-8')
 sys.stderr.reconfigure(encoding='utf-8')
 
@@ -36,9 +38,6 @@ def find_claude_cli() -> str:
     if os.path.isfile(npm_global):
         return npm_global
     return "claude"  # fallback, hadd kapja el a FileNotFoundError
-
-CATEGORIES = ["honorifics", "place_names", "character_names", "special_terms", "phrases"]
-
 
 def sanitize_inner_quotes(s: str) -> str:
     """Heurisztikusan kicseréli a JSON string értékek BELSEJÉBEN előforduló

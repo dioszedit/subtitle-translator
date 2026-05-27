@@ -14,6 +14,7 @@ Kimenet:
 """
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -21,9 +22,11 @@ import subprocess
 import sys
 from pathlib import Path
 
+from glossary_categories import CATEGORIES
+
 DEFAULT_CHUNK_SIZE = 100  # Ennyi felirat kerül egy chunkba
 TIMEOUT_PER_CHUNK = 600   # 10 perc chunkonként
-SYS_PROMPT_FILE = ".review_claude_sys_prompt.txt"
+SYS_PROMPT_PREFIX = ".review_claude_sys_prompt_"  # hash kerül utána
 
 
 def parse_srt(filepath):
@@ -57,7 +60,7 @@ def load_glossary() -> str:
     with open("glossary.json", 'r', encoding='utf-8') as f:
         data = json.load(f)
     lines = []
-    for category in ["honorifics", "place_names", "character_names", "special_terms", "phrases"]:
+    for category in CATEGORIES:
         for entry in data.get(category, []):
             en = entry.get("en", "")
             hu = entry.get("hu", "")
@@ -101,7 +104,13 @@ nézel át, és STÍLUS / NYELVTANI hibákat keresel.
 
 
 def write_sys_prompt_file(content: str) -> str:
-    path = os.path.abspath(SYS_PROMPT_FILE)
+    """Sys prompt mentése tartalom-hash alapú névvel — két párhuzamos futás
+    azonos tartalommal ugyanazt a fájlt használja, eltérővel külön fájlt
+    (mint a translate_parallel.py)."""
+    h = hashlib.sha256(content.encode("utf-8")).hexdigest()[:12]
+    path = os.path.abspath(f"{SYS_PROMPT_PREFIX}{h}.txt")
+    if os.path.isfile(path):
+        return path
     with open(path, "w", encoding="utf-8") as f:
         f.write(content)
     return path

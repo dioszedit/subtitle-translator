@@ -56,6 +56,8 @@ from google import genai
 from google.genai import types
 from google.genai import errors as genai_errors
 
+from glossary_categories import CATEGORIES
+
 DEFAULT_CHUNK_SIZE = 100
 MODEL_FLASH = "gemini-2.5-flash"
 MODEL_PRO = "gemini-2.5-pro"
@@ -106,7 +108,7 @@ def load_glossary() -> str:
     with open("glossary.json", 'r', encoding='utf-8') as f:
         data = json.load(f)
     lines = []
-    for category in ["honorifics", "place_names", "character_names", "special_terms", "phrases"]:
+    for category in CATEGORIES:
         for entry in data.get(category, []):
             en = entry.get("en", "")
             hu = entry.get("hu", "")

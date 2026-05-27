@@ -36,6 +36,8 @@ import re
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+from glossary_categories import CATEGORIES
+
 sys.stdout.reconfigure(encoding='utf-8')
 sys.stderr.reconfigure(encoding='utf-8')
 
@@ -80,7 +82,7 @@ def load_glossary() -> str:
     with open("glossary.json", 'r', encoding='utf-8') as f:
         data = json.load(f)
     lines = []
-    for category in ["honorifics", "place_names", "character_names", "special_terms", "phrases"]:
+    for category in CATEGORIES:
         for entry in data.get(category, []):
             en = entry.get("en", "")
             hu = entry.get("hu", "")
@@ -250,7 +252,7 @@ def main():
     parser.add_argument("--agents", type=int, default=3,
                         help="Párhuzamos agent-ek száma (alapértelmezett: 3)")
     parser.add_argument("--block", type=str, default=None,
-                        help="Csak egy konkrét blokk fordítása (pl. 003)")
+                        help="Csak egy konkrét blokk fordítása (pl. 003 vagy 3 — auto zero-pad)")
     parser.add_argument("--timeout", type=int, default=900,
                         help="Timeout blokkonként másodpercben (alapértelmezett: 900 = 15 perc)")
     parser.add_argument("--model", type=str, default="sonnet",
@@ -273,9 +275,12 @@ def main():
     total = len(all_blocks)
 
     if args.block:
-        pending = [b for b in all_blocks if f"_block_{args.block}_" in b]
+        # Auto zero-pad: --block 3 -> 003 (a fájlnév pattern _block_NNN_ formátumú).
+        # Csak numerikus inputot pad-elünk, alfanumerikust változatlanul hagyjuk.
+        block_id = args.block.zfill(3) if args.block.isdigit() else args.block
+        pending = [b for b in all_blocks if f"_block_{block_id}_" in b]
         if not pending:
-            print(f"HIBA: Nem találom a {args.block} számú blokkot!")
+            print(f"HIBA: Nem találom a {args.block} (={block_id}) számú blokkot!")
             sys.exit(1)
         for b in pending:
             hun = b.replace(".srt", "_HUN.srt")
