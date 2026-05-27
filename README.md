@@ -239,6 +239,5 @@ nyelvileg jó lehet, de a néző-élmény nem lesz az.
 
 - `CLAUDE.md` — fordítási szabályok, sorozat-kontextus sablon
 - `lepesek.txt` — gyors parancs-cheatsheet
-- `stilisztika.txt` — stílusbeli megjegyzések
 - `proposals/` — fejlesztési irányok, alternatívák, tervezési dokumentumok
   (lásd: [`proposals/README.md`](proposals/README.md))

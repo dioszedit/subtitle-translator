@@ -14,6 +14,7 @@ research jegyzetek, alternatív megoldások, tervezési dokumentumok.
 |------|------|---------|
 | [translategemma_local.md](translategemma_local.md) | Lokális fordító Mac mini-n (ollama + `translategemma:12b`) — alternatíva a Claude API helyett | Research jegyzet |
 | [desktop_gui_v1.md](desktop_gui_v1.md) | Cross-platform desktop GUI a teljes workflow-hoz (Windows + Mac) | Tervezés első kör, döntési pontok nyitva |
+| [stilisztika_chat_prompt.md](stilisztika_chat_prompt.md) | Stilisztikai + CPS review prompt chat-AI-ba (ChatGPT, Claude.ai) — alternatíva a review_with_* scriptekhez | Használatra kész prompt |
 
 ## Konvenciók
 
