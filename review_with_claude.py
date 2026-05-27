@@ -10,7 +10,7 @@ Használat:
     python review_with_claude.py "output/Sorozat - S01E01.hun.srt" --chunk-size 100
 
 Kimenet:
-    output/Sorozat - S01E01.hun_REVIEW.txt
+    output/Sorozat - S01E01.hun_REVIEW_CLAUDE.txt
 """
 
 import argparse

@@ -18,7 +18,12 @@ py review_with_claude.py "output\Sorozat - S01E01.hun.srt"
 
 # 5b. Stilisztikai review Gemini-vel (alternatív / kiegészítő, Te döntöd mikor futtatod)
 py review_with_gemini.py "output\Sorozat - S01E01.hun.srt"
-# Opcionálisan: --chunk-size 150, --pro (Pro modell Flash helyett)
+# Opcionálisan:
+#   --chunk-size 150            nagyobb chunkok = kevesebb API hívás
+#   --pro                       gemini-2.5-pro a default gemini-2.5-flash helyett
+#   --model <név>               tetszőleges modell (pl. gemini-3-flash-preview)
+#   --start-chunk N             chunk-tartomány pl. kvótahiba utáni pótlásra
+#   --end-chunk N --suffix _part2  hogy ne írja felül a meglévő riportot
 # Kimenet: output\Sorozat - S01E01.hun_REVIEW_GEMINI.txt
 # Előfeltétel: pip install google-genai python-dotenv pydantic
 # Előfeltétel: .env fájl GEMINI_API_KEY=... bejegyzéssel
@@ -26,8 +31,13 @@ py review_with_gemini.py "output\Sorozat - S01E01.hun.srt"
 # 6. Szójegyzék bővítése (opcionális, de ajánlott az első néhány rész után)
 py glossary_extract.py "input\Sorozat - S01E01.eng.srt" "output\Sorozat - S01E01.hun.srt"
 # Interaktívan jóváhagyod a javasolt kifejezéseket (y/n/e/q)
-# A glossary.json-t a translate_parallel.py automatikusan használja a következő fordításnál
+# A glossary.json-t a translate_parallel.py ÉS mindkét review script automatikusan
+# betölti és átadja a modellnek (system prompt-ként) a következő futáskor.
 
 
-A translate_parallel.py-ban a kulcsfontosságú sor a claude -p hívás — lehet, hogy a te Claude Code verziódnál kicsit más a szintaxis.
-Érdemes lenne először egy blokkot tesztelni --agents 1-gyel, és ha az megy, utána emelni 3-ra.
+# Tippek:
+# - Először mindig egy blokkot teszteld --agents 1-gyel; ha jó, emeld 3-ra.
+# - A translate script checkpoint-os: ha leáll, egyszerűen futtasd újra,
+#   csak a hiányzó blokkokat fordítja.
+# - A CLAUDE.md és glossary.json változtatása automatikusan érvényesül
+#   a következő futáskor (mind translate-nél, mind review-nál).
