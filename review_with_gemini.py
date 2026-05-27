@@ -259,6 +259,16 @@ def main():
         model = MODEL_FLASH
     client = genai.Client(api_key=api_key)
 
+    # Pre-flight: ellenőrizzük, hogy a modell létezik-e
+    try:
+        client.models.get(model=model)
+    except genai_errors.APIError as e:
+        print(f"HIBA: Nem létező Gemini modell: '{model}'")
+        print(f"      A használható modellek listája:")
+        print(f"      https://ai.google.dev/gemini-api/docs/models")
+        print(f"      (Eredeti API hiba: {e})")
+        sys.exit(1)
+
     entries = parse_srt(srt_path)
     print(f"Beolvasva: {len(entries)} felirat szekció")
 

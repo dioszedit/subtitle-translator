@@ -145,6 +145,16 @@ python review_with_gemini.py "output\hun.srt" --start-chunk 5 --end-chunk 7 --su
 A Gemini review **strukturált JSON kimenetet** ad (Pydantic séma), ami stabilabb
 mint a szabad szöveg, és automatikusan retry-ol rate limit (429) vagy 5xx hiba esetén.
 
+> ⚠️ **A Gemini modellek listája időről időre változik.** Új modellek jelennek
+> meg, preview verziók stabilizálódnak (és a `-preview` suffix lekerül), régi
+> verziók nyugdíjba mennek. A README-ben szereplő modell-példák ezért
+> elavulhatnak. Mielőtt egy konkrét `--model <név>` argumentumot használsz,
+> ellenőrizd az aktuálisan elérhető modelleket:
+> **https://ai.google.dev/gemini-api/docs/models**
+>
+> Ha egy nem létező modell-azonosítót adsz át, a script API hibával fog
+> visszatérni — ilyenkor a fenti oldalon nézd meg a helyes nevet.
+
 ### Szójegyzék bővítése (az első néhány rész után ajánlott)
 
 ```powershell
