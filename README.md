@@ -1,7 +1,14 @@
 # SRT Felirat Fordító — Claude Code projekt
 
-Koreai (és egyéb ázsiai) sorozatok angol feliratainak fordítása magyarra, SRT formátumban.
-A workflow Claude Code-on alapul, a stilisztikai review opcionálisan Gemini API-val is fut.
+SRT felirat-fordítási keretrendszer LLM-alapú fordítással és stilisztikai review-val.
+A workflow Claude Code-on alapul, a review opcionálisan Gemini API-val is fut.
+
+**Alapértelmezett irány:** angolról magyarra (EN→HU). Technikailag más nyelvpárokra
+is használható (a glossary konzisztencia miatt projektenként egy forrásnyelv ajánlott).
+
+**Tipikus use-case:** sorozat-feliratok fordítása (pl. koreai és más ázsiai drámák),
+ahol fontos a karakterek, megszólítások és kulturális kifejezések konzisztens
+kezelése — de a keretrendszer bármilyen videó/film/sorozat-felirathoz használható.
 
 ## Mappaszerkezet
 
