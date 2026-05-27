@@ -25,8 +25,8 @@ subtitle-translator/
 ├── blocks/                      ← Auto-generált blokk-fájlok
 ├── output/                      ← Kész magyar fájlok + review riportok
 │
-├── info/                        ← Háttér-jegyzetek (pl. translategemma alternatíva)
-├── plan/                        ← Tervezési dokumentumok (pl. desktop GUI terv)
+├── proposals/                   ← Fejlesztési irányok, alternatívák, tervek
+│                                  (saját README a részletekhez)
 └── lepesek.txt                  ← Quick-reference parancslista
 ```
 
@@ -240,5 +240,5 @@ nyelvileg jó lehet, de a néző-élmény nem lesz az.
 - `CLAUDE.md` — fordítási szabályok, sorozat-kontextus sablon
 - `lepesek.txt` — gyors parancs-cheatsheet
 - `stilisztika.txt` — stílusbeli megjegyzések
-- `info/translategemma_megoldas.md` — alternatív lokális fordító (Mac mini + ollama) jegyzete
-- `plan/desktop_app_terv.md` — desktop GUI tervezési dokumentum (folyamatban)
+- `proposals/` — fejlesztési irányok, alternatívák, tervezési dokumentumok
+  (lásd: [`proposals/README.md`](proposals/README.md))
