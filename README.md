@@ -27,6 +27,8 @@ subtitle-translator/
 ├── review_with_claude.py        ← 5a. Stilisztikai review Claude Code-dal
 ├── review_with_gemini.py        ← 5b. Stilisztikai review Gemini API-val (opcionális)
 ├── glossary_extract.py          ← 6. Szójegyzék bővítése feliratpárból (interaktív)
+├── glossary_categories.py       ← Közös konstans (CATEGORIES) — itt vedd fel új
+│                                  glossary-kategóriát, mind a 4 script innen olvas
 │
 ├── input/                       ← Ide tedd az angol SRT fájlokat
 ├── blocks/                      ← Auto-generált blokk-fájlok
