@@ -9,6 +9,7 @@ Koreai (és egyéb ázsiai) sorozatok angol feliratainak fordítása magyarra, S
 > **Minden új sorozatnál frissítsd ezt a részt!**
 > Vedd ki a kommentből (töröld a `<!--` és `-->` sorokat) és töltsd ki.
 
+```
 <!--
 Sorozat: [Cím] ([eredeti cím])
 Műfaj: Koreai, [Romance / Historical / Fantasy / Comedy]
@@ -23,6 +24,7 @@ Speciális kifejezések:
   - Változatlanul hagyandó: Joseon, gibang, gisaeng
 Eddig történt: [Korábbi epizódok összefoglalója, ha van]
 -->
+```
 
 ## Fordítási feladat
 
