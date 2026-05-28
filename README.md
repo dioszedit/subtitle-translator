@@ -65,6 +65,25 @@ copy .env.example .env
 # Szerkeszd: GEMINI_API_KEY=...   (https://aistudio.google.com/apikey)
 ```
 
+> **macOS / Linux megjegyzés:** a README parancsai Windows PowerShell-re vannak
+> írva. Más platformon a következő helyettesítések kellenek:
+>
+> | Windows | macOS / Linux |
+> |---------|---------------|
+> | `python` | `python3` |
+> | `pip` | `pip3` |
+> | `py` (lepesek.txt-ben) | `python3` |
+> | `copy` | `cp` |
+> | `del` | `rm` |
+> | `input\fájl.srt` (backslash) | `input/fájl.srt` (forward slash) |
+>
+> Pl. macOS-en:
+> ```bash
+> pip3 install google-genai python-dotenv pydantic
+> cp .env.example .env
+> python3 split_srt.py "input/Sorozat - S01E01.eng.srt"
+> ```
+
 ### Új projekt indítása
 
 1. A clone-olt mappát használhatod közvetlenül, vagy másolhatod egy új mappába

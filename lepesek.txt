@@ -1,3 +1,12 @@
+# Platform megjegyzés:
+#   Az alábbi parancsok Windows-ra vannak írva (py launcher + backslash).
+#   macOS / Linux alatt:
+#     - "py"   helyett   "python3"
+#     - "pip"  helyett   "pip3"
+#     - "del"  helyett   "rm"
+#     - backslash (\) helyett forward slash (/) az útvonalakban
+#   Pl.: python3 split_srt.py "input/Sorozat - S01E01.eng.srt"
+
 # 1. SRT szétvágás (ezt TE futtatod, nem kell hozzá Claude)
 py split_srt.py "input\Sorozat - S01E01.eng.srt"
 
