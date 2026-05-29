@@ -153,15 +153,12 @@ python review_with_claude.py "output\hun.srt" --chunk-size 150
 
 #### Gemini review (`review_with_gemini.py`)
 ```powershell
-# Default modell: gemini-2.5-flash (gyors, olcsó)
+# Default modell: gemini-3.1-flash-lite (gyors, olcsó)
 python review_with_gemini.py "output\hun.srt"
 
-# --pro shortcut: gemini-2.5-pro (alaposabb, drágább)
-python review_with_gemini.py "output\hun.srt" --pro
-
-# Tetszőleges modell-azonosító (--pro felülírva)
+# Tetszőleges modell-azonosító --model flag-gel
 python review_with_gemini.py "output\hun.srt" --model gemini-3.1-flash
-python review_with_gemini.py "output\hun.srt" --model gemini-3.1-flash-lite
+python review_with_gemini.py "output\hun.srt" --model gemini-2.5-flash
 python review_with_gemini.py "output\hun.srt" --model gemini-3.1-pro-preview
 # Modell-lista: https://ai.google.dev/gemini-api/docs/models
 
@@ -225,9 +222,9 @@ a változás a következő futáskor automatikusan érvényesül — a translate
   Gemini inkább morfológia / ikes igék).
 - **Review modell-választás — tapasztalati javaslat:** kezdetben Claude
   Opus-szal (`review_with_claude.py`) review-oztam, ami minőségileg jó,
-  de drága. Később átálltam a Gemini API-ra (`review_with_gemini.py`
-  alapból `gemini-2.5-flash`-t használ), és nem bántam meg — töredék
-  költséggel hasonló minőséget ad a felirat-review feladathoz.
+  de drága. Később átálltam a Gemini API-ra (`review_with_gemini.py`,
+  jelenlegi default: `gemini-3.1-flash-lite`), és nem bántam meg —
+  töredék költséggel hasonló minőséget ad a felirat-review feladathoz.
   Ha most kezdesz, érdemes Gemini-vel próbálkozni elsőként.
 - **Prompt cache:** a `translate_parallel.py` a system promptot tartalom-hash
   alapján fájlba menti, így a párhuzamos agent-ek és az ismételt futások is

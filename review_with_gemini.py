@@ -8,19 +8,16 @@ szempontjából. A talált hibákat egy riportba írja.
 Használat:
     python review_with_gemini.py "output/Sorozat - S01E01.hun.srt"
     python review_with_gemini.py "output/Sorozat - S01E01.hun.srt" --chunk-size 100
-    python review_with_gemini.py "output/Sorozat - S01E01.hun.srt" --pro
     python review_with_gemini.py "output/Sorozat - S01E01.hun.srt" --model gemini-3.1-flash
 
     Csak egy konkrét chunk(tartomány) lefuttatása (pl. kvótahiba utáni pótlás):
         python review_with_gemini.py "output/Sorozat - S01E01.hun.srt" --start-chunk 9 --suffix _part2
         python review_with_gemini.py "output/Sorozat - S01E01.hun.srt" --start-chunk 5 --end-chunk 7 --suffix _part2
 
-Modellek:
-    Alapértelmezett: gemini-2.5-flash (gyors, olcsó, stabil GA)
-    --pro flag-gel: gemini-2.5-pro (alaposabb, drágább)
-    --model <név>: tetszőleges Gemini modell-azonosító (felülírja a --pro flag-et)
-        Példák (stabil): gemini-3.1-flash, gemini-3.1-flash-lite,
-                          gemini-2.5-flash-lite
+Modell:
+    Alapértelmezett: gemini-3.1-flash-lite (gyors, olcsó)
+    --model <név>: tetszőleges Gemini modell-azonosító megadható
+        Példák (stabil): gemini-3.1-flash, gemini-3.1-flash-lite, gemini-2.5-flash
         Példák (preview): gemini-3.1-pro-preview
         Modell-lista: https://ai.google.dev/gemini-api/docs/models
 
@@ -77,8 +74,7 @@ except ImportError as _e:
 
 
 DEFAULT_CHUNK_SIZE = 100
-MODEL_FLASH = "gemini-2.5-flash"
-MODEL_PRO = "gemini-2.5-pro"
+MODEL_DEFAULT = "gemini-3.1-flash-lite"
 TEMPERATURE = 0.2
 MAX_RETRIES = 4
 RETRY_BASE_DELAY = 5  # másodperc
@@ -247,11 +243,9 @@ def main():
     parser.add_argument("srt_file", help="Az összefűzött hun.srt fájl")
     parser.add_argument("--chunk-size", type=int, default=DEFAULT_CHUNK_SIZE,
                         help=f"Feliratok chunkonként (default: {DEFAULT_CHUNK_SIZE})")
-    parser.add_argument("--pro", action="store_true",
-                        help="Gemini 2.5 Pro használata Flash helyett (drágább, alaposabb)")
-    parser.add_argument("--model", type=str, default=None,
-                        help="Tetszőleges Gemini modell-azonosító (felülírja a --pro flag-et). "
-                             "Pl. gemini-3.1-flash, gemini-3.1-flash-lite, gemini-3.1-pro-preview")
+    parser.add_argument("--model", type=str, default=MODEL_DEFAULT,
+                        help=f"Gemini modell-azonosító (default: {MODEL_DEFAULT}). "
+                             "Pl. gemini-3.1-flash, gemini-2.5-flash, gemini-3.1-pro-preview")
     parser.add_argument("--start-chunk", type=int, default=1,
                         help="Csak ettől a chunktól kezdje (1-alapú). Default: 1")
     parser.add_argument("--end-chunk", type=int, default=None,
@@ -277,12 +271,7 @@ def main():
         print(f"HIBA: Fájl nem található: {srt_path}")
         sys.exit(1)
 
-    if args.model:
-        model = args.model
-    elif args.pro:
-        model = MODEL_PRO
-    else:
-        model = MODEL_FLASH
+    model = args.model
     client = genai.Client(api_key=api_key)
 
     # Pre-flight: ellenőrizzük, hogy a modell létezik-e

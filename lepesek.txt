@@ -27,10 +27,10 @@ py review_with_claude.py "output\Sorozat - S01E01.hun.srt"
 
 # 5b. Stilisztikai review Gemini-vel (alternatív / kiegészítő, Te döntöd mikor futtatod)
 py review_with_gemini.py "output\Sorozat - S01E01.hun.srt"
+# Default modell: gemini-3.1-flash-lite
 # Opcionálisan:
 #   --chunk-size 150            nagyobb chunkok = kevesebb API hívás
-#   --pro                       gemini-2.5-pro a default gemini-2.5-flash helyett
-#   --model <név>               tetszőleges modell (pl. gemini-3.1-flash, gemini-3.1-flash-lite)
+#   --model <név>               más Gemini modell (pl. gemini-3.1-flash, gemini-2.5-flash, gemini-3.1-pro-preview)
 #   --start-chunk N             chunk-tartomány pl. kvótahiba utáni pótlásra
 #   --end-chunk N --suffix _part2  hogy ne írja felül a meglévő riportot
 # Kimenet: output\Sorozat - S01E01.hun_REVIEW_GEMINI.txt
