@@ -20,10 +20,9 @@ def extract_numbers(filepath: str) -> list[str]:
 
 
 def extract_timestamps(filepath: str) -> list[str]:
-    """Időbélyegek kinyerése — szigorú SRT/WebVTT formátum (--> arrow kötelező),
-    hogy ne akadjon be dialógusban szereplő óra-formátumokba (pl. '14:30:00')."""
+    """Időbélyegek kinyerése."""
     with open(filepath, 'r', encoding='utf-8-sig') as f:
-        return [line.strip() for line in f if re.match(r'^\d{2}:\d{2}:\d{2}[,.]\d{3}\s*-->', line.strip())]
+        return [line.strip() for line in f if re.match(r'^\d{2}:\d{2}:\d{2}', line.strip())]
 
 
 def parse_sections(filepath: str) -> list[dict]:
@@ -46,6 +45,42 @@ def parse_sections(filepath: str) -> list[dict]:
         elif len(lines) == 2:
             sections.append({"num": lines[0].strip(), "timestamp": lines[1].strip(), "text": ""})
     return sections
+
+
+# Magyar toldalékok, amiket kötőjellel írunk idegen név után — ezeket
+# NEM tekintjük rossz koreai névnek (pl. 'Joo In Ah-ra' = 'Ah' + '-ra' rag).
+HUN_SUFFIX_PREFIXES = (
+    'val', 'vel', 'ban', 'ben', 'ba', 'be', 'bol', 'ből',
+    'ra', 're', 'ról', 'ről', 'hoz', 'hez', 'höz',
+    'nak', 'nek', 'tól', 'től', 'ig', 'on', 'en', 'ön',
+    'n', 'm', 't', 'tt', 'ot', 'et', 'at',
+    'ja', 'je', 'juk', 'jük', 'ja', 'ai', 'ei',
+)
+
+# Visszatérő hibák — figyelmeztetésként (nem hiba)
+# UNIVERZÁLIS minták: bármilyen ázsiai sorozat fordításához érvényesek.
+# Sorozat-specifikus szabályok (karakternevek, cégnevek) a glossary.json-ba valók.
+WARN_PATTERNS: list[tuple[str, str]] = [
+    # Koreai név-átírás: kötőjel helyett szóköz
+    # Pl. 'In-a', 'Ki-jun' → rossz; 'Ah-ra', 'Joo-nak' → magyar rag, OK
+    # (Kínai pinyinhez egybeírás a jellemző, ezért ott ritkán ad találatot.)
+    (r'\b[A-Z][a-z]+-[a-z]+\b',
+     "kötőjeles koreai név (pl. 'In-a' → 'In Ah', 'Ki-jun' → 'Ki Jun')"),
+
+    # Pozíció — vállalati drámákban (팀장 / 组长 / 队长) általában 'csoportvezető'
+    (r'\bcsapatvezet[őöá]', "rossz cím 'csapatvezető' — helyes: 'csoportvezető'"),
+
+    # Visszatérő tükörfordítások és magyar nyelvi szabályok
+    (r'\bJó munka\b', "tükörfordítás 'Jó munka' — helyes: 'Szép munka'"),
+    (r'\bepizód\b', "CLAUDE.md szabály: 'epizód' helyett 'rész'"),
+    (r'\bjobban próbál', "tükörfordítás 'jobban próbál' — helyes: 'jobban igyekszik'"),
+    (r'\bviszony[a-z]* partner', "tükörfordítás 'viszonypartner' — helyes: 'szerető'"),
+    (r'\ba hamarabb csak jobb', "tükörfordítás — helyes: 'minél hamarabb, annál jobb'"),
+    (r'\bállami kapcsolatok',
+     "tükörfordítás 'állami kapcsolatok' (PR félrefordítása) — helyes: 'PR'"),
+    (r'\bkinéz érte[md]?\b|\bkinéz érted\b',
+     "tükörfordítás 'kinéz érte/érted' (look out for) — helyes: 'kiáll mellette/melletted'"),
+]
 
 
 def calc_cps(text: str, timestamp: str) -> float | None:
@@ -185,7 +220,44 @@ def main():
         if len(cps_issues) > 10:
             print(f"    ... és még {len(cps_issues) - 10} további")
 
-    # 7. Összefoglaló
+    # 7. Glossary-tiltások és visszatérő hibák (figyelmeztetés)
+    print()
+    print("Visszatérő hibák (glossary/lektori):")
+    pattern_hits: list[tuple[str, str, str]] = []  # (szekciószám, minta, részlet)
+    compiled = [(re.compile(pat), msg) for pat, msg in WARN_PATTERNS]
+    # az első minta (koreai név) speciális: szűrni kell a magyar ragokat
+    korean_name_msg = WARN_PATTERNS[0][1]
+    for s in trans_sections:
+        text = s["text"]
+        for rx, msg in compiled:
+            for m in rx.finditer(text):
+                hit = m.group(0)
+                # Koreai név-mintánál: ha a kötőjel utáni rész magyar rag, kihagyjuk
+                if msg == korean_name_msg:
+                    after_hyphen = hit.split('-', 1)[1].lower()
+                    if any(after_hyphen.startswith(suf) and
+                           (len(after_hyphen) == len(suf) or
+                            not after_hyphen[len(suf)].isalpha())
+                           for suf in HUN_SUFFIX_PREFIXES):
+                        continue
+                pattern_hits.append((s["num"], msg, hit))
+    if not pattern_hits:
+        print("  ✓ Nincs ismert hibaminta")
+    else:
+        # csoportosítás minta szerint
+        from collections import defaultdict
+        by_msg: dict[str, list[tuple[str, str]]] = defaultdict(list)
+        for num, msg, hit in pattern_hits:
+            by_msg[msg].append((num, hit))
+        print(f"  ⚠ {len(pattern_hits)} találat {len(by_msg)} mintában:")
+        for msg, hits in by_msg.items():
+            print(f"    • {msg} ({len(hits)} db)")
+            for num, hit in hits[:5]:
+                print(f"        #{num}: \"{hit}\"")
+            if len(hits) > 5:
+                print(f"        ... és még {len(hits) - 5} további")
+
+    # 8. Összefoglaló
     print()
     print("=" * 45)
     if errors == 0:
@@ -195,6 +267,8 @@ def main():
         print("    Ellenőrizd a fenti részleteket.")
     if cps_issues:
         print(f"  ⚠ {len(cps_issues)} CPS figyelmeztetés (nem hiba)")
+    if pattern_hits:
+        print(f"  ⚠ {len(pattern_hits)} visszatérő-hiba figyelmeztetés (nem hiba)")
     print("=" * 45)
 
     sys.exit(1 if errors > 0 else 0)
