@@ -10,6 +10,13 @@
 # 1. SRT szétvágás (ezt TE futtatod, nem kell hozzá Claude)
 py split_srt.py "input\Sorozat - S01E01.eng.srt"
 
+# 1.5 (OPCIONÁLIS, AJÁNLOTT) Glossary feltöltése MÉG A FORDÍTÁS ELŐTT
+#     Csak az angol forrásból kinyeri a neveket / megszólításokat / helyszíneket,
+#     az agent JAVASLATOT tesz a magyar fordításra (a CLAUDE.md szabályai alapján),
+#     te jóváhagyod (y/n/e/q). Így a párhuzamos fordítás már EGYSÉGES nevekkel indul.
+#     (Csak az angol fájlt add meg — a magyar argumentum elhagyása kapcsolja be ezt a módot.)
+py glossary_extract.py "input\Sorozat - S01E01.eng.srt"
+
 # 2. Fordítás Claude Code-dal (ez indítja a párhuzamos agent-eket)
 py translate_parallel.py "blocks\Sorozat - S01E01.eng" --agents 3
 
@@ -37,7 +44,9 @@ py review_with_gemini.py "output\Sorozat - S01E01.hun.srt"
 # Előfeltétel: pip install google-genai python-dotenv pydantic
 # Előfeltétel: .env fájl GEMINI_API_KEY=... bejegyzéssel
 
-# 6. Szójegyzék bővítése (opcionális, de ajánlott az első néhány rész után)
+# 6. Szójegyzék bővítése a KÉSZ fordításból (fordítás UTÁNI mód)
+#     Itt MINDKÉT fájlt megadod → a "hu" a magyar feliratban TÉNYLEGESEN használt fordítás.
+#     (Az 1.5 lépés a fordítás ELŐTT javasol; ez a lépés UTÓLAG, a kész párból tanul.)
 py glossary_extract.py "input\Sorozat - S01E01.eng.srt" "output\Sorozat - S01E01.hun.srt"
 # Interaktívan jóváhagyod a javasolt kifejezéseket (y/n/e/q)
 # A glossary.json-t a translate_parallel.py ÉS mindkét review script automatikusan

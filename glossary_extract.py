@@ -92,6 +92,15 @@ CATEGORY_LABELS = {
 }
 
 
+def load_claude_md() -> str:
+    """CLAUDE.md betöltése — az angol-only kinyerésnél a HU javaslatok
+    minőségét javítja (megszólítás-, házasság-, 'rész'-szabályok stb.)."""
+    if os.path.isfile("CLAUDE.md"):
+        with open("CLAUDE.md", 'r', encoding='utf-8') as f:
+            return f.read()
+    return ""
+
+
 def load_glossary(path: str) -> dict:
     """Meglévő glossary betöltése vagy üres struktúra."""
     if os.path.isfile(path):
@@ -123,20 +132,32 @@ def get_existing_terms(glossary: dict) -> set:
     return terms
 
 
+JSON_SYNTAX_RULES = """JSON SZINTAKTIKAI SZABÁLY (KRITIKUS):
+- A JSON string értékek BELSEJÉBEN SOHA ne használj ASCII " (U+0022) karaktert, mert az lezárja a stringet és a parser elhasal.
+- Ha a magyar/angol szövegben idézőjel kell (pl. egy nevet idézel), KIZÁRÓLAG a magyar tipográfiai idézőjeleket használd: nyitó „ (U+201E) és záró " (U+201D).
+- Példa HELYES: {"en":"Shim Coffee House","hu":"„Shim” Kávéház","context":"kávézó neve"}
+- Példa HIBÁS:  {"en":"Shim Coffee House","hu":"„Shim\\" Kávéház",...} — a value belsejében " (ASCII) lezárja a stringet.
+- Aposztrófként se ASCII '-t, hanem ' (U+2019) karaktert használj, ha kell."""
+
+OUTPUT_SCHEMA = """Válaszolj KIZÁRÓLAG egy JSON tömbbel, semmi más szöveget NE írj:
+[{"en": "angol kifejezés", "hu": "magyar fordítás", "category": "honorifics|place_names|character_names|special_terms|phrases", "context": "rövid megjegyzés"}]"""
+
+
+def _existing_note(existing_terms: set) -> str:
+    if not existing_terms:
+        return ""
+    return f"""
+MÁR MEGLÉVŐ KIFEJEZÉSEK (ne javasold újra ezeket):
+{', '.join(sorted(existing_terms))}
+"""
+
+
 def extract_terms(eng_path: str, hun_path: str, existing_terms: set, timeout: int = 300) -> list[dict]:
-    """Claude Code-dal kifejezések kinyerése a feliratpárból."""
+    """Claude Code-dal kifejezések kinyerése a feliratpárból (utólagos mód)."""
     with open(eng_path, 'r', encoding='utf-8-sig') as f:
         eng_content = f.read()
     with open(hun_path, 'r', encoding='utf-8-sig') as f:
         hun_content = f.read()
-
-    # Meglévő kifejezések listája a prompthoz
-    existing_note = ""
-    if existing_terms:
-        existing_note = f"""
-MÁR MEGLÉVŐ KIFEJEZÉSEK (ne javasold újra ezeket):
-{', '.join(sorted(existing_terms))}
-"""
 
     prompt = f"""Elemezd az alábbi angol-magyar feliratpárt és gyűjtsd ki a visszatérő, konzisztensen fordítandó kifejezéseket.
 
@@ -146,22 +167,16 @@ KATEGÓRIÁK:
 - character_names: karakternevek (a helyes írásmód, NEM fordítás)
 - special_terms: kulturális/speciális kifejezések (pl. spiritual root, cultivation, gisaeng)
 - phrases: visszatérő kifejezések, amelyeknek konzisztens fordítása fontos
-{existing_note}
+{_existing_note(existing_terms)}
 FONTOS:
 - Csak olyan kifejezéseket adj, amelyek TÖBBSZÖR előfordulnak vagy fontosak a konzisztencia szempontjából
 - A "hu" mezőben azt a fordítást add, amit a magyar feliratban TÉNYLEGESEN használtunk
 - Ne adj triviális szavakat (pl. "yes" = "igen")
 - Maximum 30-40 kifejezést adj
 
-JSON SZINTAKTIKAI SZABÁLY (KRITIKUS):
-- A JSON string értékek BELSEJÉBEN SOHA ne használj ASCII " (U+0022) karaktert, mert az lezárja a stringet és a parser elhasal.
-- Ha a magyar/angol szövegben idézőjel kell (pl. egy nevet idézel), KIZÁRÓLAG a magyar tipográfiai idézőjeleket használd: nyitó „ (U+201E) és záró " (U+201D).
-- Példa HELYES: {{"en":"Shim Coffee House","hu":"„Shim” Kávéház","context":"kávézó neve"}}
-- Példa HIBÁS:  {{"en":"Shim Coffee House","hu":"„Shim\" Kávéház",...}} — a value belsejében " (ASCII) lezárja a stringet.
-- Aposztrófként se ASCII '-t, hanem ' (U+2019) karaktert használj, ha kell.
+{JSON_SYNTAX_RULES}
 
-Válaszolj KIZÁRÓLAG egy JSON tömbbel, semmi más szöveget NE írj:
-[{{"en": "angol kifejezés", "hu": "magyar fordítás", "category": "honorifics|place_names|character_names|special_terms|phrases", "context": "rövid megjegyzés"}}]
+{OUTPUT_SCHEMA}
 
 ANGOL FELIRAT:
 {eng_content[:15000]}
@@ -169,8 +184,61 @@ ANGOL FELIRAT:
 MAGYAR FELIRAT:
 {hun_content[:15000]}"""
 
+    return _run_extraction(prompt, existing_terms, timeout)
+
+
+def extract_terms_english(eng_path: str, existing_terms: set, claude_md: str,
+                          timeout: int = 300) -> list[dict]:
+    """Fordítás ELŐTTI kinyerés CSAK az angol forrásból.
+
+    Az agent JAVASLATOT tesz a magyar fordításra (a CLAUDE.md szabályai +
+    a meglévő glossary alapján), te a konzolon hagyod jóvá/szerkeszted.
+    Így a párhuzamos fordítás már egységes nevekkel/címekkel indul.
+    """
+    with open(eng_path, 'r', encoding='utf-8-sig') as f:
+        eng_content = f.read()
+
+    claude_md_note = ""
+    if claude_md.strip():
+        claude_md_note = f"""
+A PROJEKT FORDÍTÁSI SZABÁLYAI (ezek szerint javasold a magyar fordítást):
+---
+{claude_md.strip()[:6000]}
+---
+"""
+
+    prompt = f"""Olvasd végig az alábbi ANGOL feliratot. A fordítás MÉG NEM készült el — a Te feladatod,
+hogy ELŐRE összegyűjtsd azokat a visszatérő kifejezéseket, amelyeket az egész epizódban
+KONZISZTENSEN kell majd fordítani, és JAVASLATOT tegyél a magyar megfelelőjükre.
+
+KATEGÓRIÁK:
+- honorifics: megszólítások, rangok, címek (pl. Your Highness, General, My Lord)
+- place_names: helyszínek, tartományok, paloták
+- character_names: karakternevek — a "hu" mezőbe a helyes magyar ÍRÁSMÓD kerüljön, NE fordítás (a nevet nem fordítjuk)
+- special_terms: kulturális/speciális kifejezések (pl. spiritual root, cultivation, gisaeng)
+- phrases: visszatérő kifejezések, amelyeknek konzisztens fordítása fontos
+{_existing_note(existing_terms)}{claude_md_note}
+FONTOS:
+- Csak olyan kifejezéseket adj, amelyek TÖBBSZÖR előfordulnak vagy fontosak a konzisztencia szempontjából
+- A "hu" mező a JAVASOLT fordítás — kövesd a fenti projekt-szabályokat (megszólítások, "rész", semleges nem ahol kétséges)
+- Ne adj triviális szavakat (pl. "yes" = "igen")
+- Ha egy kifejezés magyar fordítása bizonytalan vagy kontextusfüggő, a "context" mezőben jelezd
+- Maximum 30-40 kifejezést adj
+
+{JSON_SYNTAX_RULES}
+
+{OUTPUT_SCHEMA}
+
+ANGOL FELIRAT:
+{eng_content[:15000]}"""
+
+    return _run_extraction(prompt, existing_terms, timeout)
+
+
+def _run_extraction(prompt: str, existing_terms: set, timeout: int) -> list[dict]:
+    """Közös rész: Claude CLI hívás, válasz-parse, validáció."""
     claude_cmd = find_claude_cli()
-    print(f"Claude Code elemzi a feliratpárt... ({claude_cmd})")
+    print(f"Claude Code elemzi a feliratot... ({claude_cmd})")
     try:
         proc = subprocess.run(
             [claude_cmd, "-p", "-"],
@@ -322,25 +390,39 @@ def merge_into_glossary(glossary: dict, approved: list[dict]) -> int:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Kifejezések kinyerése feliratpárból")
+    parser = argparse.ArgumentParser(
+        description="Kifejezések kinyerése felirat(pár)ból a glossary.json bővítéséhez. "
+                    "Két mód: (1) fordítás ELŐTT csak angol forrásból (HU javaslattal), "
+                    "(2) fordítás UTÁN angol-magyar párból."
+    )
     parser.add_argument("eng_srt", help="Eredeti angol SRT fájl")
-    parser.add_argument("hun_srt", help="Fordított magyar SRT fájl")
+    parser.add_argument("hun_srt", nargs="?", default=None,
+                        help="Fordított magyar SRT fájl (opcionális). "
+                             "Ha NINCS megadva → fordítás előtti, angol-only kinyerés "
+                             "(az agent javaslatot tesz a magyar fordításra).")
     parser.add_argument("--glossary", type=str, default="glossary.json",
                         help="Szójegyzék fájl útvonala (alapértelmezett: glossary.json)")
     parser.add_argument("--timeout", type=int, default=300,
                         help="Claude Code timeout másodpercben (alapértelmezett: 300)")
     args = parser.parse_args()
 
-    for path in [args.eng_srt, args.hun_srt]:
+    pre_mode = args.hun_srt is None  # fordítás előtti, angol-only mód
+
+    check_paths = [args.eng_srt] if pre_mode else [args.eng_srt, args.hun_srt]
+    for path in check_paths:
         if not os.path.isfile(path):
             print(f"HIBA: Nem találom a fájlt: {path}")
             sys.exit(1)
 
     print("=" * 55)
-    print("  Glossary Extract — Kifejezés kinyerés")
+    if pre_mode:
+        print("  Glossary Extract — Fordítás ELŐTTI kinyerés (angol-only)")
+    else:
+        print("  Glossary Extract — Fordítás UTÁNI kinyerés (angol-magyar)")
     print("=" * 55)
     print(f"  Angol:      {args.eng_srt}")
-    print(f"  Magyar:     {args.hun_srt}")
+    if not pre_mode:
+        print(f"  Magyar:     {args.hun_srt}")
     print(f"  Szójegyzék: {args.glossary}")
     print("=" * 55)
     print()
@@ -352,7 +434,13 @@ def main():
         print(f"Meglévő kifejezések: {len(existing_terms)}")
 
     # Kinyerés
-    suggestions = extract_terms(args.eng_srt, args.hun_srt, existing_terms, args.timeout)
+    if pre_mode:
+        claude_md = load_claude_md()
+        if claude_md:
+            print(f"CLAUDE.md betöltve a HU javaslatokhoz ({len(claude_md)} char)")
+        suggestions = extract_terms_english(args.eng_srt, existing_terms, claude_md, args.timeout)
+    else:
+        suggestions = extract_terms(args.eng_srt, args.hun_srt, existing_terms, args.timeout)
 
     if not suggestions:
         print("Nem találtam új kifejezést.")

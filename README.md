@@ -26,7 +26,7 @@ subtitle-translator/
 ├── verify_srt.py                ← 4. Strukturális ellenőrzés
 ├── review_with_claude.py        ← 5a. Stilisztikai review Claude Code-dal
 ├── review_with_gemini.py        ← 5b. Stilisztikai review Gemini API-val (opcionális)
-├── glossary_extract.py          ← 6. Szójegyzék bővítése feliratpárból (interaktív)
+├── glossary_extract.py          ← Szójegyzék bővítése (fordítás előtt angol-only, vagy utólag párból)
 ├── glossary_categories.py       ← Közös konstans (CATEGORIES) — itt vedd fel új
 │                                  glossary-kategóriát, mind a 4 script innen olvas
 │
@@ -180,15 +180,26 @@ mint a szabad szöveg, és automatikusan retry-ol rate limit (429) vagy 5xx hiba
 > Ha egy nem létező modell-azonosítót adsz át, a script API hibával fog
 > visszatérni — ilyenkor a fenti oldalon nézd meg a helyes nevet.
 
-### Szójegyzék bővítése (az első néhány rész után ajánlott)
+### Szójegyzék bővítése
+
+A `glossary_extract.py` két módban működik — a magyar argumentum dönti el, melyikben:
 
 ```powershell
-# Kifejezések kinyerése feliratpárból — interaktív jóváhagyás
+# (A) Fordítás ELŐTTI mód — CSAK az angol fájl (a magyar argumentum elhagyva).
+#     Az agent a CLAUDE.md szabályai alapján JAVASLATOT tesz a magyar fordításra,
+#     te jóváhagyod, és a párhuzamos fordítás már egységes nevekkel/címekkel indul.
+python glossary_extract.py "input\eng.srt"
+
+# (B) Fordítás UTÁNI mód — angol-magyar pár. A "hu" a kész feliratban
+#     ténylegesen használt fordítás (a meglévő viselkedés).
 python glossary_extract.py "input\eng.srt" "output\hun.srt"
 
-# Egyéni glossary útvonal
-python glossary_extract.py "input\eng.srt" "output\hun.srt" --glossary my_glossary.json
+# Egyéni glossary útvonal (mindkét módban)
+python glossary_extract.py "input\eng.srt" --glossary my_glossary.json
 ```
+
+Mindkét mód interaktív: a javasolt kifejezéseket egyesével hagyod jóvá
+(`y` = elfogad, `n` = elutasít, `e` = szerkeszt, `q` = kilép).
 
 A `glossary.json`-t a `translate_parallel.py` és **mindkét review script**
 automatikusan betölti és átadja a modellnek, hogy a fordítások konzisztensek
