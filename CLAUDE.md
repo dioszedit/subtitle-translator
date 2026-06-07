@@ -108,3 +108,4 @@ A szójegyzékben lévő fordításokat MINDIG használd, ne térj el tőlük!
 | Helytelen igeragozás: "tetszesz nekem" | Helyesen: "tetszel nekem" — a "tetszik" ikes ige, E/2 alakja: "tetszel" |
 | "framed me" → "kereteztek be" (tükörfordítás) | Bűnügyi kontextusban: "tőrbe csaltak", "rám kentek valamit", "hamis vádakkal illettek" |
 | "episode" → "epizód" | MINDIG "rész": "1. rész", "a következő rész", "az előző részben" |
+| "stalker" angolul maradva (jövevényszónak tűnik) | MINDIG fordítsd: "zaklató", "üldöző", "leselkedő"; igeként: "zaklat", "követ", "megfigyel" |

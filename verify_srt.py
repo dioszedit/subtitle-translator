@@ -81,6 +81,7 @@ WARN_PATTERNS: list[tuple[str, str]] = [
      "tükörfordítás 'állami kapcsolatok' (PR félrefordítása) — helyes: 'PR'"),
     (r'\bkinéz érte[md]?\b|\bkinéz érted\b',
      "tükörfordítás 'kinéz érte/érted' (look out for) — helyes: 'kiáll mellette/melletted'"),
+    (r'(?i:\bstalk(?:er|ol))', "angolul maradt 'stalker'/'stalkol' — helyes: 'zaklató'/'zaklat'/'üldöz'/'leselkedik'"),
 ]
 
 
