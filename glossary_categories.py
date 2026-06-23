@@ -3,6 +3,7 @@
 A `glossary.json` fix kategóriái, fix sorrendben. Új kategória esetén
 ITT add hozzá egy helyen — minden olvasó script innen importál:
   - translate_parallel.py
+  - translate_with_gemini.py
   - review_with_claude.py
   - review_with_gemini.py
   - glossary_extract.py

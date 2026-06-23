@@ -17,8 +17,19 @@ py split_srt.py "input\Sorozat - S01E01.eng.srt"
 #     (Csak az angol fájlt add meg — a magyar argumentum elhagyása kapcsolja be ezt a módot.)
 py glossary_extract.py "input\Sorozat - S01E01.eng.srt"
 
-# 2. Fordítás Claude Code-dal (ez indítja a párhuzamos agent-eket)
+# 2a. Fordítás Claude Code-dal (ez indítja a párhuzamos agent-eket)
 py translate_parallel.py "blocks\Sorozat - S01E01.eng" --agents 3
+
+# 2b. ALTERNATÍVA: fordítás Gemini API-val (olcsóbb, ugyanazt a blocks/ mappát fordítja)
+#     A két fordító felváltva is használható, mert ugyanúgy checkpoint-olnak.
+#     Default modell: gemini-3.1-flash-lite
+# py translate_with_gemini.py "blocks\Sorozat - S01E01.eng" --agents 3
+# Opcionálisan:
+#   --model gemini-3.1-flash      más Gemini modell
+#   --block 3                     csak a 3. blokk újrafordítása (auto zero-pad)
+#   --max-retries 6               több retry rate-limit/5xx esetén
+# Előfeltétel: pip install google-genai python-dotenv pydantic
+# Előfeltétel: .env fájl GEMINI_API_KEY=... bejegyzéssel
 
 # 3. Összefűzés (megint csak sima Python)
 py merge_srt.py "blocks\Sorozat - S01E01.eng" "output\Sorozat - S01E01.hun.srt"

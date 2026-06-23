@@ -21,14 +21,15 @@ subtitle-translator/
 ├── .gitignore                   ← Mit ne commit-oljunk
 │
 ├── split_srt.py                 ← 1. SRT szétvágása blokkokra
-├── translate_parallel.py        ← 2. Párhuzamos fordítás Claude Code-dal
+├── translate_parallel.py        ← 2a. Párhuzamos fordítás Claude Code-dal
+├── translate_with_gemini.py     ← 2b. Párhuzamos fordítás Gemini API-val (alternatíva)
 ├── merge_srt.py                 ← 3. Blokkok összefűzése
 ├── verify_srt.py                ← 4. Strukturális ellenőrzés
 ├── review_with_claude.py        ← 5a. Stilisztikai review Claude Code-dal
 ├── review_with_gemini.py        ← 5b. Stilisztikai review Gemini API-val (opcionális)
 ├── glossary_extract.py          ← Szójegyzék bővítése (fordítás előtt angol-only, vagy utólag párból)
 ├── glossary_categories.py       ← Közös konstans (CATEGORIES) — itt vedd fel új
-│                                  glossary-kategóriát, mind a 4 script innen olvas
+│                                  glossary-kategóriát, mind az 5 script innen olvas
 │
 ├── input/                       ← Ide tedd az angol SRT fájlokat
 ├── blocks/                      ← Auto-generált blokk-fájlok
@@ -100,8 +101,10 @@ copy .env.example .env
 # 1. Szétvágás blokkokra (alapból 150 szekciónként)
 python split_srt.py "input\Sorozat - S01E01.eng.srt"
 
-# 2. Fordítás 3 párhuzamos agent-tel
+# 2a. Fordítás 3 párhuzamos agent-tel — Claude Code
 python translate_parallel.py "blocks\Sorozat - S01E01.eng" --agents 3
+# vagy 2b. Ugyanaz Gemini API-val (olcsóbb alternatíva, ugyanazokat a blokkokat dolgozza fel)
+# python translate_with_gemini.py "blocks\Sorozat - S01E01.eng" --agents 3
 
 # 3. Összefűzés egy fájlba
 python merge_srt.py "blocks\Sorozat - S01E01.eng" "output\Sorozat - S01E01.hun.srt"
@@ -123,6 +126,12 @@ vagy mindkettőt. A jelölt hibák alapján manuálisan javítsd a magyar fájlt
 
 ### Fordítás — opciók
 
+A fordításhoz **két alternatíva** van: a `translate_parallel.py` (Claude Code-os)
+és a `translate_with_gemini.py` (Gemini API-s). Mindkettő ugyanazon a
+`blocks/` mappa-szerkezeten dolgozik (`split_srt.py` outputja) és ugyanúgy
+checkpoint-ol — futtathatod ugyanazon a projekten akár felváltva is.
+
+#### Claude Code fordító (`translate_parallel.py`)
 ```powershell
 # Egyedi blokk méret szétvágáshoz
 python split_srt.py "input\eng.srt" --block-size 100
@@ -142,6 +151,27 @@ python translate_parallel.py "blocks\eng" --agents 3
 del "blocks\eng\eng_block_003_0301-0450_HUN.srt"
 python translate_parallel.py "blocks\eng" --agents 1
 ```
+
+#### Gemini API fordító (`translate_with_gemini.py`) — alternatíva
+```powershell
+# Default modell: gemini-3.1-flash-lite (gyors, olcsó)
+python translate_with_gemini.py "blocks\eng" --agents 3
+
+# Tetszőleges Gemini modell --model flag-gel
+python translate_with_gemini.py "blocks\eng" --model gemini-3.1-flash
+python translate_with_gemini.py "blocks\eng" --model gemini-3.1-pro-preview
+
+# Csak egy konkrét blokk újrafordítása (auto zero-pad: 3 → 003)
+python translate_with_gemini.py "blocks\eng" --agents 1 --block 3
+
+# Checkpoint és újraindítás ugyanúgy működik mint a Claude verziónál.
+```
+
+A két fordító ugyanazt a `CLAUDE.md` + `glossary.json` kontextust adja át a
+modellnek system promptként, így a fordítások konzisztensek maradnak akkor is,
+ha váltogatod őket. A Gemini fordító **strukturált JSON kimenetet** ad
+(Pydantic séma), és a sorszám + időbélyeg Python oldalon garantáltan
+változatlan marad — a modell csak a szöveget kapja és csak szöveget ad vissza.
 
 ### Review — opciók
 
