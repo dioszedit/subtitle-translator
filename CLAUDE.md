@@ -70,6 +70,13 @@ Amikor egy blokk fájlt kapsz fordításra:
      - Nőhöz akar menni: "hozzá akar menni" / "férjhez akar menni hozzá"
    - Ha nem egyértelmű (mellékszereplő, árus, random karakter, 1-2 mondatos jelenet): MINDIG semleges
    - **Gyakori hiba:** automatikus "Feleségül veszlek." fordítás, miközben nő beszél férfihoz — ez nyelvtanilag és tartalmilag is rossz.
+7. **Címkártya (sorozatcím):**
+   - Ahol a sorozatcím címkártyaként megjelenik (gyakran a betétdal után, NEM feltétlenül az 1. szekcióban), MINDIG KÉT sorban szerepeljen — a magyar cím fölül, az eredeti cím alul, mindkettő szögletes zárójelben:
+     ```
+     [Magyar cím]
+     [Original Title]
+     ```
+   - A sorozat magyar címét a "## Aktuális sorozat adatai" résznél rögzítsd, és minden részben KÖVETKEZETESEN ezt használd (epizódonként ne térj el tőle).
 
 ### Fordítási folyamat
 
