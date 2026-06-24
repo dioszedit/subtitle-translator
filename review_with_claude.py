@@ -8,6 +8,24 @@ szempontjából. A talált hibákat egy riportba írja.
 Használat:
     python review_with_claude.py "output/Sorozat - S01E01.hun.srt"
     python review_with_claude.py "output/Sorozat - S01E01.hun.srt" --chunk-size 100
+    python review_with_claude.py "output/Sorozat - S01E01.hun.srt" --model haiku
+    python review_with_claude.py "output/Sorozat - S01E01.hun.srt" --model opus
+
+    Csak egy konkrét chunk(tartomány) lefuttatása (pl. megszakítás utáni pótlás):
+        python review_with_claude.py "output/...hun.srt" --start-chunk 9 --suffix _part2
+        python review_with_claude.py "output/...hun.srt" --start-chunk 5 --end-chunk 7 --suffix _part2
+
+Modell:
+    Alapértelmezett: sonnet
+    --model haiku  : olcsóbb, gyorsabb
+    --model opus   : alaposabb, drágább
+
+Tartomány-paraméterek:
+    --start-chunk N    Csak ettől a chunktól kezdje (1-alapú). Default: 1
+    --end-chunk N      Eddig a chunkig (bezárólag, 1-alapú). Default: utolsó
+    --suffix _xxx      Riport fájlnév-utótag, hogy ne írja felül a meglévő
+                       riportot. Pl. --suffix _part2 →
+                       Sorozat - S01E01.hun_REVIEW_CLAUDE_part2.txt
 
 Kimenet:
     output/Sorozat - S01E01.hun_REVIEW_CLAUDE.txt
@@ -21,6 +39,9 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+
+sys.stdout.reconfigure(encoding='utf-8')
+sys.stderr.reconfigure(encoding='utf-8')
 
 from glossary_categories import CATEGORIES
 
@@ -117,7 +138,7 @@ def write_sys_prompt_file(content: str) -> str:
 
 
 def review_chunk(chunk_text, chunk_num, total_chunks, sys_prompt_path,
-                 timeout=TIMEOUT_PER_CHUNK):
+                 model="sonnet", timeout=TIMEOUT_PER_CHUNK):
     """Egy chunk átnézetése Claude Code-dal."""
     prompt = f"""Lektoráld az alábbi SRT felirat blokkot a system promptban
 megadott szabályok szerint. Listázd a hibákat ebben a formátumban:
@@ -136,7 +157,8 @@ SRT BLOKK ({chunk_num}/{total_chunks}):
         proc = subprocess.run(
             ["claude", "-p", prompt,
              "--append-system-prompt-file", sys_prompt_path,
-             "--allowedTools", ""],
+             "--allowedTools", "",
+             "--model", model],
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -157,6 +179,15 @@ def main():
     parser.add_argument("srt_file", help="Az összefűzött hun.srt fájl")
     parser.add_argument("--chunk-size", type=int, default=DEFAULT_CHUNK_SIZE,
                         help=f"Feliratok chunkonként (default: {DEFAULT_CHUNK_SIZE})")
+    parser.add_argument("--model", type=str, default="sonnet",
+                        choices=["haiku", "sonnet", "opus"],
+                        help="Claude modell (default: sonnet)")
+    parser.add_argument("--start-chunk", type=int, default=1,
+                        help="Csak ettől a chunktól kezdje (1-alapú). Default: 1")
+    parser.add_argument("--end-chunk", type=int, default=None,
+                        help="Eddig a chunkig (bezárólag, 1-alapú). Default: utolsó")
+    parser.add_argument("--suffix", type=str, default="",
+                        help="Riport fájl utótag, pl. '_part2' → _REVIEW_CLAUDE_part2.txt")
     args = parser.parse_args()
 
     srt_path = Path(args.srt_file)
@@ -168,7 +199,9 @@ def main():
     print(f"Beolvasva: {len(entries)} felirat szekció")
 
     chunks = list(chunk_entries(entries, args.chunk_size))
-    print(f"Chunkok: {len(chunks)} db (chunkonként {args.chunk_size} felirat)")
+    total_chunks = len(chunks)
+    print(f"Chunkok: {total_chunks} db (chunkonként {args.chunk_size} felirat)")
+    print(f"Modell: {args.model}")
 
     # Kontextus betöltése + system prompt fájl
     claude_md = load_claude_md()
@@ -176,31 +209,59 @@ def main():
     sys_prompt_content = build_review_system_prompt(claude_md, glossary)
     sys_prompt_path = write_sys_prompt_file(sys_prompt_content)
     print(f"System prompt: {len(sys_prompt_content)} char "
-          f"(CLAUDE.md: {len(claude_md)} char, glossary: {len(glossary)} char)\n")
+          f"(CLAUDE.md: {len(claude_md)} char, glossary: {len(glossary)} char)")
+
+    # Chunk-tartomány
+    start = max(1, args.start_chunk)
+    end = args.end_chunk if args.end_chunk is not None else total_chunks
+    end = min(end, total_chunks)
+    if start > end:
+        print(f"HIBA: --start-chunk ({start}) nagyobb mint --end-chunk ({end}).")
+        sys.exit(1)
+    if start > 1 or end < total_chunks:
+        print(f"Tartomány: {start}–{end}")
+    print()
 
     # Output riport fájl
-    report_path = srt_path.with_name(srt_path.stem + "_REVIEW_CLAUDE.txt")
+    report_path = srt_path.with_name(srt_path.stem + f"_REVIEW_CLAUDE{args.suffix}.txt")
 
     all_findings = []
-    for i, chunk in enumerate(chunks, 1):
+    error_chunks = []
+
+    for i in range(start, end + 1):
+        chunk = chunks[i - 1]
         chunk_text = "\n\n".join(chunk)
-        print(f"[{i}/{len(chunks)}] Ellenőrzés folyamatban...")
+        print(f"[{i}/{total_chunks}] Ellenőrzés folyamatban...")
 
-        result = review_chunk(chunk_text, i, len(chunks), sys_prompt_path)
+        result = review_chunk(chunk_text, i, total_chunks, sys_prompt_path, args.model)
 
-        if result and "NINCS HIBA" not in result:
-            all_findings.append(f"--- Chunk {i}/{len(chunks)} ---\n{result}\n")
+        if not result:
+            continue
+        # Hibás chunk: subprocess timeout vagy exit code != 0
+        if result.startswith("[HIBA") or result.startswith("[TIMEOUT"):
+            error_chunks.append(f"--- Chunk {i}/{total_chunks} ---\n{result}\n")
+            print(f"  {result.splitlines()[0]}")
+            continue
+        if "NINCS HIBA" not in result:
+            all_findings.append(f"--- Chunk {i}/{total_chunks} ---\n{result}\n")
 
     # Riport mentése
+    sections = []
     if all_findings:
+        sections.append("\n".join(all_findings))
+    if error_chunks:
+        sections.append("=== HIBÁS / KIHAGYOTT CHUNKOK ===\n\n" + "\n".join(error_chunks))
+
+    if sections:
         report_content = (
-            f"Review riport: {srt_path.name}\n"
+            f"Review riport (Claude): {srt_path.name}\n"
+            f"Modell: {args.model}\n"
             f"{'=' * 60}\n\n"
-            + "\n".join(all_findings)
+            + "\n\n".join(sections)
         )
         report_path.write_text(report_content, encoding="utf-8")
         print(f"\nRiport mentve: {report_path}")
-        print(f"Találatok: {len(all_findings)} chunkban")
+        print(f"Találatok: {len(all_findings)} chunkban, hibás chunkok: {len(error_chunks)}")
     else:
         print("\nNincs hiba egyik chunkban sem!")
 

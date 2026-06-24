@@ -177,8 +177,19 @@ változatlan marad — a modell csak a szöveget kapja és csak szöveget ad vis
 
 #### Claude review (`review_with_claude.py`)
 ```powershell
-# Egyedi chunk méret (default: 100)
+# Default modell: sonnet (default chunk-size: 100)
+python review_with_claude.py "output\hun.srt"
+
+# Modell-választás: haiku (olcsóbb), sonnet (default), opus (alaposabb)
+python review_with_claude.py "output\hun.srt" --model haiku
+python review_with_claude.py "output\hun.srt" --model opus
+
+# Egyedi chunk méret
 python review_with_claude.py "output\hun.srt" --chunk-size 150
+
+# Csak egy chunk-tartomány lefuttatása (pl. megszakítás utáni pótlás)
+python review_with_claude.py "output\hun.srt" --start-chunk 9 --suffix _part2
+python review_with_claude.py "output\hun.srt" --start-chunk 5 --end-chunk 7 --suffix _part2
 ```
 
 #### Gemini review (`review_with_gemini.py`)

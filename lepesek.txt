@@ -39,7 +39,12 @@ py verify_srt.py "input\Sorozat - S01E01.eng.srt" "output\Sorozat - S01E01.hun.s
 
 # 5. Stilisztikai review Claude-dal (tükörfordítások, ragozási hibák)
 py review_with_claude.py "output\Sorozat - S01E01.hun.srt"
-# Opcionálisan: --chunk-size 150 (nagyobb chunkok = kevesebb Claude hívás)
+# Default modell: sonnet
+# Opcionálisan:
+#   --chunk-size 150            nagyobb chunkok = kevesebb Claude hívás
+#   --model haiku|sonnet|opus   modell-választás (default sonnet)
+#   --start-chunk N             chunk-tartomány pl. megszakítás utáni pótlásra
+#   --end-chunk N --suffix _part2  hogy ne írja felül a meglévő riportot
 # Kimenet: output\Sorozat - S01E01.hun_REVIEW_CLAUDE.txt (a talált hibák listája)
 # A riport alapján manuálisan javítod a fordítást
 
