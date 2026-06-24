@@ -109,3 +109,4 @@ A szójegyzékben lévő fordításokat MINDIG használd, ne térj el tőlük!
 | "framed me" → "kereteztek be" (tükörfordítás) | Bűnügyi kontextusban: "tőrbe csaltak", "rám kentek valamit", "hamis vádakkal illettek" |
 | "episode" → "epizód" | MINDIG "rész": "1. rész", "a következő rész", "az előző részben" |
 | "stalker" angolul maradva (jövevényszónak tűnik) | MINDIG fordítsd: "zaklató", "üldöző", "leselkedő"; igeként: "zaklat", "követ", "megfigyel" |
+| "What brings you here?" → jelen idő: "mi hozza ma ide" | MAGYARUL MÚLT IDŐ: "mi hozta ma ide?", "mi szél hozta erre?" |
