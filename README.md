@@ -173,6 +173,14 @@ ha váltogatod őket. A Gemini fordító **strukturált JSON kimenetet** ad
 (Pydantic séma), és a sorszám + időbélyeg Python oldalon garantáltan
 változatlan marad — a modell csak a szöveget kapja és csak szöveget ad vissza.
 
+> **Párhuzamosság (`--agents`):** a Gemini API nem tiltja a párhuzamos hívást,
+> csak RPM (requests/min) korlátok vonatkoznak rá. Free tier-en ~30 RPM a default
+> modellnél; `--agents 10` fölött 429 rate limit hibákra számíthatsz, amiket a
+> retry logika kezel, de pazarol API-időt. A script `--agents > 10` esetén
+> figyelmeztetést is ad. Részletek:
+> [Gemini rate limits](https://ai.google.dev/gemini-api/docs/rate-limits) ·
+> [saját tier-limitek (AI Studio)](https://aistudio.google.com/rate-limit).
+
 ### Review — opciók
 
 #### Claude review (`review_with_claude.py`)

@@ -24,6 +24,17 @@ Modell:
     --model <név>: tetszőleges Gemini modell-azonosító
         Modell-lista: https://ai.google.dev/gemini-api/docs/models
 
+Párhuzamosság:
+    Default: --agents 3. A Gemini API a párhuzamos hívást nem tiltja, csak
+    RPM (requests/min) korlátok vonatkoznak rá. Free tier-en a default
+    modellnél (gemini-3.1-flash-lite) ~30 RPM. Magas --agents érték (>10)
+    esetén várhatóan rate limit (429) hibák; ezeket a script automatikusan
+    újrapróbálja exponential backoff-fal, de pazarolja az API-időt.
+    Hivatalos rate limit doksi:
+        https://ai.google.dev/gemini-api/docs/rate-limits
+    Saját tier-szintű limiteket az AI Studio-ban lehet megnézni:
+        https://aistudio.google.com/rate-limit
+
 API kulcs:
     A .env fájlba tedd: GEMINI_API_KEY=...
 
@@ -368,7 +379,9 @@ def main():
     )
     parser.add_argument("blocks_dir", help="Blokkok mappája (split_srt.py outputja)")
     parser.add_argument("--agents", type=int, default=3,
-                        help="Párhuzamos API hívások száma (default: 3)")
+                        help="Párhuzamos API hívások száma (default: 3). "
+                             "Magas érték (>10) esetén 429 rate limit várható; "
+                             "lásd: https://ai.google.dev/gemini-api/docs/rate-limits")
     parser.add_argument("--block", type=str, default=None,
                         help="Csak egy konkrét blokk újrafordítása (pl. 003 vagy 3 — auto zero-pad)")
     parser.add_argument("--model", type=str, default=MODEL_DEFAULT,
@@ -383,6 +396,16 @@ def main():
         print(f"HIBA: Hiányzó Python függőség: {_DEPS_ERROR}")
         print(f"      Telepítés: pip install google-genai python-dotenv pydantic")
         sys.exit(1)
+
+    # Soft warning magas --agents érték esetén — a Gemini API rate limit
+    # (RPM) miatt a 10+ párhuzamos hívás már 429-eket generálhat.
+    if args.agents > 10:
+        print(f"FIGYELEM: --agents = {args.agents} > 10. A Gemini API rate limitek")
+        print(f"  függvényében magas párhuzamosság esetén 429 (rate limit) hibák várhatók,")
+        print(f"  amiket a retry logika kezel, de pazarolnak API-időt.")
+        print(f"  Free tier: ~30 RPM a default modellnél. Részletek:")
+        print(f"  https://ai.google.dev/gemini-api/docs/rate-limits")
+        print()
 
     if not os.path.isdir(args.blocks_dir):
         print(f"HIBA: Nem találom a mappát: {args.blocks_dir}")
