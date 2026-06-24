@@ -47,7 +47,7 @@ projektenként / epizódonként más, és gyakran szerzői jogi védettség alá
 
 - **Python 3.10+**
 - **Claude Code CLI** (`claude` parancs) — a fordításhoz és a Claude review-hoz
-- **Gemini API kulcs** (opcionális) — csak ha Gemini review-t is használsz
+- **Gemini API kulcs** (opcionális) — ha Gemini-vel fordítasz (`translate_with_gemini.py`) vagy Gemini-vel review-zol (`review_with_gemini.py`)
 - **Git** (opcionális) — verziókezeléshez
 
 ## Telepítés
@@ -58,7 +58,7 @@ projektenként / epizódonként más, és gyakran szerzői jogi védettség alá
 git clone https://github.com/dioszedit/subtitle-translator.git
 cd subtitle-translator
 
-# Gemini review függőségei (csak ha használod)
+# Gemini scriptek függőségei (translate_with_gemini.py és/vagy review_with_gemini.py)
 pip install google-genai python-dotenv pydantic
 
 # .env létrehozása a sablonból
