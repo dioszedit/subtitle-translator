@@ -119,6 +119,10 @@ python review_with_claude.py "output\Sorozat - S01E01.hun.srt"
 # 5b. Stilisztikai review Gemini-vel (opcionális, párhuzamos vélemény)
 python review_with_gemini.py "output\Sorozat - S01E01.hun.srt"
 # Kimenet: output\Sorozat - S01E01.hun_REVIEW_GEMINI.txt
+
+# 6. Szegmentálás — sorhossz-riport + automatikus tördelés (a review-javítások után)
+python resegment_srt.py report "output\Sorozat - S01E01.hun.srt"
+python resegment_srt.py reflow "output\Sorozat - S01E01.hun.srt" -o "output\Sorozat - S01E01.hun.reflow.srt"
 ```
 
 A két review script **független** — futtathatod csak az egyiket, csak a másikat,
@@ -294,7 +298,7 @@ a változás a következő futáskor automatikusan érvényesül — a translate
 
 A review riport (`_REVIEW_CLAUDE.txt` / `_REVIEW_GEMINI.txt`) csak **jelzi**
 a hibákat — a javítást neked kell elvégezni. A teljes folyamat innen még
-három lépés:
+négy lépés:
 
 ### 1. Review-hibák javítása
 
@@ -305,10 +309,32 @@ A riportban listázott hibákat kétféleképpen javíthatod:
 - **Manuálisan**: szövegszerkesztőben (VSCode, Notepad++, Subtitle Edit,
   stb.) sorszám szerint megkeresed és javítod.
 
-### 2. Technikai javítás Subtitle Edit-tel
+### 2. Automatikus szegmentálás — `resegment_srt.py`
 
-A nyelvi review nem foglalkozik a felirat **olvasási sebességével** és
-egyéb technikai paraméterekkel. Ezt a [Subtitle Edit](https://www.nikse.dk/subtitleedit)
+A **sorhossz** (max karakter/sor) technikai rendezését a `resegment_srt.py`
+determinisztikusan automatizálja — így jóval kevesebb kézi munka marad a
+Subtitle Edit-nek. Csak Python stdlib, nincs telepítendő függőség.
+
+```powershell
+# QA-riport (csak olvasás): mely cue-k sértik a plafont (CPS / sorhossz / rés)
+python resegment_srt.py report "output\Sorozat - S01E01.hun.srt"
+
+# Sorhossz-tisztítás (időzítést NEM változtat) -> új fájl
+python resegment_srt.py reflow "output\Sorozat - S01E01.hun.srt" -o "output\Sorozat - S01E01.hun.reflow.srt"
+
+# Ha kell: a 2 sorba nem férő cue-k idő-arányos bontása (cue-számot változtat)
+python resegment_srt.py reflow "output\Sorozat - S01E01.hun.srt" --split -o "...reflow.srt"
+```
+
+A `reflow` kiegyensúlyozott ≤2 sorra tördel, mondat-/tagmondat-határon; a
+`szám+időbélyeg` sorokat **bitre változatlanul** hagyja, a `<i>` és `- `
+párbeszéd-jelöléseket megőrzi; **idempotens**. Részletes leírás (töréspont-
+logika, plafonok, más nyelvhez igazítás): **`resegment_srt.md`**.
+
+### 3. Technikai javítás Subtitle Edit-tel
+
+A sorhosszt a 2. lépés már rendezte — itt főleg az **olvasási sebesség (CPS)**
+és az időzítés marad. Ezt a [Subtitle Edit](https://www.nikse.dk/subtitleedit)
 (ingyenes, Windows + Mac) intézi:
 
 - **CPS (Characters Per Second)** — túl gyors feliratok jelzése
@@ -320,7 +346,7 @@ egyéb technikai paraméterekkel. Ezt a [Subtitle Edit](https://www.nikse.dk/sub
 Tools → "Fix common errors" / "Apply min duration" / stb. funkciókkal
 automatikusan vagy félautomatikusan rendezhető.
 
-### 3. Végső kézi lektorálás
+### 4. Végső kézi lektorálás
 
 A fordító és a review modellek sosem tökéletesek, és az automatikus
 javítás után is érdemes egyszer **végigolvasni** a kész feliratot —
@@ -328,12 +354,13 @@ ideálisan a videóval szinkronban, lejátszás közben. Ekkor jönnek elő
 azok a finomságok (kontextus-érzékeny tegezés/magázás, karakterek
 beszédstílusa, dialógus-ritmus), amiket egyik LLM sem fog megbízhatóan.
 
-Ez a három utómunka-lépés teszi teljessé a folyamatot — nélkülük a fordítás
+Ez a négy utómunka-lépés teszi teljessé a folyamatot — nélkülük a fordítás
 nyelvileg jó lehet, de a néző-élmény nem lesz az.
 
 ## Hivatkozott dokumentumok
 
 - `CLAUDE.md` — fordítási szabályok, sorozat-kontextus sablon
 - `lepesek.txt` — gyors parancs-cheatsheet
+- `resegment_srt.md` — a szegmentáló eszköz (`resegment_srt.py`) részletes leírása
 - `proposals/` — fejlesztési irányok, alternatívák, tervezési dokumentumok
   (lásd: [`proposals/README.md`](proposals/README.md))

@@ -68,6 +68,19 @@ py glossary_extract.py "input\Sorozat - S01E01.eng.srt" "output\Sorozat - S01E01
 # A glossary.json-t a translate_parallel.py ÉS mindkét review script automatikusan
 # betölti és átadja a modellnek (system prompt-ként) a következő futáskor.
 
+# 7. Szegmentálás — sorhossz + CPS (véglegesítő formázás, a kézi review-javítások UTÁN)
+#     Csak Python stdlib, nincs telepítendő függőség. Kiegészíti a verify_srt.py-t
+#     (az CPS-t jelzi, de sorhosszt/tördelést nem). Részletek: resegment_srt.md
+# 7a. QA-riport (csak olvasás) — bármikor futtatható, ez a QA-kapu:
+py resegment_srt.py report "output\Sorozat - S01E01.hun.srt"
+# 7b. Sorhossz-tisztítás (időzítést NEM változtat) — a VÉGLEGES szövegen futtasd:
+py resegment_srt.py reflow "output\Sorozat - S01E01.hun.srt" -o "output\Sorozat - S01E01.hun.reflow.srt"
+# Opcionálisan:
+#   --in-place                     a bemenet felülírása (új fájl helyett)
+#   --split                        2 sorba nem férő cue-k idő-arányos bontása (cue-számot változtat)
+#   --max-chars 42 --target-cps 17 plafonok (más csatorna = más érték)
+#   --lang hu                      nyelvi töréslogika (kötőszavak, névelők)
+
 
 # Tippek:
 # - Először mindig egy blokkot teszteld --agents 1-gyel; ha jó, emeld 3-ra.
