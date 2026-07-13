@@ -134,10 +134,15 @@ def write_srt(filepath: str, sections: list[dict]):
 
 
 def count_sections(filepath: str) -> int:
+    """Strukturális számlálás: csak az a csupa-számjegy sor számít szekciónak,
+    amit időbélyeg-sor követ. Így a csak számot tartalmazó felirat-SZÖVEG
+    (pl. visszaszámlálás: "3") nem torzítja az ellenőrzést."""
     try:
         with open(filepath, 'r', encoding='utf-8-sig') as f:
-            content = f.read()
-        return len([line for line in content.split('\n') if re.match(r'^\d+$', line.strip())])
+            lines = f.read().split('\n')
+        return sum(1 for i, line in enumerate(lines)
+                   if re.match(r'^\d+$', line.strip())
+                   and i + 1 < len(lines) and '-->' in lines[i + 1])
     except Exception:
         return 0
 
@@ -155,7 +160,7 @@ def get_all_blocks(blocks_dir: str) -> list[str]:
 def get_pending_blocks(blocks_dir: str) -> list[str]:
     pending = []
     for f in get_all_blocks(blocks_dir):
-        hun_file = f.replace(".srt", "_HUN.srt")
+        hun_file = f[:-len(".srt")] + "_HUN.srt"
         if not os.path.isfile(hun_file):
             pending.append(f)
     return pending
@@ -252,6 +257,16 @@ def build_block_prompt(sections: list[dict]) -> str:
     )
 
 
+def is_transient_error(e: Exception) -> bool:
+    """Átmeneti (retry-olható) hiba-e: hálózati megszakadás, timeout stb.
+    A google-genai SDK ezeket httpx/httpcore kivételként dobja, NEM
+    APIError-ként — egy wifi-bukkanó nem indokolja a blokk végleges bukását."""
+    if isinstance(e, (ConnectionError, TimeoutError)):
+        return True
+    mod = type(e).__module__ or ""
+    return mod.split(".")[0] in ("httpx", "httpcore", "anyio", "ssl")
+
+
 def call_gemini(client, model: str, prompt: str, system_instruction: str,
                 max_retries: int):
     """Egy Gemini API hívás retry-logikával.
@@ -273,6 +288,13 @@ def call_gemini(client, model: str, prompt: str, system_instruction: str,
             )
             parsed: TranslationOutput = response.parsed
             if parsed is None:
+                # Blokkolt/csonka válasz gyakran átmeneti — megér egy retry-t
+                last_err = "üres / blokkolt válasz"
+                if attempt < max_retries:
+                    delay = RETRY_BASE_DELAY * (2 ** (attempt - 1))
+                    print(f"  Üres/blokkolt válasz, újrapróbálás {delay}s múlva... ({attempt}/{max_retries})")
+                    time.sleep(delay)
+                    continue
                 return None, "[Üres / blokkolt válasz a Gemini-től]"
             return parsed, None
         except genai_errors.APIError as e:
@@ -285,13 +307,19 @@ def call_gemini(client, model: str, prompt: str, system_instruction: str,
                 continue
             return None, f"[API hiba: {e}]"
         except Exception as e:
+            last_err = e
+            if is_transient_error(e) and attempt < max_retries:
+                delay = RETRY_BASE_DELAY * (2 ** (attempt - 1))
+                print(f"  Hálózati hiba ({type(e).__name__}), újrapróbálás {delay}s múlva... ({attempt}/{max_retries})")
+                time.sleep(delay)
+                continue
             return None, f"[Váratlan hiba: {e}]"
     return None, f"[{max_retries} próbálkozás után sem sikerült: {last_err}]"
 
 
 def translate_block(block_path: str, client, model: str,
                     system_instruction: str, max_retries: int) -> dict:
-    output_path = block_path.replace(".srt", "_HUN.srt")
+    output_path = block_path[:-len(".srt")] + "_HUN.srt"
     block_name = os.path.basename(block_path)
     result = {"block": block_name, "status": "unknown", "message": ""}
 
@@ -321,9 +349,19 @@ def translate_block(block_path: str, client, model: str,
 
     # Lookup-tábla a fordításokhoz sorszám alapján
     translations = {item.sorszam: item.text for item in parsed.translations}
+    if len(translations) < len(parsed.translations):
+        dups = len(parsed.translations) - len(translations)
+        print(f"  [!] {block_name}: {dups} duplikált sorszám a válaszban — "
+              f"az utolsó változat marad")
 
     # Hiányzó / extra sorszámok ellenőrzése
-    expected_nums = {int(s["num"]) for s in sections}
+    try:
+        expected_nums = {int(s["num"]) for s in sections}
+    except ValueError:
+        bad = [s["num"] for s in sections if not s["num"].strip().isdigit()]
+        result["status"] = "fail"
+        result["message"] = f"Nem numerikus sorszám az input blokkban: {bad[:5]}"
+        return result
     returned_nums = set(translations.keys())
     missing = expected_nums - returned_nums
     extra = returned_nums - expected_nums
@@ -363,8 +401,12 @@ def translate_block(block_path: str, client, model: str,
         result["status"] = "ok"
         result["message"] = f"{out_count} szekció"
     else:
+        # A hibás outputot töröljük, különben a resume késznek látná
         result["status"] = "warning"
-        result["message"] = f"Szekciószám eltérés! Input: {in_count}, Output: {out_count}"
+        result["message"] = (f"Szekciószám eltérés! Input: {in_count}, "
+                             f"Output: {out_count} — output törölve, "
+                             f"újrafutáskor újrafordítjuk")
+        safe_remove(output_path)
 
     return result
 
@@ -420,14 +462,20 @@ def main():
     model = args.model
     client = genai.Client(api_key=api_key)
 
-    # Pre-flight: ellenőrizzük, hogy a modell létezik-e
+    # Pre-flight: ellenőrizzük, hogy a modell létezik-e.
+    # Csak a 404 jelent rossz modellnevet — kvótahiba (429) vagy átmeneti
+    # 5xx esetén félrevezető lenne "nem létező modell"-t mondani.
     try:
         client.models.get(model=model)
     except genai_errors.APIError as e:
-        print(f"HIBA: Nem létező Gemini modell: '{model}'")
-        print(f"      A használható modellek listája:")
-        print(f"      https://ai.google.dev/gemini-api/docs/models")
-        print(f"      (Eredeti API hiba: {e})")
+        status = getattr(e, "code", None) or getattr(e, "status_code", None)
+        if status == 404:
+            print(f"HIBA: Nem létező Gemini modell: '{model}'")
+            print(f"      A használható modellek listája:")
+            print(f"      https://ai.google.dev/gemini-api/docs/models")
+        else:
+            print(f"HIBA: Gemini API hiba a modell-ellenőrzésnél ({status}): {e}")
+            print(f"      (Kvóta / átmeneti hiba lehet — próbáld később.)")
         sys.exit(1)
 
     # Blokk-felfedezés
@@ -442,7 +490,7 @@ def main():
             print(f"HIBA: Nem találom a {args.block} (={block_id}) számú blokkot!")
             sys.exit(1)
         for b in pending:
-            hun = b.replace(".srt", "_HUN.srt")
+            hun = b[:-len(".srt")] + "_HUN.srt"
             if os.path.isfile(hun):
                 os.remove(hun)
                 print(f"Korábbi fordítás törölve: {os.path.basename(hun)}")

@@ -81,10 +81,10 @@ Amikor egy blokk fájlt kapsz fordításra:
 ### Fordítási folyamat
 
 ```
-1. Olvasd be az input blokkot: cat [INPUT_FÁJL]
+1. Olvasd be az input blokkot a Read tool-lal (Bash/cat NEM elérhető)
 2. Számold meg a szekciókat
 3. Fordítsd le — sorszám + időbélyeg VÁLTOZATLANUL
-4. Mentsd el: [OUTPUT_FÁJL]
+4. Mentsd el a Write tool-lal: [OUTPUT_FÁJL]
 5. Ellenőrizd: input és output szekciószám egyezik-e
 ```
 

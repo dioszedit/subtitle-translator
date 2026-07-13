@@ -26,22 +26,30 @@ def main():
         print(f"HIBA: Nem találom a mappát: {args.blocks_dir}")
         sys.exit(1)
 
-    # Összes eredeti és fordított blokk
+    # Összes eredeti blokk; a fordítottakat az eredetiekből származtatjuk,
+    # így egy kósza *_HUN.srt (pl. régi splitből) nem tudja elfedni a hiányt,
+    # és nem is kerülhet bele az outputba.
     all_blocks = sorted(glob.glob(os.path.join(args.blocks_dir, "*_block_*.srt")))
     original = [f for f in all_blocks if not f.endswith("_HUN.srt")]
-    translated = sorted(glob.glob(os.path.join(args.blocks_dir, "*_HUN.srt")))
+    expected = [(f, f[:-len(".srt")] + "_HUN.srt") for f in original]
+    translated = [hun for _, hun in expected if os.path.isfile(hun)]
+    missing = [os.path.basename(orig) for orig, hun in expected
+               if not os.path.isfile(hun)]
 
     total = len(original)
     done = len(translated)
 
-    # Hiányzó blokkok ellenőrzése
-    if done < total:
-        missing = []
-        for f in original:
-            hun = f.replace(".srt", "_HUN.srt")
-            if not os.path.isfile(hun):
-                missing.append(os.path.basename(f))
+    # Kósza _HUN fájlok, amik egyik eredetihez sem tartoznak (pl. régi split)
+    stray = sorted(set(glob.glob(os.path.join(args.blocks_dir, "*_HUN.srt")))
+                   - set(hun for _, hun in expected))
+    if stray:
+        print(f"FIGYELEM: {len(stray)} kósza _HUN fájl a mappában (nem kerül az outputba):")
+        for s in stray:
+            print(f"  - {os.path.basename(s)}")
+        print()
 
+    # Hiányzó blokkok ellenőrzése
+    if missing:
         print(f"FIGYELEM: Nem minden blokk van lefordítva! ({done}/{total})")
         print("Hiányzó blokkok:")
         for m in missing:
@@ -61,12 +69,15 @@ def main():
                 content = block.read().strip()
                 out.write(content + '\n\n')
 
-    # Eredmény
+    # Eredmény — strukturális számlálás: csak az a szám-sor szekció,
+    # amit időbélyeg követ (a csak számot tartalmazó felirat-szöveg nem az)
     sections = 0
     with open(args.output, 'r', encoding='utf-8') as f:
-        for line in f:
-            if re.match(r'^\d+$', line.strip()):
-                sections += 1
+        out_lines = f.read().split('\n')
+    for i, line in enumerate(out_lines):
+        if re.match(r'^\d+$', line.strip()) and i + 1 < len(out_lines) \
+                and re.match(r'^\d{2}:\d{2}:\d{2}', out_lines[i + 1].strip()):
+            sections += 1
 
     size = os.path.getsize(args.output)
     size_kb = size / 1024

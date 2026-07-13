@@ -6,9 +6,10 @@ OPTIMALIZÁCIÓK:
   → Claude Code prompt cache → 8 párhuzamos agent közül csak az 1. fizet teljes árat.
 - Modell választható (--model), default: sonnet.
 - Per-blokk prompt minimális (csak fájl útvonalak).
-- --max-turns 5 → nincs futó-galopp.
+- --max-turns korlát (default: 20) → nincs futó-galopp.
 - Tool lista szűkítve Read,Write-ra.
 - Szekciószám ellenőrzés Python oldalon, nem foglal agent-fordulót.
+  Eltérés esetén a hibás output törlődik, így a következő futás újrafordítja.
 
 MULTI-PROCESS SAFE:
 - A system prompt fájl neve a tartalom SHA256 hash-ét tartalmazza.
@@ -30,6 +31,7 @@ import sys
 import glob
 import json
 import hashlib
+import shutil
 import subprocess
 import argparse
 import re
@@ -54,17 +56,22 @@ def get_all_blocks(blocks_dir: str) -> list[str]:
 def get_pending_blocks(blocks_dir: str) -> list[str]:
     pending = []
     for f in get_all_blocks(blocks_dir):
-        hun_file = f.replace(".srt", "_HUN.srt")
+        hun_file = f[:-len(".srt")] + "_HUN.srt"
         if not os.path.isfile(hun_file):
             pending.append(f)
     return pending
 
 
 def count_sections(filepath: str) -> int:
+    """Strukturális számlálás: csak az a csupa-számjegy sor számít szekciónak,
+    amit időbélyeg-sor követ. Így a csak számot tartalmazó felirat-SZÖVEG
+    (pl. visszaszámlálás: "3") nem torzítja az ellenőrzést."""
     try:
         with open(filepath, 'r', encoding='utf-8-sig') as f:
-            content = f.read()
-        return len([line for line in content.split('\n') if re.match(r'^\d+$', line.strip())])
+            lines = f.read().split('\n')
+        return sum(1 for i, line in enumerate(lines)
+                   if re.match(r'^\d+$', line.strip())
+                   and i + 1 < len(lines) and '-->' in lines[i + 1])
     except Exception:
         return 0
 
@@ -180,9 +187,33 @@ def safe_remove(filepath: str):
             print(f"      Töröld kézzel, majd futtasd újra a scriptet.")
 
 
+def find_claude() -> str | None:
+    """A claude CLI feloldása. A shutil.which Windows-on az npm-es claude.cmd
+    shimet is megtalálja — a puszta ["claude", ...] subprocess hívás ott
+    FileNotFoundError-t adna, hiába működik a terminálból."""
+    return shutil.which("claude")
+
+
+def kill_process_tree(proc: subprocess.Popen):
+    """Timeout után a TELJES folyamatfát leöljük. Windows-on a claude.cmd
+    shim alatt futó node process árvaként túlélné a sima kill-t, és utólag
+    (a törlés UTÁN) még kiírhatná a _HUN fájlt — amit a resume aztán
+    késznek látna."""
+    if os.name == "nt":
+        subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)],
+                       capture_output=True)
+    else:
+        proc.kill()
+    try:
+        proc.wait(timeout=10)
+    except Exception:
+        pass
+
+
 def translate_block(block_path: str, sys_prompt_path: str, model: str,
-                    timeout: int = 900, max_turns: int = 5) -> dict:
-    output_path = block_path.replace(".srt", "_HUN.srt")
+                    timeout: int = 900, max_turns: int = 20,
+                    claude_bin: str = "claude") -> dict:
+    output_path = block_path[:-len(".srt")] + "_HUN.srt"
     block_name = os.path.basename(block_path)
     result = {"block": block_name, "status": "unknown", "message": ""}
 
@@ -195,7 +226,7 @@ def translate_block(block_path: str, sys_prompt_path: str, model: str,
     )
 
     cmd = [
-        "claude", "-p", prompt,
+        claude_bin, "-p", prompt,
         "--append-system-prompt-file", sys_prompt_path,
         "--allowedTools", "Read,Write",
         "--model", model,
@@ -203,22 +234,25 @@ def translate_block(block_path: str, sys_prompt_path: str, model: str,
     ]
 
     try:
-        proc = subprocess.run(
-            cmd, capture_output=True, text=True,
-            timeout=timeout, encoding='utf-8'
+        proc = subprocess.Popen(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            text=True, encoding='utf-8'
         )
+        try:
+            stdout, stderr = proc.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            kill_process_tree(proc)
+            result["status"] = "fail"
+            result["message"] = f"Timeout ({timeout // 60} perc)"
+            safe_remove(output_path)
+            return result
         if proc.returncode != 0:
             result["status"] = "fail"
-            combined = ((proc.stderr or "") + "\n" + (proc.stdout or "")).strip().splitlines()
+            combined = ((stderr or "") + "\n" + (stdout or "")).strip().splitlines()
             tail = [l for l in combined if l.strip()][-3:]
             result["message"] = f"Claude Code hiba (exit {proc.returncode}): {' | '.join(tail)}"
             safe_remove(output_path)
             return result
-    except subprocess.TimeoutExpired:
-        result["status"] = "fail"
-        result["message"] = f"Timeout ({timeout // 60} perc)"
-        safe_remove(output_path)
-        return result
     except FileNotFoundError:
         result["status"] = "fail"
         result["message"] = "A 'claude' parancs nem található! Telepítve van a Claude Code?"
@@ -236,8 +270,13 @@ def translate_block(block_path: str, sys_prompt_path: str, model: str,
             result["status"] = "ok"
             result["message"] = f"{out_count} szekció"
         else:
+            # A hibás outputot töröljük, különben a resume késznek látná,
+            # és a szekció-eltérés csendben végleges állapottá válna.
             result["status"] = "warning"
-            result["message"] = f"Szekciószám eltérés! Input: {in_count}, Output: {out_count}"
+            result["message"] = (f"Szekciószám eltérés! Input: {in_count}, "
+                                 f"Output: {out_count} — output törölve, "
+                                 f"újrafutáskor újrafordítjuk")
+            safe_remove(output_path)
     else:
         result["status"] = "fail"
         result["message"] = "Üres vagy hiányzó output"
@@ -268,6 +307,12 @@ def main():
         print(f"HIBA: Nem találom a mappát: {args.blocks_dir}")
         sys.exit(1)
 
+    claude_bin = find_claude()
+    if not claude_bin:
+        print("HIBA: A 'claude' parancs nem található a PATH-on!")
+        print("      Telepítés: npm install -g @anthropic-ai/claude-code")
+        sys.exit(1)
+
     if not args.no_cleanup:
         cleanup_stale_sys_prompts()
 
@@ -283,7 +328,7 @@ def main():
             print(f"HIBA: Nem találom a {args.block} (={block_id}) számú blokkot!")
             sys.exit(1)
         for b in pending:
-            hun = b.replace(".srt", "_HUN.srt")
+            hun = b[:-len(".srt")] + "_HUN.srt"
             if os.path.isfile(hun):
                 os.remove(hun)
                 print(f"Korábbi fordítás törölve: {os.path.basename(hun)}")
@@ -312,8 +357,13 @@ def main():
     print(f"     fájl:        {os.path.basename(sys_prompt_path)}")
     if claude_md:
         print(f"     - CLAUDE.md betöltve ({len(claude_md)} char)")
+    else:
+        print("     - FIGYELEM: CLAUDE.md nem található a munkakönyvtárban —")
+        print("       sorozat-kontextus NÉLKÜL fordítok! (rossz mappából futtatod?)")
     if glossary:
         print(f"     - glossary.json betöltve ({len(glossary)} char)")
+    else:
+        print("     - FIGYELEM: glossary.json nem található — szójegyzék nélkül fordítok")
     print("=" * 50)
 
     if not pending:
@@ -330,7 +380,7 @@ def main():
         futures = {
             executor.submit(
                 translate_block, block, sys_prompt_path,
-                args.model, args.timeout, args.max_turns
+                args.model, args.timeout, args.max_turns, claude_bin
             ): block
             for block in pending
         }
@@ -350,10 +400,11 @@ def main():
     print("=" * 50)
     print(f"  Sikeres:    {ok_count}")
     if warn_count:
-        print(f"  Figyelem:   {warn_count}")
+        print(f"  Figyelem:   {warn_count} (szekció-eltérés — output törölve)")
     if fail_count:
         print(f"  Sikertelen: {fail_count}")
-        print(f"\n  A sikertelen blokkok újrafordításához futtasd újra ezt a scriptet.")
+    if warn_count or fail_count:
+        print(f"\n  A sikertelen/eltérő blokkok újrafordításához futtasd újra ezt a scriptet.")
     print("=" * 50)
     # A sys prompt fájlt NEM töröljük — másik process még használhatja,
     # és a következő futás cache hit-tel indulhat. 1 nap után úgyis takarítva lesz.

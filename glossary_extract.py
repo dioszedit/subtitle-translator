@@ -1,14 +1,22 @@
 """
-glossary_extract.py — Kifejezések kinyerése feliratpárból, interaktív jóváhagyással
+glossary_extract.py — Kifejezések kinyerése feliratból, interaktív jóváhagyással
+
+Két mód:
+  (1) Fordítás ELŐTT, csak az angol forrásból (a magyar argumentum elhagyásával):
+      az agent JAVASLATOT tesz a magyar fordításra a CLAUDE.md szabályai alapján.
+  (2) Fordítás UTÁN, angol-magyar párból: a "hu" a ténylegesen használt fordítás.
 
 Használat:
-    python glossary_extract.py eredeti.eng.srt fordított.hun.srt
-    python glossary_extract.py eredeti.eng.srt fordított.hun.srt --glossary glossary.json
+    python glossary_extract.py eredeti.eng.srt                      # (1) előzetes mód
+    python glossary_extract.py eredeti.eng.srt forditott.hun.srt    # (2) utólagos mód
+    python glossary_extract.py eredeti.eng.srt forditott.hun.srt --glossary glossary.json
 
-Egy angol-magyar SRT párt Claude Code-dal elemez, kigyűjti a visszatérő
-kifejezéseket (megszólítások, helyszínek, nevek, speciális fogalmak),
-majd a konzolon egyesével jóváhagyhatod őket.
+A feliratot Claude Code-dal elemzi (hosszú fájlnál több darabban, szekció-
+határon vágva — párban a két nyelv ugyanazokat a szekciókat kapja), kigyűjti
+a visszatérő kifejezéseket (megszólítások, helyszínek, nevek, speciális
+fogalmak), majd a konzolon egyesével jóváhagyhatod őket.
 Csak az elfogadott kifejezések kerülnek a glossary.json-ba.
+Mentéskor az előző állapotról glossary.json.bak készül.
 """
 
 import os
@@ -102,25 +110,43 @@ def load_claude_md() -> str:
 
 
 def load_glossary(path: str) -> dict:
-    """Meglévő glossary betöltése vagy üres struktúra."""
+    """Meglévő glossary betöltése vagy üres struktúra.
+
+    A hiányzó kategória-kulcsokat pótolja (kézzel szerkesztett / régebbi
+    glossary-nál KeyError lenne a mentésnél — a teljes jóváhagyó munkamenet
+    UTÁN), a korrupt JSON-t pedig barátságos hibával jelzi még a munka előtt.
+    """
     if os.path.isfile(path):
-        with open(path, 'r', encoding='utf-8') as f:
-            return json.load(f)
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+        except json.JSONDecodeError as e:
+            print(f"HIBA: A {path} nem érvényes JSON: {e}")
+            print(f"      Javítsd kézzel, vagy állítsd vissza a {path}.bak mentésből.")
+            sys.exit(1)
+        if not isinstance(data, dict):
+            print(f"HIBA: A {path} gyökere nem JSON objektum.")
+            sys.exit(1)
+        data.setdefault("meta", {"description": "Fordítási szójegyzék", "series": ""})
+        for cat in CATEGORIES:
+            data.setdefault(cat, [])
+        return data
     return {
         "meta": {"description": "Fordítási szójegyzék — kézzel validált kifejezések", "series": ""},
-        "honorifics": [],
-        "place_names": [],
-        "character_names": [],
-        "special_terms": [],
-        "phrases": [],
+        **{cat: [] for cat in CATEGORIES},
     }
 
 
 def save_glossary(path: str, data: dict):
-    """Glossary mentése."""
-    with open(path, 'w', encoding='utf-8') as f:
+    """Glossary mentése — atomikusan (tmp + rename), az előző állapotról
+    .bak mentéssel, hogy egy félbeszakadt írás ne tegye tönkre a fájlt."""
+    if os.path.isfile(path):
+        shutil.copy2(path, path + ".bak")
+    tmp = f"{path}.tmp.{os.getpid()}"
+    with open(tmp, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
-    print(f"\nSzójegyzék mentve: {path}")
+    os.replace(tmp, path)
+    print(f"\nSzójegyzék mentve: {path} (előző állapot: {path}.bak)")
 
 
 def get_existing_terms(glossary: dict) -> set:
@@ -152,14 +178,74 @@ MÁR MEGLÉVŐ KIFEJEZÉSEK (ne javasold újra ezeket):
 """
 
 
+CHUNK_CHAR_TARGET = 15000  # ~ennyi karakter kerül egy Claude-hívásba nyelvenként
+
+
+def _split_sections(content: str) -> list[str]:
+    return [s.strip() for s in re.split(r'\n\s*\n', content.strip()) if s.strip()]
+
+
+def split_srt_chunks(content: str, max_chars: int = CHUNK_CHAR_TARGET) -> list[str]:
+    """SRT tartalom feldarabolása szekcióhatáron, ~max_chars darabokra.
+    Korábban a fájl egyszerűen 15000 karakternél le lett vágva — egy teljes
+    epizód ~75%-a soha nem került elemzésre, figyelmeztetés nélkül."""
+    sections = _split_sections(content)
+    chunks, cur, cur_len = [], [], 0
+    for s in sections:
+        if cur and cur_len + len(s) > max_chars:
+            chunks.append('\n\n'.join(cur))
+            cur, cur_len = [], 0
+        cur.append(s)
+        cur_len += len(s) + 2
+    if cur:
+        chunks.append('\n\n'.join(cur))
+    return chunks or [""]
+
+
+def split_srt_pair_chunks(eng_content: str, hun_content: str,
+                          max_chars: int = CHUNK_CHAR_TARGET) -> list[tuple[str, str]]:
+    """EN+HU darabolás úgy, hogy a két nyelv UGYANAZOKAT a szekciókat kapja
+    (index szerint párosítva) — a korábbi két független 15k-s ablak nem is
+    ugyanazt a jelenetet fedte."""
+    engs = _split_sections(eng_content)
+    huns = _split_sections(hun_content)
+    if len(engs) != len(huns):
+        print(f"FIGYELEM: eltérő szekciószám (EN: {len(engs)}, HU: {len(huns)}) — "
+              f"a közös első {min(len(engs), len(huns))} szekciót elemzem")
+    n = min(len(engs), len(huns))
+    chunks, cur_e, cur_h, cur_len = [], [], [], 0
+    for i in range(n):
+        pair_len = len(engs[i]) + len(huns[i])
+        if cur_e and cur_len + pair_len > max_chars * 2:
+            chunks.append(('\n\n'.join(cur_e), '\n\n'.join(cur_h)))
+            cur_e, cur_h, cur_len = [], [], 0
+        cur_e.append(engs[i])
+        cur_h.append(huns[i])
+        cur_len += pair_len + 4
+    if cur_e:
+        chunks.append(('\n\n'.join(cur_e), '\n\n'.join(cur_h)))
+    return chunks or [("", "")]
+
+
 def extract_terms(eng_path: str, hun_path: str, existing_terms: set, timeout: int = 300) -> list[dict]:
-    """Claude Code-dal kifejezések kinyerése a feliratpárból (utólagos mód)."""
+    """Claude Code-dal kifejezések kinyerése a feliratpárból (utólagos mód).
+    Hosszú fájlnál több darabban — a teljes epizód elemzésre kerül."""
     with open(eng_path, 'r', encoding='utf-8-sig') as f:
         eng_content = f.read()
     with open(hun_path, 'r', encoding='utf-8-sig') as f:
         hun_content = f.read()
 
-    prompt = f"""Elemezd az alábbi angol-magyar feliratpárt és gyűjtsd ki a visszatérő, konzisztensen fordítandó kifejezéseket.
+    chunk_pairs = split_srt_pair_chunks(eng_content, hun_content)
+    if len(chunk_pairs) > 1:
+        print(f"A felirat {len(chunk_pairs)} darabban lesz elemezve "
+              f"(darabonként egy Claude-hívás).")
+
+    all_valid = []
+    seen = set(existing_terms)
+    for ci, (ec, hc) in enumerate(chunk_pairs, 1):
+        if len(chunk_pairs) > 1:
+            print(f"\n[{ci}/{len(chunk_pairs)}] darab elemzése...")
+        prompt = f"""Elemezd az alábbi angol-magyar feliratpárt és gyűjtsd ki a visszatérő, konzisztensen fordítandó kifejezéseket.
 
 KATEGÓRIÁK:
 - honorifics: megszólítások, rangok, címek (pl. Your Highness, General, My Lord)
@@ -167,7 +253,7 @@ KATEGÓRIÁK:
 - character_names: karakternevek (a helyes írásmód, NEM fordítás)
 - special_terms: kulturális/speciális kifejezések (pl. spiritual root, cultivation, gisaeng)
 - phrases: visszatérő kifejezések, amelyeknek konzisztens fordítása fontos
-{_existing_note(existing_terms)}
+{_existing_note(seen)}
 FONTOS:
 - Csak olyan kifejezéseket adj, amelyek TÖBBSZÖR előfordulnak vagy fontosak a konzisztencia szempontjából
 - A "hu" mezőben azt a fordítást add, amit a magyar feliratban TÉNYLEGESEN használtunk
@@ -178,13 +264,17 @@ FONTOS:
 
 {OUTPUT_SCHEMA}
 
-ANGOL FELIRAT:
-{eng_content[:15000]}
+ANGOL FELIRAT (részlet {ci}/{len(chunk_pairs)}):
+{ec}
 
-MAGYAR FELIRAT:
-{hun_content[:15000]}"""
+MAGYAR FELIRAT (részlet {ci}/{len(chunk_pairs)}):
+{hc}"""
 
-    return _run_extraction(prompt, existing_terms, timeout)
+        valid = _run_extraction(prompt, seen, timeout)
+        for v in valid:
+            seen.add(v["en"].lower())
+        all_valid.extend(valid)
+    return all_valid
 
 
 def extract_terms_english(eng_path: str, existing_terms: set, claude_md: str,
@@ -207,7 +297,17 @@ A PROJEKT FORDÍTÁSI SZABÁLYAI (ezek szerint javasold a magyar fordítást):
 ---
 """
 
-    prompt = f"""Olvasd végig az alábbi ANGOL feliratot. A fordítás MÉG NEM készült el — a Te feladatod,
+    chunks = split_srt_chunks(eng_content)
+    if len(chunks) > 1:
+        print(f"A felirat {len(chunks)} darabban lesz elemezve "
+              f"(darabonként egy Claude-hívás).")
+
+    all_valid = []
+    seen = set(existing_terms)
+    for ci, chunk in enumerate(chunks, 1):
+        if len(chunks) > 1:
+            print(f"\n[{ci}/{len(chunks)}] darab elemzése...")
+        prompt = f"""Olvasd végig az alábbi ANGOL feliratot. A fordítás MÉG NEM készült el — a Te feladatod,
 hogy ELŐRE összegyűjtsd azokat a visszatérő kifejezéseket, amelyeket az egész epizódban
 KONZISZTENSEN kell majd fordítani, és JAVASLATOT tegyél a magyar megfelelőjükre.
 
@@ -217,7 +317,7 @@ KATEGÓRIÁK:
 - character_names: karakternevek — a "hu" mezőbe a helyes magyar ÍRÁSMÓD kerüljön, NE fordítás (a nevet nem fordítjuk)
 - special_terms: kulturális/speciális kifejezések (pl. spiritual root, cultivation, gisaeng)
 - phrases: visszatérő kifejezések, amelyeknek konzisztens fordítása fontos
-{_existing_note(existing_terms)}{claude_md_note}
+{_existing_note(seen)}{claude_md_note}
 FONTOS:
 - Csak olyan kifejezéseket adj, amelyek TÖBBSZÖR előfordulnak vagy fontosak a konzisztencia szempontjából
 - A "hu" mező a JAVASOLT fordítás — kövesd a fenti projekt-szabályokat (megszólítások, "rész", semleges nem ahol kétséges)
@@ -229,10 +329,14 @@ FONTOS:
 
 {OUTPUT_SCHEMA}
 
-ANGOL FELIRAT:
-{eng_content[:15000]}"""
+ANGOL FELIRAT (részlet {ci}/{len(chunks)}):
+{chunk}"""
 
-    return _run_extraction(prompt, existing_terms, timeout)
+        valid = _run_extraction(prompt, seen, timeout)
+        for v in valid:
+            seen.add(v["en"].lower())
+        all_valid.extend(valid)
+    return all_valid
 
 
 def _run_extraction(prompt: str, existing_terms: set, timeout: int) -> list[dict]:
@@ -367,23 +471,25 @@ def interactive_review(suggestions: list[dict]) -> list[dict]:
 
 
 def merge_into_glossary(glossary: dict, approved: list[dict]) -> int:
-    """Elfogadott kifejezések beillesztése a glossary-ba. Visszaadja a hozzáadottak számát."""
+    """Elfogadott kifejezések beillesztése a glossary-ba. Visszaadja a hozzáadottak számát.
+
+    A duplikátum-szűrés az ÖSSZES kategóriára néz (nem csak a célkategóriára),
+    és a most hozzáadottakra is — így ugyanaz az EN kifejezés nem kerülhet be
+    kétszer, két kategóriában, esetleg eltérő HU fordítással."""
     added = 0
+    existing_all = get_existing_terms(glossary)
     for entry in approved:
         cat = entry["category"]
         if cat not in CATEGORIES:
             continue
-
-        # Duplikátum ellenőrzés
-        existing_en = {e.get("en", "").lower() for e in glossary.get(cat, [])}
-        if entry["en"].lower() in existing_en:
+        if entry["en"].lower() in existing_all:
             continue
-
-        glossary[cat].append({
+        glossary.setdefault(cat, []).append({
             "en": entry["en"],
             "hu": entry["hu"],
             "context": entry.get("context", ""),
         })
+        existing_all.add(entry["en"].lower())
         added += 1
 
     return added

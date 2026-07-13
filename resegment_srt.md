@@ -43,14 +43,16 @@ Paraméterek (alapérték): `--max-chars 42`, `--max-lines 2`, `--target-cps 17`
   `LINES`, `SHORT`, `LONG`, `GAP`) és összegzés. Ez a QA-kapu és a verifikáció
   alapja is. A ~0-s (láncolt, érintkező) réseket NEM jelzi hibának, csak a
   villódzás-kockázatos kis réseket és az átfedéseket.
-- **reflow** (alapértelmezett, biztonságos) — a plafont sértő cue-kat
+- **reflow** (biztonságos alapművelet) — a plafont sértő cue-kat
   kiegyensúlyozott ≤`max-lines` sorra tördeli, mondat-/tagmondat-határon.
   Idempotens; a már megfelelő cue-kat érintetlenül hagyja; a `szám + időbélyeg`
   sorok **bitre változatlanok**; `<i>…</i>` és `- ` párbeszédjelek megőrizve.
-  Amit ≤2 sorba nem lehet betördelni, azt **flag-eli** (nem rontja el).
+  Amit ≤`max-lines` sorba nem lehet betördelni, azt **flag-eli** (nem rontja el).
 - **--split** (opcionális) — a flag-elt, egyszereplős, túl hosszú cue-kat több
   egymást követő cue-ra bontja, az időt a karakterszámmal arányosan osztva
-  (`min-dur`/`min-gap` védelemmel). Cue-számot változtat, ezért külön kapcsoló.
+  (`min-dur`/`min-gap` védelemmel; ha az idő ehhez kevés, a cue-t inkább
+  egyben hagyja, átfedő/érvénytelen időzítést sosem ír ki). Cue-számot
+  változtat, ezért külön kapcsoló.
 
 ## Töréspont-logika (a lényeg)
 

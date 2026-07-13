@@ -100,7 +100,10 @@ def _strip_outer_tag(text):
     """Ha az egész (akár többsoros) szöveg egyetlen tagpárba van csomagolva
     (<i>...</i>), visszaadja (prefix, belső, suffix)-et, különben ('', text, '')."""
     m = re.match(r'^(<[a-zA-Z]+>)(.*)(</[a-zA-Z]+>)$', text, re.S)
-    if m and visible(m.group(1)) == '' and '<' not in visible(m.group(2)):
+    # A belső részt a NYERS szövegben vizsgáljuk — a visible() kiszedné a
+    # tageket, így belső tag sosem tűnne fel, és pl. két külön <i>...</i>
+    # sort egyetlen tagpárnak nézne (párosítatlan tagek a kimenetben).
+    if m and visible(m.group(1)) == '' and '<' not in m.group(2):
         return m.group(1), m.group(2), m.group(3)
     return '', text, ''
 
@@ -126,29 +129,45 @@ def _break_penalty(left, right, lang):
     p += abs(vlen(left) - vlen(right)) * 0.08
     return p
 
-def wrap2(text, max_chars, lang):
-    """Egy logikai sort <=2 sorra tördel, mindkettő <= max_chars.
-    Visszatér: sorok listája, vagy None, ha 2 sorba nem fér."""
-    if vlen(text) <= max_chars:
-        return [text]
-    pre, inner, suf = _strip_outer_tag(text)
-    body = inner if pre else text
+def _wrap_body(body, max_chars, max_lines, lang):
+    """Nyers (tag nélküli) szöveg tördelése <= max_lines sorra, rekurzívan.
+    Visszatér: sorok listája, vagy None, ha nem fér el."""
+    if vlen(body) <= max_chars:
+        return [body]
+    if max_lines <= 1:
+        return None
     spaces = [i for i, ch in enumerate(body) if ch == ' ']
     best, best_p = None, None
     for i in spaces:
         left, right = body[:i].rstrip(), body[i:].lstrip()
-        if not left or not right:
+        if not left or not right or vlen(left) > max_chars:
             continue
-        if vlen(left) <= max_chars and vlen(right) <= max_chars:
-            p = _break_penalty(left, right, lang)
-            if best_p is None or p < best_p:
-                best_p, best = p, (left, right)
-    if best is None:
+        rest = _wrap_body(right, max_chars, max_lines - 1, lang)
+        if rest is None:
+            continue
+        # kevesebb sor előny; a törésminőség a _break_penalty-ből jön
+        p = _break_penalty(left, right, lang) + 0.5 * (len(rest) - 1)
+        if best_p is None or p < best_p:
+            best_p, best = p, [left] + rest
+    return best
+
+def wrap_lines(text, max_chars, max_lines, lang):
+    """Egy logikai sort <= max_lines sorra tördel, soronként <= max_chars.
+    Visszatér: sorok listája, vagy None, ha nem fér el."""
+    if vlen(text) <= max_chars:
+        return [text]
+    pre, inner, suf = _strip_outer_tag(text)
+    body = inner if pre else text
+    wrapped = _wrap_body(body, max_chars, max_lines, lang)
+    if wrapped is None:
         return None
-    l, r = best
     if pre:
-        return [pre + l + suf, pre + r + suf]
-    return [l, r]
+        return [pre + l + suf for l in wrapped]
+    return wrapped
+
+def wrap2(text, max_chars, lang):
+    """Kompatibilitási wrapper: <=2 soros tördelés."""
+    return wrap_lines(text, max_chars, 2, lang)
 
 def reflow_cue(text, max_chars, max_lines, lang, allow_split):
     """Visszatér: (új_szöveg_vagy_None, flag_lista, szükséges_e_split).
@@ -163,9 +182,9 @@ def reflow_cue(text, max_chars, max_lines, lang, allow_split):
             return None, ["dialog-too-long"], False
         return None, [], False
     logical = ' '.join(l.strip() for l in lines if l.strip())
-    wrapped = wrap2(logical, max_chars, lang)
+    wrapped = wrap_lines(logical, max_chars, max_lines, lang)
     if wrapped is None:
-        return None, ["too-long-for-2-lines"], True
+        return None, [f"too-long-for-{max_lines}-lines"], True
     return '\n'.join(wrapped), [], False
 
 # ---- split (opcionális, időt oszt) --------------------------------------------
@@ -189,14 +208,31 @@ def split_cue(cue, max_chars, max_lines, min_dur, min_gap, lang):
         return [cue]                                 # nem sikerült bontani
     total = sum(vlen(p) for p in pieces)
     t0, t1 = cue['t0'], cue['t1']
-    span = t1 - t0 - min_gap * (len(pieces) - 1)
+    n_p = len(pieces)
+    span = t1 - t0 - min_gap * (n_p - 1)
+    if span < 0.1 * n_p:
+        return [cue]                                 # nincs elég idő a bontáshoz
+    # A min_dur padló csak akkor kényszeríthető, ha összesen belefér a cue
+    # idejébe — a feltétel nélküli max(min_dur, ...) korábban átfedő és
+    # negatív időtartamú cue-kat adott sűrű (sok szöveg / kevés idő) cue-nál.
+    enforce_min = span >= min_dur * n_p
+    floor = min_dur if enforce_min else 0.1
     out, cursor = [], t0
     for k, p in enumerate(pieces):
-        d = max(min_dur, span * vlen(p) / total)
-        s0 = cursor
-        s1 = t1 if k == len(pieces) - 1 else min(t1, s0 + d)
-        cursor = s1 + min_gap
-        wl = wrap2(p, max_chars, lang) or [p]
+        if k == n_p - 1:
+            s0, s1 = cursor, t1
+        else:
+            d = span * vlen(p) / total
+            if enforce_min:
+                d = max(min_dur, d)
+            # hagyjunk helyet a hátralévő daraboknak
+            reserved = (n_p - 1 - k) * (floor + min_gap)
+            d = min(d, t1 - cursor - reserved)
+            s0, s1 = cursor, cursor + max(d, floor)
+            cursor = s1 + min_gap
+        if s1 <= s0 or s1 > t1 + 1e-6:
+            return [cue]                             # nem osztható értelmesen
+        wl = wrap_lines(p, max_chars, max_lines, lang) or [p]
         txt = '\n'.join((pre + x + suf) if pre else x for x in wl)
         out.append({'t0': s0, 't1': s1, 'text': txt})
     return out
@@ -243,8 +279,11 @@ def report(cues, cfg):
         if fl:
             rows.append((i, m, fl))
     n = len(real)
+    if n == 0:
+        print("Nincs értelmezhető cue a fájlban (rossz útvonal / nem SRT formátum?)")
+        return []
     cps_sorted = sorted(cps_list)
-    med = cps_sorted[n // 2] if n else 0
+    med = cps_sorted[n // 2]
     over = sum(1 for c in cps_list if c > cfg['target_cps'])
     lines_all = []
     for i in real:
@@ -252,7 +291,7 @@ def report(cues, cfg):
     overline = sum(1 for l in lines_all if l > cfg['max_chars'])
     print(f"cue-k: {n} | medián CPS: {med:.1f} | >{cfg['target_cps']} CPS: "
           f"{over} ({100*over/n:.1f}%) | sorok >{cfg['max_chars']} kar.: "
-          f"{overline} ({100*overline/len(lines_all):.1f}%)")
+          f"{overline} ({100*overline/max(len(lines_all), 1):.1f}%)")
     if flags_total:
         print("flag-ek:", ", ".join(f"{k}={v}" for k, v in sorted(flags_total.items())))
     for i, m, fl in rows:

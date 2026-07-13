@@ -7,8 +7,18 @@
 #     - backslash (\) helyett forward slash (/) az útvonalakban
 #   Pl.: python3 split_srt.py "input/Sorozat - S01E01.eng.srt"
 
+# 0. (OPCIONÁLIS) SDH-forrás előtisztítása — CSAK ha a felirat hang-/zene-
+#    jegyzeteket tartalmaz ([music playing], [sighs], NÉV: címkék stb.)
+#    Részletek: srt-preclean-addon\README.md
+# py srt-preclean-addon\preclean_srt.py "input\Sorozat - S01E01.eng.srt"
+# FONTOS: preclean után a 4. lépés ellenőrzését a .clean.srt ellen futtasd
+# (az addon töröl cue-kat és ÚJRASZÁMOZ, ezért az eredeti .eng.srt-hez
+# képest hamis hibákat jelezne), vagy használd az addon verify_preclean.py-át.
+
 # 1. SRT szétvágás (ezt TE futtatod, nem kell hozzá Claude)
 py split_srt.py "input\Sorozat - S01E01.eng.srt"
+# Újra-splitnél (pl. más --block-size) a régi blokkok törléséhez: --clean
+# (enélkül leáll, hogy a régi + új blokkok ne keveredjenek a merge-nél)
 
 # 1.5 (OPCIONÁLIS, AJÁNLOTT) Glossary feltöltése MÉG A FORDÍTÁS ELŐTT
 #     Csak az angol forrásból kinyeri a neveket / megszólításokat / helyszíneket,
@@ -33,6 +43,7 @@ py translate_parallel.py "blocks\Sorozat - S01E01.eng" --agents 3
 
 # 3. Összefűzés (megint csak sima Python)
 py merge_srt.py "blocks\Sorozat - S01E01.eng" "output\Sorozat - S01E01.hun.srt"
+# Hiányzó blokkoknál leáll és listázza őket; --force kapcsolóval mégis összefűz
 
 # 4. Ellenőrzés — ✓ vagy ✗ jelzi ha valami nem stimmel
 py verify_srt.py "input\Sorozat - S01E01.eng.srt" "output\Sorozat - S01E01.hun.srt"
@@ -40,25 +51,44 @@ py verify_srt.py "input\Sorozat - S01E01.eng.srt" "output\Sorozat - S01E01.hun.s
 # 5. Stilisztikai review Claude-dal (tükörfordítások, ragozási hibák)
 py review_with_claude.py "output\Sorozat - S01E01.hun.srt"
 # Default modell: sonnet
+# Ha megtalálja az angol forrást (input\Sorozat - S01E01.eng.srt), automatikusan
+# odaadja a modellnek szekciónként [EN] sorként — így kevesebb a téves találat.
 # Opcionálisan:
 #   --chunk-size 150            nagyobb chunkok = kevesebb Claude hívás
 #   --model haiku|sonnet|opus   modell-választás (default sonnet)
+#   --english "input\....eng.srt"  angol forrás kézi megadása
+#   --no-english                angol forrás kihagyása
 #   --start-chunk N             chunk-tartomány pl. megszakítás utáni pótlásra
 #   --end-chunk N --suffix _part2  hogy ne írja felül a meglévő riportot
-# Kimenet: output\Sorozat - S01E01.hun_REVIEW_CLAUDE.txt (a talált hibák listája)
-# A riport alapján manuálisan javítod a fordítást
+# Kimenet: output\Sorozat - S01E01.hun_REVIEW_CLAUDE.txt (olvasható riport)
+#          output\Sorozat - S01E01.hun_REVIEW_CLAUDE.json (az apply_review.py-hoz)
+# A javításokat az 5c. lépés (apply_review.py) viszi át interaktívan
 
 # 5b. Stilisztikai review Gemini-vel (alternatív / kiegészítő, Te döntöd mikor futtatod)
 py review_with_gemini.py "output\Sorozat - S01E01.hun.srt"
 # Default modell: gemini-3.1-flash-lite
+# Ha megtalálja az angol forrást (input\Sorozat - S01E01.eng.srt), automatikusan
+# odaadja Gemini-nek szekciónként [EN] sorként — így kevesebb a téves találat.
 # Opcionálisan:
 #   --chunk-size 150            nagyobb chunkok = kevesebb API hívás
 #   --model <név>               más Gemini modell (pl. gemini-3.1-flash, gemini-2.5-flash, gemini-3.1-pro-preview)
+#   --english "input\....eng.srt"  angol forrás kézi megadása
+#   --no-english                angol forrás kihagyása
 #   --start-chunk N             chunk-tartomány pl. kvótahiba utáni pótlásra
 #   --end-chunk N --suffix _part2  hogy ne írja felül a meglévő riportot
-# Kimenet: output\Sorozat - S01E01.hun_REVIEW_GEMINI.txt
+# Kimenet: output\Sorozat - S01E01.hun_REVIEW_GEMINI.txt (olvasható riport)
+#          output\Sorozat - S01E01.hun_REVIEW_GEMINI.json (az apply_review.py-hoz)
 # Előfeltétel: pip install google-genai python-dotenv pydantic
 # Előfeltétel: .env fájl GEMINI_API_KEY=... bejegyzéssel
+
+# 5c. Review-javaslatok alkalmazása (a két riportot összefésüli és deduplikálja)
+py apply_review.py "output\Sorozat - S01E01.hun.srt"
+# Automatikusan megtalálja a fájl melletti _REVIEW_CLAUDE / _REVIEW_GEMINI
+# riportokat (a .json a kanonikus, a .txt-t is érti). Találatonként kérdez:
+#   y = alkalmaz, 1..9 = adott variáns, e = kézi szerkesztés, n = kihagy,
+#   q = kilépés (az addig alkalmazottak mentődnek)
+# Az első íráskor .bak mentés készül az eredetiről.
+# Csak listázás módosítás nélkül: --dry-run
 
 # 6. Szójegyzék bővítése a KÉSZ fordításból (fordítás UTÁNI mód)
 #     Itt MINDKÉT fájlt megadod → a "hu" a magyar feliratban TÉNYLEGESEN használt fordítás.

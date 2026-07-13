@@ -14,9 +14,15 @@ sys.stderr.reconfigure(encoding='utf-8')
 
 
 def extract_numbers(filepath: str) -> list[str]:
-    """Sorszámok kinyerése."""
+    """Sorszámok kinyerése — strukturálisan: csak az a csupa-számjegy sor
+    számít, amit időbélyeg-sor követ. Így a csak számot tartalmazó
+    felirat-SZÖVEG (pl. "3") nem csúsztatja el az összehasonlítást."""
     with open(filepath, 'r', encoding='utf-8-sig') as f:
-        return [line.strip() for line in f if re.match(r'^\d+$', line.strip())]
+        lines = f.read().split('\n')
+    return [line.strip() for i, line in enumerate(lines)
+            if re.match(r'^\d+$', line.strip())
+            and i + 1 < len(lines)
+            and re.match(r'^\d{2}:\d{2}:\d{2}[,.]\d{3}\s*-->', lines[i + 1].strip())]
 
 
 def extract_timestamps(filepath: str) -> list[str]:
@@ -87,7 +93,7 @@ WARN_PATTERNS: list[tuple[str, str]] = [
 
 def calc_cps(text: str, timestamp: str) -> float | None:
     """Karakter/másodperc (HTML tagek és daljelek nélkül, szóköz nélkül)."""
-    m = re.match(r'(\d{2}):(\d{2}):(\d{2}),(\d{3})\s*-->\s*(\d{2}):(\d{2}):(\d{2}),(\d{3})', timestamp)
+    m = re.match(r'(\d{2}):(\d{2}):(\d{2})[,.](\d{3})\s*-->\s*(\d{2}):(\d{2}):(\d{2})[,.](\d{3})', timestamp)
     if not m:
         return None
     start = int(m.group(1))*3600 + int(m.group(2))*60 + int(m.group(3)) + int(m.group(4))/1000

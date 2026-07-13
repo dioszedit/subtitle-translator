@@ -27,10 +27,14 @@ subtitle-translator/
 ├── verify_srt.py                ← 4. Strukturális ellenőrzés
 ├── review_with_claude.py        ← 5a. Stilisztikai review Claude Code-dal
 ├── review_with_gemini.py        ← 5b. Stilisztikai review Gemini API-val (opcionális)
+├── apply_review.py              ← 5c. Review-riportok összefésülése + interaktív alkalmazás
+├── resegment_srt.py             ← 7. Sorhossz/CPS QA + újratördelés (lásd resegment_srt.md)
 ├── glossary_extract.py          ← Szójegyzék bővítése (fordítás előtt angol-only, vagy utólag párból)
 ├── glossary_categories.py       ← Közös konstans (CATEGORIES) — itt vedd fel új
 │                                  glossary-kategóriát, mind az 5 script innen olvas
 │
+├── srt-preclean-addon/          ← Opcionális 0. lépés: SDH-forrás előtisztítása
+│                                  (saját README a részletekhez)
 ├── input/                       ← Ide tedd az angol SRT fájlokat
 ├── blocks/                      ← Auto-generált blokk-fájlok
 ├── output/                      ← Kész magyar fájlok + review riportok
@@ -100,6 +104,8 @@ copy .env.example .env
 ```powershell
 # 1. Szétvágás blokkokra (alapból 150 szekciónként)
 python split_srt.py "input\Sorozat - S01E01.eng.srt"
+# Újra-splitnél (pl. más --block-size) --clean törli a régi blokkokat —
+# enélkül a script leáll, hogy a két generáció ne keveredjen a merge-nél
 
 # 2a. Fordítás 3 párhuzamos agent-tel — Claude Code
 python translate_parallel.py "blocks\Sorozat - S01E01.eng" --agents 3
@@ -114,11 +120,15 @@ python verify_srt.py "input\Sorozat - S01E01.eng.srt" "output\Sorozat - S01E01.h
 
 # 5a. Stilisztikai review Claude Code-dal
 python review_with_claude.py "output\Sorozat - S01E01.hun.srt"
-# Kimenet: output\Sorozat - S01E01.hun_REVIEW_CLAUDE.txt
+# Kimenet: output\Sorozat - S01E01.hun_REVIEW_CLAUDE.txt + .json
 
 # 5b. Stilisztikai review Gemini-vel (opcionális, párhuzamos vélemény)
 python review_with_gemini.py "output\Sorozat - S01E01.hun.srt"
-# Kimenet: output\Sorozat - S01E01.hun_REVIEW_GEMINI.txt
+# Kimenet: output\Sorozat - S01E01.hun_REVIEW_GEMINI.txt + .json
+
+# 5c. Review-javaslatok alkalmazása (a riportokat összefésüli, deduplikálja,
+#     találatonként y/n/e/q kérdéssel viszi át a fájlba, .bak mentéssel)
+python apply_review.py "output\Sorozat - S01E01.hun.srt"
 
 # 6. Szegmentálás — sorhossz-riport + automatikus tördelés (a review-javítások után)
 python resegment_srt.py report "output\Sorozat - S01E01.hun.srt"
@@ -126,7 +136,8 @@ python resegment_srt.py reflow "output\Sorozat - S01E01.hun.srt" -o "output\Soro
 ```
 
 A két review script **független** — futtathatod csak az egyiket, csak a másikat,
-vagy mindkettőt. A jelölt hibák alapján manuálisan javítsd a magyar fájlt.
+vagy mindkettőt. A találatokat az `apply_review.py` fésüli össze és viszi át
+interaktívan; kézzel is javíthatsz a riportok alapján.
 
 ### Fordítás — opciók
 
@@ -202,7 +213,43 @@ python review_with_claude.py "output\hun.srt" --chunk-size 150
 # Csak egy chunk-tartomány lefuttatása (pl. megszakítás utáni pótlás)
 python review_with_claude.py "output\hun.srt" --start-chunk 9 --suffix _part2
 python review_with_claude.py "output\hun.srt" --start-chunk 5 --end-chunk 7 --suffix _part2
+
+# Angol forrás kézi megadása / kikapcsolása
+python review_with_claude.py "output\hun.srt" --english "input\eng.srt"
+python review_with_claude.py "output\hun.srt" --no-english
 ```
+
+Mindkét review script automatikusan megkeresi az **angol forrás SRT-t**
+(a `.hun.srt` névből `.eng.srt`-t keres az `input/` mappában, ill. a hun fájl
+mellett), és minden szekció mellé odaadja a modellnek az angol eredetit is
+`[EN]` sorként. Így a lektor a forráshoz tudja mérni a magyart — jelentősen
+kevesebb a téves találat, és a félrefordításokat is elkapja, nem csak a
+stílushibákat.
+
+A párosítás előtt **igazítás-ellenőrzés** fut (cue-számok + időbélyeg-
+szúrópróba): ha a két fájl elcsúszott egymáshoz képest (pl. a magyar
+`resegment --split` után újraszámozódott), a script figyelmeztet és kihagyja
+a párosítást — elcsúszott angol sorok tömeges hamis találatot adnának.
+Explicit `--english` megadással felülbírálható.
+
+Mindkét review a szöveges riport mellé **JSON riportot** is ír
+(`_REVIEW_*.json`) — ezt dolgozza fel az `apply_review.py`.
+
+#### Review-javaslatok alkalmazása (`apply_review.py`)
+```powershell
+# A hun.srt melletti összes riport összefésülése + interaktív alkalmazás
+python apply_review.py "output\hun.srt"
+
+# Csak megadott riportok, ill. csak listázás módosítás nélkül
+python apply_review.py "output\hun.srt" "output\hun_REVIEW_GEMINI.json"
+python apply_review.py "output\hun.srt" --dry-run
+```
+
+A script a Claude- és Gemini-riportokat szekciószám szerint összefésüli, az
+azonos javaslatokat deduplikálja (jelölve, hogy mindkét lektor egyetért), az
+eltérőeket variánsként kínálja fel. Találatonként kérdez: `y` = alkalmaz,
+`1..9` = adott variáns, `e` = kézi szerkesztés, `n` = kihagy, `q` = kilépés
+mentéssel. Az első módosítás előtt `.bak` mentést készít az eredetiről.
 
 #### Gemini review (`review_with_gemini.py`)
 ```powershell
@@ -218,10 +265,15 @@ python review_with_gemini.py "output\hun.srt" --model gemini-3.1-pro-preview
 # Csak egy chunk-tartomány lefuttatása (pl. kvótahiba utáni pótlás)
 python review_with_gemini.py "output\hun.srt" --start-chunk 9 --suffix _part2
 python review_with_gemini.py "output\hun.srt" --start-chunk 5 --end-chunk 7 --suffix _part2
+
+# Angol forrás kézi megadása / kikapcsolása
+python review_with_gemini.py "output\hun.srt" --english "input\eng.srt"
+python review_with_gemini.py "output\hun.srt" --no-english
 ```
 
 A Gemini review **strukturált JSON kimenetet** ad (Pydantic séma), ami stabilabb
 mint a szabad szöveg, és automatikusan retry-ol rate limit (429) vagy 5xx hiba esetén.
+Az angol forrás párosítása itt is működik (lásd fent a Claude review-nál).
 
 > ⚠️ **A Gemini modellek listája időről időre változik.** Új modellek jelennek
 > meg, preview verziók stabilizálódnak (és a `-preview` suffix lekerül), régi
@@ -254,18 +306,19 @@ python glossary_extract.py "input\eng.srt" --glossary my_glossary.json
 Mindkét mód interaktív: a javasolt kifejezéseket egyesével hagyod jóvá
 (`y` = elfogad, `n` = elutasít, `e` = szerkeszt, `q` = kilép).
 
-A `glossary.json`-t a `translate_parallel.py` és **mindkét review script**
-automatikusan betölti és átadja a modellnek, hogy a fordítások konzisztensek
-maradjanak.
+A `glossary.json`-t **mind a négy modellt hívó script** (a két fordító és a
+két review) automatikusan betölti és átadja a modellnek, hogy a fordítások
+konzisztensek maradjanak.
 
 ## Kontextus-átadás — fontos!
 
-Mind a fordító, mind a két review script átadja a **CLAUDE.md**-t és a
+Mind a két fordító, mind a két review script átadja a **CLAUDE.md**-t és a
 **glossary.json**-t system promptként a modellnek:
 
 | Script | Mechanizmus |
 |--------|-------------|
 | `translate_parallel.py` | `--append-system-prompt-file` (Claude Code) |
+| `translate_with_gemini.py` | `system_instruction` (Gemini API) |
 | `review_with_claude.py` | `--append-system-prompt-file` (Claude Code) |
 | `review_with_gemini.py` | `system_instruction` (Gemini API) |
 
@@ -279,8 +332,15 @@ a változás a következő futáskor automatikusan érvényesül — a translate
 - **Blokk méret:** 150 az alapértelmezett. Ha sok a hiba, csökkentsd 100-ra.
 - **CLAUDE.md:** Minél részletesebb az "Aktuális sorozat adatai" rész, annál jobb
   a fordítás minősége (karakter-háttér, formalitás-szintek, kontextus).
-- **Checkpoint:** A `translate_parallel.py` és a Gemini review (`--start-chunk`)
-  is támogatja a megszakítás utáni folytatást.
+- **Checkpoint:** mindkét fordító fájl-alapú checkpointtal fut (újraindításkor
+  csak a hiányzó blokkokat fordítja; a szekció-eltéréses blokk outputja
+  törlődik, így az is újramegy), mindkét review pedig `--start-chunk` /
+  `--end-chunk` / `--suffix` kapcsolókkal folytatható. A `merge_srt.py`
+  `--force` kapcsolóval hiányzó blokkok mellett is összefűz (a hiányt listázza).
+- **Fordító finomhangolás:** `translate_parallel.py --timeout <mp>` (default
+  900), `--max-turns <n>` (default 20, futó-galopp elleni plafon),
+  `--no-cleanup` (régi sys-prompt fájlok megtartása); `glossary_extract.py
+  --timeout <mp>` (default 300).
 - **Két review összevetése:** ugyanazon a fájlon futtasd mindkét review-t —
   a két modell más-más típusú hibákat talál (Claude inkább kontextus,
   Gemini inkább morfológia / ikes igék).
