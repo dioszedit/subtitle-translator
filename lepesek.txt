@@ -51,13 +51,14 @@ py verify_srt.py "input\Sorozat - S01E01.eng.srt" "output\Sorozat - S01E01.hun.s
 # 5. Stilisztikai review Claude-dal (tükörfordítások, ragozási hibák)
 py review_with_claude.py "output\Sorozat - S01E01.hun.srt"
 # Default modell: sonnet
-# Ha megtalálja az angol forrást (input\Sorozat - S01E01.eng.srt), automatikusan
-# odaadja a modellnek szekciónként [EN] sorként — így kevesebb a téves találat.
+# Ha megtalálja a forrásnyelvi SRT-t (input\Sorozat - S01E01.eng.srt), automatikusan
+# odaadja a modellnek szekciónként [FORRÁS] sorként — így kevesebb a téves találat.
 # Opcionálisan:
 #   --chunk-size 150            nagyobb chunkok = kevesebb Claude hívás
 #   --model haiku|sonnet|opus   modell-választás (default sonnet)
-#   --english "input\....eng.srt"  angol forrás kézi megadása
-#   --no-english                angol forrás kihagyása
+#   --source "input\....srt"    forrásnyelvi SRT kézi megadása (bármilyen nyelv;
+#                               a régi név, --english, továbbra is működik)
+#   --no-source                 forrásnyelvi SRT kihagyása
 #   --start-chunk N             chunk-tartomány pl. megszakítás utáni pótlásra
 #   --end-chunk N --suffix _part2  hogy ne írja felül a meglévő riportot
 # Kimenet: output\Sorozat - S01E01.hun_REVIEW_CLAUDE.txt (olvasható riport)
@@ -67,13 +68,14 @@ py review_with_claude.py "output\Sorozat - S01E01.hun.srt"
 # 5b. Stilisztikai review Gemini-vel (alternatív / kiegészítő, Te döntöd mikor futtatod)
 py review_with_gemini.py "output\Sorozat - S01E01.hun.srt"
 # Default modell: gemini-3.1-flash-lite
-# Ha megtalálja az angol forrást (input\Sorozat - S01E01.eng.srt), automatikusan
-# odaadja Gemini-nek szekciónként [EN] sorként — így kevesebb a téves találat.
+# Ha megtalálja a forrásnyelvi SRT-t (input\Sorozat - S01E01.eng.srt), automatikusan
+# odaadja Gemini-nek szekciónként [FORRÁS] sorként — így kevesebb a téves találat.
 # Opcionálisan:
 #   --chunk-size 150            nagyobb chunkok = kevesebb API hívás
 #   --model <név>               más Gemini modell (pl. gemini-3.1-flash, gemini-2.5-flash, gemini-3.1-pro-preview)
-#   --english "input\....eng.srt"  angol forrás kézi megadása
-#   --no-english                angol forrás kihagyása
+#   --source "input\....srt"    forrásnyelvi SRT kézi megadása (bármilyen nyelv;
+#                               a régi név, --english, továbbra is működik)
+#   --no-source                 forrásnyelvi SRT kihagyása
 #   --start-chunk N             chunk-tartomány pl. kvótahiba utáni pótlásra
 #   --end-chunk N --suffix _part2  hogy ne írja felül a meglévő riportot
 # Kimenet: output\Sorozat - S01E01.hun_REVIEW_GEMINI.txt (olvasható riport)

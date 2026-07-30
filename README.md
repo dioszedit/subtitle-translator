@@ -222,23 +222,27 @@ python review_with_claude.py "output\hun.srt" --chunk-size 150
 python review_with_claude.py "output\hun.srt" --start-chunk 9 --suffix _part2
 python review_with_claude.py "output\hun.srt" --start-chunk 5 --end-chunk 7 --suffix _part2
 
-# Angol forrás kézi megadása / kikapcsolása
-python review_with_claude.py "output\hun.srt" --english "input\eng.srt"
-python review_with_claude.py "output\hun.srt" --no-english
+# Forrásnyelvi SRT kézi megadása / kikapcsolása
+python review_with_claude.py "output\hun.srt" --source "input\eng.srt"
+python review_with_claude.py "output\hun.srt" --no-source
 ```
 
-Mindkét review script automatikusan megkeresi az **angol forrás SRT-t**
+Mindkét review script automatikusan megkeresi a **forrásnyelvi SRT-t**
 (a `.hun.srt` névből `.eng.srt`-t keres az `input/` mappában, ill. a hun fájl
-mellett), és minden szekció mellé odaadja a modellnek az angol eredetit is
-`[EN]` sorként. Így a lektor a forráshoz tudja mérni a magyart — jelentősen
+mellett), és minden szekció mellé odaadja a modellnek a forrás eredetit is
+`[FORRÁS]` sorként. Így a lektor a forráshoz tudja mérni a magyart — jelentősen
 kevesebb a téves találat, és a félrefordításokat is elkapja, nem csak a
 stílushibákat.
+
+A `--source` kapcsoló **nyelvfüggetlen**: bármilyen forrásnyelvi SRT-t elfogad,
+csak az automatikus keresés van angol névkonvencióra kötve. (A kapcsoló régi
+neve `--english` volt; aliasként továbbra is működik, de az új név a helyes.)
 
 A párosítás előtt **igazítás-ellenőrzés** fut (cue-számok + időbélyeg-
 szúrópróba): ha a két fájl elcsúszott egymáshoz képest (pl. a magyar
 `resegment --split` után újraszámozódott), a script figyelmeztet és kihagyja
-a párosítást — elcsúszott angol sorok tömeges hamis találatot adnának.
-Explicit `--english` megadással felülbírálható.
+a párosítást — elcsúszott forrássorok tömeges hamis találatot adnának.
+Explicit `--source` megadással felülbírálható.
 
 Mindkét review a szöveges riport mellé **JSON riportot** is ír
 (`_REVIEW_*.json`) — ezt dolgozza fel az `apply_review.py`.
@@ -318,14 +322,14 @@ python review_with_gemini.py "output\hun.srt" --model gemini-3.1-pro-preview
 python review_with_gemini.py "output\hun.srt" --start-chunk 9 --suffix _part2
 python review_with_gemini.py "output\hun.srt" --start-chunk 5 --end-chunk 7 --suffix _part2
 
-# Angol forrás kézi megadása / kikapcsolása
-python review_with_gemini.py "output\hun.srt" --english "input\eng.srt"
-python review_with_gemini.py "output\hun.srt" --no-english
+# Forrásnyelvi SRT kézi megadása / kikapcsolása
+python review_with_gemini.py "output\hun.srt" --source "input\eng.srt"
+python review_with_gemini.py "output\hun.srt" --no-source
 ```
 
 A Gemini review **strukturált JSON kimenetet** ad (Pydantic séma), ami stabilabb
 mint a szabad szöveg, és automatikusan retry-ol rate limit (429) vagy 5xx hiba esetén.
-Az angol forrás párosítása itt is működik (lásd fent a Claude review-nál).
+A forrásnyelvi SRT párosítása itt is működik (lásd fent a Claude review-nál).
 
 > ⚠️ **A Gemini modellek listája időről időre változik.** Új modellek jelennek
 > meg, preview verziók stabilizálódnak (és a `-preview` suffix lekerül), régi
@@ -462,17 +466,17 @@ használható eredményt ad. Amit ilyenkor tudni érdemes:
 |---|---|---|
 | A fordító prompt kimondja: „angolról magyarra" | A modell téves állítást kap a forrásról. Általában elnézi, de nem ideális | A prompt átírása kódmódosítás — ha rendszeresen kell, érdemes |
 | A `CLAUDE.md` „Gyakori hibák" **C. blokkja** konkrét angol kifejezésekre épül | Ezek a szabályok nem sülnek el — holt teher, de nem ártanak | Cseréld a saját forrásnyelved tipikus csapdáira; az **A** és **B** blokk változatlanul érvényes |
-| A forrás automatikus megkeresése `.hun.srt` → `.eng.srt` névcserével megy | Más kiterjesztésű forrást nem talál meg, és a review **forrás-összevetés nélkül** fut | **Add meg kézzel:** `--english "input\....srt"` — a kapcsoló bármilyen fájlt elfogad |
-| A forrássorok címkéje a promptban `[EN]` | A címke félrevezető, de a párosítás működik | — |
+| A forrás automatikus megkeresése `.hun.srt` → `.eng.srt` névcserével megy | Más kiterjesztésű forrást nem talál meg, és a review **forrás-összevetés nélkül** fut | **Add meg kézzel:** `--source "input\....srt"` — a kapcsoló bármilyen fájlt elfogad |
+| A forrássorok címkéje a promptban `[FORRÁS]`, a kapcsoló neve `--source` | Nyelvfüggetlen, nincs teendő | — |
 | A `glossary.json` kulcsa `en` | Csak elnevezés; funkcionálisan „forrásnyelvi kifejezés" | — |
 
 A legfontosabb ezek közül a harmadik. Forrás-összevetés nélkül a review érezhetően
 több téves találatot ad (a lektor ilyenkor csak a magyar szöveget látja, és nem tudja
 ellenőrizni, hogy az eredeti igazolja-e a megoldást), ezért nem angol forrásnál a
-`--english` kézi megadása gyakorlatilag kötelező:
+`--source` kézi megadása gyakorlatilag kötelező:
 
 ```powershell
-python review_with_gemini.py "output\hun.srt" --english "input\Sorozat - S01E01.kor.srt"
+python review_with_gemini.py "output\hun.srt" --source "input\Sorozat - S01E01.kor.srt"
 ```
 
 A `glossary.json` szerepe itt még nagyobb, mint EN→HU esetben: mivel a C. blokk

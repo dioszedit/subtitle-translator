@@ -12,13 +12,13 @@ Használat:
     python review_with_claude.py "output/Sorozat - S01E01.hun.srt" --model opus
 
 Angol eredeti (kevesebb téves találat):
-    Ha megtalálja az angol forrás SRT-t, minden szekció mellé odaadja a
-    modellnek az angol eredetit is [EN] sorként — így a lektor a forráshoz
+    Ha megtalálja a forrásnyelvi SRT-t, minden szekció mellé odaadja a
+    modellnek a forrás eredetit is [FORRÁS] sorként — így a lektor a forráshoz
     tudja mérni a magyart, nem csak "gyanús" mondatokat keres.
     Automatikus keresés: a .hun.srt névből .eng.srt, az input/ mappában
     (ill. a hun fájl mellett). Kézi megadás / kikapcsolás:
-        python review_with_claude.py "output/....hun.srt" --english "input/....eng.srt"
-        python review_with_claude.py "output/....hun.srt" --no-english
+        python review_with_claude.py "output/....hun.srt" --source "input/....eng.srt"
+        python review_with_claude.py "output/....hun.srt" --no-source
 
     Csak egy konkrét chunk(tartomány) lefuttatása (pl. megszakítás utáni pótlás):
         python review_with_claude.py "output/...hun.srt" --start-chunk 9 --suffix _part2
@@ -77,7 +77,7 @@ def parse_srt(filepath):
 def parse_srt_by_index(filepath):
     """SRT beolvasása: {sorszám: (időbélyeg, szöveg egyben)} dict.
 
-    Az angol forráshoz kell — az időbélyeg az igazítás-ellenőrzéshez,
+    A forrásnyelvi SRT-hez kell — az időbélyeg az igazítás-ellenőrzéshez,
     a szöveg a review kontextushoz.
     """
     content = Path(filepath).read_text(encoding="utf-8-sig")
@@ -95,12 +95,12 @@ def parse_srt_by_index(filepath):
     return entries
 
 
-def check_en_alignment(entries, eng_map):
-    """EN/HU igazítás-ellenőrzés a párosítás előtt.
+def check_source_alignment(entries, src_map):
+    """Forrás/HU igazítás-ellenőrzés a párosítás előtt.
 
     Index-alapú a párosítás, ezért ha a magyar fájl újraszámozódott
-    (pl. resegment --split), vagy az angolban van plusz/hiányzó cue,
-    MINDEN utána lévő szekció rossz angol sort kapna, és a lektor
+    (pl. resegment --split), vagy a forrásban van plusz/hiányzó cue,
+    MINDEN utána lévő szekció rossz forrás-sort kapna, és a lektor
     tömegesen jelentene hamis félrefordítást.
     Vissza: None ha rendben, különben rövid hibaleírás.
     """
@@ -112,33 +112,38 @@ def check_en_alignment(entries, eng_map):
                 hun[int(lines[0].strip())] = lines[1].strip()
             except ValueError:
                 continue
-    if not hun or not eng_map:
+    if not hun or not src_map:
         return "nincs értékelhető szekció"
-    if len(hun) != len(eng_map):
-        return f"cue-szám eltérés (magyar: {len(hun)}, angol: {len(eng_map)})"
-    common = sorted(set(hun) & set(eng_map))
+    if len(hun) != len(src_map):
+        return f"cue-szám eltérés (magyar: {len(hun)}, forrás: {len(src_map)})"
+    common = sorted(set(hun) & set(src_map))
     if len(common) < len(hun):
-        return f"{len(hun) - len(common)} sorszámnak nincs angol párja"
+        return f"{len(hun) - len(common)} sorszámnak nincs forrás-párja"
     # Időbélyeg-szúrópróba: a pipeline 1:1 másolja az időbélyegeket, ezért
     # eltérés = elcsúszott/újraidőzített fájl.
     n = len(common)
     for idx in sorted({common[0], common[n // 4], common[n // 2],
                        common[3 * n // 4], common[-1]}):
-        if hun[idx] != eng_map[idx][0]:
+        if hun[idx] != src_map[idx][0]:
             return (f"időbélyeg-eltérés a(z) #{idx} szekciónál "
-                    f"(HU: {hun[idx]} / EN: {eng_map[idx][0]})")
+                    f"(HU: {hun[idx]} / forrás: {src_map[idx][0]})")
     return None
 
 
-def find_english_srt(hun_path: Path):
-    """Az angol forrás SRT automatikus megkeresése a .hun.srt névből."""
+def find_source_srt(hun_path: Path):
+    """A forrásnyelvi SRT automatikus megkeresése a .hun.srt névből.
+
+    A névcsere .eng.srt-t keres — ez az angol forrás konvenciója. Más
+    forrásnyelvnél ezért nem talál semmit, és a hívónak kézzel kell
+    megadnia a fájlt a --source kapcsolóval.
+    """
     if ".hun." not in hun_path.name:
         return None
-    eng_name = hun_path.name.replace(".hun.", ".eng.")
+    src_name = hun_path.name.replace(".hun.", ".eng.")
     candidates = [
-        Path("input") / eng_name,
-        hun_path.parent / eng_name,
-        hun_path.parent.parent / "input" / eng_name,
+        Path("input") / src_name,
+        hun_path.parent / src_name,
+        hun_path.parent.parent / "input" / src_name,
     ]
     for cand in candidates:
         if cand.is_file():
@@ -146,18 +151,18 @@ def find_english_srt(hun_path: Path):
     return None
 
 
-def attach_english(entries, eng_map):
-    """Minden magyar SRT-blokk után [EN] sor az angol eredetivel."""
+def attach_source(entries, src_map):
+    """Minden magyar SRT-blokk után [FORRÁS] sor a forrásnyelvi eredetivel."""
     result = []
     matched = 0
     for block in entries:
         first = block.split("\n", 1)[0].strip()
         try:
-            eng = eng_map.get(int(first))
+            src = src_map.get(int(first))
         except ValueError:
-            eng = None
-        if eng and eng[1]:
-            result.append(f"{block}\n[EN] {eng[1]}")
+            src = None
+        if src and src[1]:
+            result.append(f"{block}\n[FORRÁS] {src[1]}")
             matched += 1
         else:
             result.append(block)
@@ -194,7 +199,7 @@ def load_glossary() -> str:
 
 
 def build_review_system_prompt(claude_md: str, glossary: str,
-                               has_english: bool = False) -> str:
+                               has_source: bool = False) -> str:
     parts = ["""=== SZEREP ===
 Magyar fordítás lektor vagy. Angolból magyarra fordított SRT feliratokat
 nézel át, és STÍLUS / NYELVTANI hibákat keresel.
@@ -215,16 +220,16 @@ nézel át, és STÍLUS / NYELVTANI hibákat keresel.
   ezek a sorozat kötelező, jóváhagyott fordításai
 - Karakterneveket NE javasold lefordítani (a szójegyzékben szerepelnek)"""]
 
-    if has_english:
-        parts.append("""=== ANGOL EREDETI ===
-A legtöbb szekció után egy [EN] sor áll: ez az ANGOL EREDETI, amiből a
-magyar fordítás készült. Ez a viszonyítási alap:
-- Jelezd, ha a magyar mást mond, mint az angol (félrefordítás,
+    if has_source:
+        parts.append("""=== FORRÁSNYELVI EREDETI ===
+A legtöbb szekció után egy [FORRÁS] sor áll: ez a FORRÁSNYELVI EREDETI, amiből
+a magyar fordítás készült. Ez a viszonyítási alap:
+- Jelezd, ha a magyar mást mond, mint a forrás (félrefordítás,
   kimaradt/hozzáköltött tartalom, tagadás/idő/szám/személy eltérés).
-- NE jelents hibát, ha az angol eredeti igazolja a magyar megoldást —
-  ami forrás nélkül furcsának tűnne, az angol ismeretében gyakran helyes.
-- Az [EN] sor csak kontextus: az idézett "eredeti" szöveg MINDIG a magyar
-  legyen, az [EN] sort ne idézd bele és ne javasold módosítani.""")
+- NE jelents hibát, ha a forrás igazolja a magyar megoldást —
+  ami forrás nélkül furcsának tűnne, a forrás ismeretében gyakran helyes.
+- A [FORRÁS] sor csak kontextus: az idézett "eredeti" szöveg MINDIG a magyar
+  legyen, a [FORRÁS] sort ne idézd bele és ne javasold módosítani.""")
 
     if claude_md.strip():
         parts.append("=== SOROZAT KONTEXTUS (CLAUDE.md) ===\n" + claude_md.strip())
@@ -268,7 +273,7 @@ def review_chunk(chunk_text, chunk_num, total_chunks, sys_prompt_path,
     jelzőszöveg) törékeny volt: ha a modell valós találatok UTÁN írta oda,
     minden találat elveszett.
     A prompt STDIN-en megy át, nem argumentumként: Windows-on a parancssor
-    32 KB-os limitje nagy chunkoknál (főleg az [EN] sorokkal) elhasalna.
+    32 KB-os limitje nagy chunkoknál (főleg a [FORRÁS] sorokkal) elhasalna.
     """
     prompt = f"""Lektoráld az alábbi SRT felirat blokkot a system promptban
 megadott szabályok szerint. A válaszod KIZÁRÓLAG egy JSON tömb legyen,
@@ -366,18 +371,21 @@ def main():
                         help="Eddig a chunkig (bezárólag, 1-alapú). Default: utolsó")
     parser.add_argument("--suffix", type=str, default="",
                         help="Riport fájl utótag, pl. '_part2' → _REVIEW_CLAUDE_part2.txt")
-    parser.add_argument("--english", type=str, default=None,
-                        help="Angol forrás SRT (default: automatikus keresés "
-                             "a .hun.srt névből az input/ mappában)")
-    parser.add_argument("--no-english", action="store_true",
-                        help="Angol forrás kihagyása akkor is, ha megtalálható")
+    parser.add_argument("--source", "--english", type=str, default=None,
+                        help="Forrásnyelvi SRT (default: automatikus keresés "
+                             "a .hun.srt névből az input/ mappában, .eng.srt-t "
+                             "keresve). Bármilyen forrásnyelvhez használható — "
+                             "nem angol forrásnál kötelező kézzel megadni. "
+                             "A --english a kapcsoló régi neve.")
+    parser.add_argument("--no-source", "--no-english", action="store_true",
+                        help="Forrásnyelvi SRT kihagyása akkor is, ha megtalálható")
     args = parser.parse_args()
 
     if args.chunk_size < 1:
         print(f"HIBA: --chunk-size legalább 1 legyen (kaptam: {args.chunk_size})")
         sys.exit(1)
-    if args.english and args.no_english:
-        print("HIBA: --english és --no-english együtt nem használható.")
+    if args.source and args.no_source:
+        print("HIBA: --source és --no-source együtt nem használható.")
         sys.exit(1)
 
     claude_bin = shutil.which("claude")
@@ -394,29 +402,30 @@ def main():
     entries = parse_srt(srt_path)
     print(f"Beolvasva: {len(entries)} felirat szekció")
 
-    # Angol forrás párosítása (kevesebb téves találat)
-    has_english = False
-    if not args.no_english:
-        eng_path = Path(args.english) if args.english else find_english_srt(srt_path)
-        if args.english and not eng_path.is_file():
-            print(f"HIBA: Angol SRT nem található: {eng_path}")
+    # Forrásnyelvi SRT párosítása (kevesebb téves találat)
+    has_source = False
+    if not args.no_source:
+        src_path = Path(args.source) if args.source else find_source_srt(srt_path)
+        if args.source and not src_path.is_file():
+            print(f"HIBA: forrás SRT nem található: {src_path}")
             sys.exit(1)
-        if eng_path:
-            eng_map = parse_srt_by_index(eng_path)
-            problem = check_en_alignment(entries, eng_map)
-            if problem and not args.english:
-                print(f"Angol eredeti: {eng_path} — KIHAGYVA, igazítási hiba: {problem}")
+        if src_path:
+            src_map = parse_srt_by_index(src_path)
+            problem = check_source_alignment(entries, src_map)
+            if problem and not args.source:
+                print(f"Forrás: {src_path} — KIHAGYVA, igazítási hiba: {problem}")
                 print("  Elcsúszott párosítás tömeges hamis találatot adna.")
-                print("  Kényszerítés (saját felelősségre): --english \"" + str(eng_path) + "\"")
+                print("  Kényszerítés (saját felelősségre): --source \"" + str(src_path) + "\"")
             else:
                 if problem:
-                    print(f"FIGYELEM: igazítási hiba ({problem}), de a --english "
+                    print(f"FIGYELEM: igazítási hiba ({problem}), de a --source "
                           "explicit, ezért párosítok. Az eredményt fenntartással kezeld!")
-                entries, matched = attach_english(entries, eng_map)
-                has_english = matched > 0
-                print(f"Angol eredeti: {eng_path} ({matched}/{len(entries)} szekció párosítva)")
+                entries, matched = attach_source(entries, src_map)
+                has_source = matched > 0
+                print(f"Forrás: {src_path} ({matched}/{len(entries)} szekció párosítva)")
         else:
-            print("Angol eredeti: nem található (review csak a magyar alapján)")
+            print("Forrás: nem található (review csak a magyar alapján).")
+            print("  Nem angol forrásnál add meg kézzel: --source \"input/....srt\"")
 
     chunks = list(chunk_entries(entries, args.chunk_size))
     total_chunks = len(chunks)
@@ -426,7 +435,7 @@ def main():
     # Kontextus betöltése + system prompt fájl
     claude_md = load_claude_md()
     glossary = load_glossary()
-    sys_prompt_content = build_review_system_prompt(claude_md, glossary, has_english)
+    sys_prompt_content = build_review_system_prompt(claude_md, glossary, has_source)
     sys_prompt_path = write_sys_prompt_file(sys_prompt_content)
     print(f"System prompt: {len(sys_prompt_content)} char "
           f"(CLAUDE.md: {len(claude_md)} char, glossary: {len(glossary)} char)")
