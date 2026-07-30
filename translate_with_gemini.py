@@ -58,6 +58,13 @@ sys.stderr.reconfigure(encoding='utf-8')
 
 from glossary_categories import CATEGORIES
 
+# Kvótakövetés — gépszintű, API kulcs szerint (a Gemini API nem adja vissza
+# a maradék napi kérésszámot). Ha a modul hiányzik, a script fut tovább.
+try:
+    import gemini_quota as _gq
+except Exception:
+    _gq = None
+
 # Külső függőségek — lazy try/except, hogy a --help akkor is fusson, ha
 # nincsenek telepítve.
 _DEPS_OK = True
@@ -286,6 +293,10 @@ def call_gemini(client, model: str, prompt: str, system_instruction: str,
                 contents=prompt,
                 config=config,
             )
+            # A hívás lefutott a modellen → fogyasztotta a napi kvótát.
+            # (Az üres/blokkolt válasz is, ezért a parse ELŐTT könyvelünk.)
+            if _gq:
+                _gq.record(model)
             parsed: TranslationOutput = response.parsed
             if parsed is None:
                 # Blokkolt/csonka válasz gyakran átmeneti — megér egy retry-t
@@ -300,6 +311,12 @@ def call_gemini(client, model: str, prompt: str, system_instruction: str,
         except genai_errors.APIError as e:
             last_err = e
             status = getattr(e, "code", None) or getattr(e, "status_code", None)
+            # 429-ből megtanuljuk a modell tényleges NAPI limitjét. Csak a napi
+            # (PerDay) kvóta számít — a percenkénti 429-et, ami magas --agents
+            # értéknél rutinszerű, az alábbi retry-ág kezeli, és nem jelenti
+            # azt, hogy a napi keret elfogyott.
+            if status == 429 and _gq:
+                _gq.note_limit_from_error(model, e)
             if status in (429, 500, 502, 503, 504) and attempt < max_retries:
                 delay = RETRY_BASE_DELAY * (2 ** (attempt - 1))
                 print(f"  API hiba ({status}), újrapróbálás {delay}s múlva... ({attempt}/{max_retries})")
@@ -520,6 +537,11 @@ def main():
     if not pending:
         print("\nMinden blokk le van fordítva!")
         return
+
+    # Kvóta-előrejelzés: blokkonként legalább 1 kérés megy el (retry esetén több),
+    # ezért a pending blokkszám az alsó becslés a napi fogyásra.
+    if _gq:
+        _gq.preflight(model, needed=len(pending))
 
     print(f"\nFordítandó blokkok:")
     for p in pending:

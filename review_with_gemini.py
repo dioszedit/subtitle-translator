@@ -62,6 +62,13 @@ sys.stderr.reconfigure(encoding='utf-8')
 
 from glossary_categories import CATEGORIES
 
+# Kvótakövetés — gépszintű, API kulcs szerint (a Gemini API nem adja vissza
+# a maradék napi kérésszámot). Ha a modul hiányzik, a script fut tovább.
+try:
+    import gemini_quota as _gq
+except Exception:
+    _gq = None
+
 # Külső függőségek — lazy try/except, hogy a --help akkor is fusson, ha még
 # nincsenek telepítve. A main() ellenőrzi a _DEPS_OK flag-et a tényleges
 # munka előtt; ha hiányzik függőség, friendly üzenettel kilép.
@@ -323,6 +330,10 @@ def review_chunk_gemini(client, model, chunk_text, chunk_num, total_chunks,
                 contents=prompt,
                 config=config,
             )
+            # A hívás lefutott a modellen → fogyasztotta a napi kvótát.
+            # (Az üres/blokkolt válasz is, ezért a parse ELŐTT könyvelünk.)
+            if _gq:
+                _gq.record(model)
 
             parsed: ErrorReport = response.parsed
             if parsed is None:
@@ -339,6 +350,12 @@ def review_chunk_gemini(client, model, chunk_text, chunk_num, total_chunks,
         except genai_errors.APIError as e:
             last_err = e
             status = getattr(e, "code", None) or getattr(e, "status_code", None)
+            # 429-ből megtanuljuk a modell tényleges NAPI limitjét, így a
+            # következő futás előtt már pontosat tudunk jelezni. A modul csak
+            # a napi (PerDay) kvótát veszi figyelembe — az alábbi retry-ág
+            # által kezelt percenkénti 429-et szándékosan figyelmen kívül hagyja.
+            if status == 429 and _gq:
+                _gq.note_limit_from_error(model, e)
             if status in (429, 500, 502, 503, 504) and attempt < MAX_RETRIES:
                 delay = RETRY_BASE_DELAY * (2 ** (attempt - 1))
                 print(f"  API hiba ({status}), újrapróbálás {delay}s múlva... ({attempt}/{MAX_RETRIES})")
@@ -482,6 +499,12 @@ def main():
         sys.exit(1)
     if start > 1 or end < total_chunks:
         print(f"Tartomány: {start}–{end}")
+
+    # Kvóta-előrejelzés: a Gemini API nem adja vissza a maradékot, ezért
+    # helyi (gépszintű, kulcs szerinti) könyvelésből becsüljük meg, hogy
+    # a most következő (end - start + 1) kérés belefér-e a napi limitbe.
+    if _gq:
+        _gq.preflight(model, needed=end - start + 1)
     print()
 
     report_path = srt_path.with_name(srt_path.stem + f"_REVIEW_GEMINI{args.suffix}.txt")
