@@ -81,6 +81,48 @@ py review_with_gemini.py "output\Sorozat - S01E01.hun.srt"
 # Előfeltétel: pip install google-genai python-dotenv pydantic
 # Előfeltétel: .env fájl GEMINI_API_KEY=... bejegyzéssel
 
+# 5b/2. GEMINI KVÓTA — mennyi hívás van még ma?
+#     A Gemini API NEM adja vissza a maradék napi kvótát (kipróbálva: a Service
+#     Usage API 403-at ad API kulccsal, a válaszfejlécekben nincs ratelimit-*),
+#     ezért a gemini_quota.py HELYBEN könyveli a hívásokat.
+py gemini_quota.py                 # mai fogyás modellenként
+# Opcionálisan:
+#   --days 7        utolsó 7 nap
+#   --projects      projektmappa szerinti bontás is (hol fogyott el az adag)
+#   --model <név>   csak egy modell
+#   --where         hol van a napló
+#   --reset         mai számlálók nullázása (ha félrement a könyvelés)
+#   --forget-limit <modell>   egy megtanult napi limit elfelejtése
+#                             (a limitek tartósak, a --reset nem érinti őket)
+#
+# A napló GÉPSZINTŰ, NEM projektszintű — ez fontos:
+#   ~\.gemini_quota\usage.json   (felülírható: GEMINI_QUOTA_FILE env-változóval)
+# A napi kvóta az API KULCSHOZ tartozik, nem a mappához. Ha egy gépen több
+# felirat-projekt fut ugyanazzal a kulccsal, MIND ugyanabból a napi adagból
+# fogyaszt — ezért közös a napló, és a kulcs ujjlenyomata szerint van bontva
+# (maga a kulcs SOHA nem kerül a fájlba).
+#
+# A review_with_gemini.py és a translate_with_gemini.py automatikusan használja:
+#   - indulás előtt kiírja, belefér-e a tervezett futás a napi limitbe
+#   - minden sikeres hívást könyvel
+#   - NAPI limitbe futáskor (429) kiolvassa a tényleges limitet a hibából és
+#     elmenti, így onnantól arra a modellre pontos limitet ismer (nem becsül)
+#
+# A 429 nem mind egyforma! A Gemini percenkénti (RPM) és token-limitre is 429-et
+# ad — azok MÚLÓ hibák, a scriptek retry-logikája átvészeli őket. A könyvelés
+# ezért a hiba quotaId mezője alapján osztályoz, és CSAK a napi (PerDay) limitet
+# tanulja meg. Enélkül egy múló percenkénti hiba (magas --agents értéknél ez
+# rutinszerű) rossz napi limitet égetne be, és hamisan "kimerült"-nek jelölné
+# a modellt a nap hátralévő részére.
+#
+# FIGYELEM: a nap NEM helyi éjfélkor vált! A Google ingyenes napi kvótája
+# csendes-óceáni idő (PT) szerint nullázódik. A script PT szerint könyvel, és
+# kiírja, hány óra van a nullázásig.
+#
+# Tapasztalat: az ingyenes szinten a nem-lite modellek napi limitje 20 kérés
+# MODELLENKÉNT (a limit modellenként külön van, ezért modellváltással lehet
+# tovább dolgozni). Egy ~400 szekciós rész review-ja 4-5 kérés.
+
 # 5c. Review-javaslatok alkalmazása (a két riportot összefésüli és deduplikálja)
 py apply_review.py "output\Sorozat - S01E01.hun.srt"
 # Automatikusan megtalálja a fájl melletti _REVIEW_CLAUDE / _REVIEW_GEMINI
@@ -89,6 +131,26 @@ py apply_review.py "output\Sorozat - S01E01.hun.srt"
 #   q = kilépés (az addig alkalmazottak mentődnek)
 # Az első íráskor .bak mentés készül az eredetiről.
 # Csak listázás módosítás nélkül: --dry-run
+
+# 5d. ALTERNATÍVA: review-javítások NEM interaktív alkalmazása
+#     Az 5c. lépés konzolon kérdez minden találatnál — sok részt átnézve ez
+#     több száz kérdés. Ha egy agent (vagy Te, előre elkészített listával)
+#     vezeti át a javításokat, ez a script kérdés nélkül dolgozik:
+py apply_review_auto.py "output\Sorozat - S01E01.hun.srt" decisions.json
+# A decisions.json formátuma (a sorszám + időbélyeg SOHA nem módosul):
+#   [
+#     {"sorszam": 12, "javaslat": "Az új magyar szöveg"},
+#     {"sorszam": 40, "javaslat": "Első sor\nMásodik sor"}
+#   ]
+# Csak listázás módosítás nélkül: --dry-run
+# Az első íráskor .bak mentés készül (ha még nincs).
+#
+# MIÉRT ÉRDEMES ÍGY: a review-modellek javaslatainak jó része téves — mért
+# adat 10 részen: a gemini-3.1-flash-lite találatainak ~13%-a szó szerint
+# azonos volt az eredetivel (no-op), és ezen felül is sokat el kell dobni
+# (nem létező szóalakok, hamis tegezés/magázás-riasztások). A javaslatokat
+# ezért érdemes egyesével az ANGOL EREDETIHEZ mérni, és a jóváhagyott
+# (esetleg átírt) szöveget ebben a fájlban átadni.
 
 # 6. Szójegyzék bővítése a KÉSZ fordításból (fordítás UTÁNI mód)
 #     Itt MINDKÉT fájlt megadod → a "hu" a magyar feliratban TÉNYLEGESEN használt fordítás.

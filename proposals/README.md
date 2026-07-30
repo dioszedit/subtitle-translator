@@ -15,7 +15,7 @@ research jegyzetek, alternatív megoldások, tervezési dokumentumok.
 | [translategemma_local.md](translategemma_local.md) | Lokális fordító Mac mini-n (ollama + `translategemma:12b`) — alternatíva a Claude API helyett | Research jegyzet |
 | [desktop_gui_v1.md](desktop_gui_v1.md) | Cross-platform desktop GUI a teljes workflow-hoz (Windows + Mac) | Tervezés első kör, döntési pontok nyitva |
 | [stilisztika_chat_prompt.md](stilisztika_chat_prompt.md) | Stilisztikai + CPS review prompt chat-AI-ba (ChatGPT, Claude.ai) — alternatíva a review_with_* scriptekhez | Használatra kész prompt |
-| [deep_review_otletek_v1.md](deep_review_otletek_v1.md) | A 2026-07-13-i deep review be nem épített ötletei: review resume, glossary-check, pipeline.py, közös modul, költség-log | Fontolgatott opciók, javasolt sorrenddel |
+| [deep_review_otletek_v1.md](deep_review_otletek_v1.md) | A 2026-07-13-i deep review be nem épített ötletei: review resume, glossary-check, pipeline.py, közös modul, költség-log | Fontolgatott opciók, javasolt sorrenddel. **#5 (költség-log) részben beépült:** a `gemini_quota.py` már hívásonként könyvel — a token/költség-dimenzió hiányzik belőle |
 
 ## Konvenciók
 

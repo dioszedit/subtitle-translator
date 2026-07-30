@@ -28,10 +28,13 @@ subtitle-translator/
 ├── review_with_claude.py        ← 5a. Stilisztikai review Claude Code-dal
 ├── review_with_gemini.py        ← 5b. Stilisztikai review Gemini API-val (opcionális)
 ├── apply_review.py              ← 5c. Review-riportok összefésülése + interaktív alkalmazás
+├── apply_review_auto.py         ← 5d. Ugyanaz kérdés nélkül, döntés-fájlból (agent / batch)
 ├── resegment_srt.py             ← 7. Sorhossz/CPS QA + újratördelés (lásd resegment_srt.md)
 ├── glossary_extract.py          ← Szójegyzék bővítése (fordítás előtt angol-only, vagy utólag párból)
 ├── glossary_categories.py       ← Közös konstans (CATEGORIES) — itt vedd fel új
 │                                  glossary-kategóriát, mind az 5 script innen olvas
+├── gemini_quota.py              ← Gemini napi kvóta helyi könyvelése — a két Gemini
+│                                  script automatikusan használja, önállóan is lekérdezhető
 │
 ├── srt-preclean-addon/          ← Opcionális 0. lépés: SDH-forrás előtisztítása
 │                                  (saját README a részletekhez)
@@ -129,8 +132,10 @@ python review_with_gemini.py "output\Sorozat - S01E01.hun.srt"
 # 5c. Review-javaslatok alkalmazása (a riportokat összefésüli, deduplikálja,
 #     találatonként y/n/e/q kérdéssel viszi át a fájlba, .bak mentéssel)
 python apply_review.py "output\Sorozat - S01E01.hun.srt"
+# vagy 5d. Ugyanez kérdés nélkül, előre elkészített döntés-fájlból
+# python apply_review_auto.py "output\Sorozat - S01E01.hun.srt" decisions.json
 
-# 6. Szegmentálás — sorhossz-riport + automatikus tördelés (a review-javítások után)
+# 7. Szegmentálás — sorhossz-riport + automatikus tördelés (a review-javítások után)
 python resegment_srt.py report "output\Sorozat - S01E01.hun.srt"
 python resegment_srt.py reflow "output\Sorozat - S01E01.hun.srt" -o "output\Sorozat - S01E01.hun.reflow.srt"
 ```
@@ -251,6 +256,38 @@ eltérőeket variánsként kínálja fel. Találatonként kérdez: `y` = alkalma
 `1..9` = adott variáns, `e` = kézi szerkesztés, `n` = kihagy, `q` = kilépés
 mentéssel. Az első módosítás előtt `.bak` mentést készít az eredetiről.
 
+#### Nem interaktív alkalmazás (`apply_review_auto.py`)
+
+Az `apply_review.py` minden találatnál kérdez — sok részt átnézve ez több száz
+konzol-kérdés. Ha a döntéseket **előre** meghozod (magad, vagy egy agenttel,
+aki a javaslatokat az angol eredetihez méri), ez a testvér-script kérdés nélkül
+vezeti át őket:
+
+```powershell
+python apply_review_auto.py "output\hun.srt" decisions.json
+python apply_review_auto.py "output\hun.srt" decisions.json --dry-run
+```
+
+A `decisions.json` egy egyszerű lista — csak szekciószám és a végleges szöveg:
+
+```json
+[
+  {"sorszam": 12, "javaslat": "Az új magyar szöveg"},
+  {"sorszam": 40, "javaslat": "Első sor\nMásodik sor"}
+]
+```
+
+A sorszám + időbélyeg itt is érintetlen marad, az első íráskor `.bak` mentés
+készül, a fájlban nem létező szekciókat kihagyja és jelzi. Ami már egyezik a
+javaslattal, azt nem írja újra.
+
+> **Miért éri meg előre szűrni:** a review-modellek javaslatainak jelentős
+> része téves. 10 részen mérve a `gemini-3.1-flash-lite` találatainak ~13%-a
+> szó szerint azonos volt az eredetivel (no-op), és ezen felül is sokat el kell
+> dobni (nem létező szóalakok, hamis tegezés/magázás-riasztások). Érdemes tehát
+> a javaslatokat egyesével az **angol eredetihez** mérni, és csak a jóváhagyott
+> (esetleg átírt) szöveget beírni a döntés-fájlba.
+
 #### Gemini review (`review_with_gemini.py`)
 ```powershell
 # Default modell: gemini-3.1-flash-lite (gyors, olcsó)
@@ -284,6 +321,70 @@ Az angol forrás párosítása itt is működik (lásd fent a Claude review-nál
 >
 > Ha egy nem létező modell-azonosítót adsz át, a script API hibával fog
 > visszatérni — ilyenkor a fenti oldalon nézd meg a helyes nevet.
+
+### Gemini kvóta — mennyi hívás van még ma? (`gemini_quota.py`)
+
+A Gemini API **nem adja vissza a maradék napi kvótát**: a Service Usage API
+API-kulccsal 403-at ad, a válaszfejlécekben nincs `ratelimit-*`, a `models.get()`
+csak token-limiteket ismer. A napi limitbe így csak akkor futnál bele, amikor
+már megtörtént (429) — a `gemini_quota.py` ezért **helyben könyveli** a
+hívásokat, és a futás előtt megmondja, belefér-e a tervezett munka.
+
+Csak Python stdlib, nincs telepítendő függőség.
+
+```powershell
+python gemini_quota.py                  # mai fogyás modellenként
+python gemini_quota.py --days 7         # utolsó 7 nap
+python gemini_quota.py --projects       # projektmappa szerinti bontás is
+python gemini_quota.py --model gemini-3.1-flash-lite   # csak egy modell
+python gemini_quota.py --where          # hol van a napló
+python gemini_quota.py --reset          # mai számlálók nullázása
+python gemini_quota.py --forget-limit gemini-3.6-flash # megtanult limit elfelejtése
+```
+
+A `translate_with_gemini.py` és a `review_with_gemini.py` **automatikusan**
+használja: indulás előtt kiírja a várható fogyást, és minden sikeres hívást
+elkönyvel. Ha a modul hiányzik, a scriptek változatlanul futnak tovább — a
+kvótakövetés kényelmi funkció, nem állíthatja meg a fordítást.
+
+**A napló gépszintű, nem projektszintű** — ez a leggyakoribb félreértés:
+
+```
+~\.gemini_quota\usage.json          (felülírható: GEMINI_QUOTA_FILE env-változó)
+```
+
+A napi kvóta az **API kulcshoz** tartozik, nem a munkakönyvtárhoz. Ha egy gépen
+több felirat-projekt fut ugyanazzal a kulccsal, mind ugyanabból a napi keretből
+fogyaszt — ezért közös a napló, és a kulcs **ujjlenyomata** szerint van bontva
+(maga a kulcs soha nem kerül a fájlba). A `--projects` megmutatja, melyik
+mappából mennyi fogyott.
+
+> ⚠️ **A nap nem helyi éjfélkor vált.** A Google ingyenes napi kvótája
+> csendes-óceáni idő (PT) szerint nullázódik. A script PT szerint könyvel, és
+> kiírja, hány óra van hátra a nullázásig.
+
+**A limitek öntanulók — de csak a napi limit.** A Gemini többféle 429-et ad, és
+csak az egyik jelenti azt, hogy elfogyott a napi keret:
+
+| `quotaId` | Mit jelent | Mit csinál a könyvelés |
+|---|---|---|
+| `...PerDay...` | napi kérés-limit | megtanulja a pontos limitet, a napot kimerültnek jelöli |
+| `...PerMinute...` | percenkénti rate limit | figyelmen kívül hagyja — a retry-logika átvészeli |
+| `...Tokens...` | token-alapú limit | figyelmen kívül hagyja — nem kérésszám |
+
+Ez a megkülönböztetés lényeges: magas `--agents` értéknél a percenkénti 429
+rutinszerű, és ha azt napi limitnek vennénk, egy múló hiba rossz értéket égetne
+be, és a nap hátralévő részére hamisan „kimerült"-nek jelölné a modellt.
+
+A megtanult limitek **tartósak** (nem évülnek a napi számlálókkal), ezért a
+`python gemini_quota.py` kiírja őket — ha valamelyik hibásnak tűnik, a
+`--forget-limit <modell>` törli, és a következő valódi napi 429-nél újratanul.
+Amíg nincs mért adat, becslést használ, és ezt `(becs)` jelöléssel jelzi.
+
+> **A `remaining` alsó becslés, nem mérés.** Csak a sikeres hívások kerülnek a
+> naplóba, és csak a modul bevezetése óta — az 5xx-szel elhalt hívás is
+> fogyaszthatott kvótát. Ha a számláló és a valóság elcsúszik, a `--reset`
+> visszaállítja a mai könyvelést.
 
 ### Szójegyzék bővítése
 
@@ -350,6 +451,12 @@ a változás a következő futáskor automatikusan érvényesül — a translate
   jelenlegi default: `gemini-3.1-flash-lite`), és nem bántam meg —
   töredék költséggel hasonló minőséget ad a felirat-review feladathoz.
   Ha most kezdesz, érdemes Gemini-vel próbálkozni elsőként.
+- **Gemini napi limit:** ingyenes szinten a `-lite` modellek bőkezűek, a
+  nem-lite modellek viszont tapasztalat szerint napi ~20 kérésnél elfogynak —
+  **modellenként külön**, ezért modellváltással aznap tovább lehet dolgozni.
+  (Nagyságrend: egy ~400 szekciós rész review-ja 4-5 kérés.) Hogy hol tartasz:
+  `python gemini_quota.py`. Ha egy hosszú futás közben fogyna el, a review
+  `--start-chunk` / `--end-chunk` / `--suffix` kapcsolókkal folytatható.
 - **Prompt cache:** a `translate_parallel.py` a system promptot tartalom-hash
   alapján fájlba menti, így a párhuzamos agent-ek és az ismételt futások is
   cache-hit-tel indulhatnak — drasztikus költségcsökkenés.
@@ -362,12 +469,22 @@ négy lépés:
 
 ### 1. Review-hibák javítása
 
-A riportban listázott hibákat kétféleképpen javíthatod:
+A riportban listázott hibákat háromféleképpen javíthatod:
 
-- **Claude Code-dal**: nyisd meg a magyar SRT-t Claude Code-ban, és add át
-  neki a review riportot — végigmegy a hibákon és javítja.
+- **Interaktívan** (`apply_review.py`): a script összefésüli a riportokat és
+  találatonként megkérdezi, alkalmazza-e. A legegyszerűbb út, de sok részen
+  több száz kérdés.
+- **Döntés-fájllal** (`apply_review_auto.py`): a javaslatokat előre átnézed —
+  magad, vagy egy agenttel, aki mindegyiket az angol eredetihez méri —, és a
+  jóváhagyott szövegeket egy `decisions.json`-ben adod át. Kérdés nélkül fut le.
+  Ez az ajánlott út, ha több részt viszel át egyszerre; a szűrés miért fontos,
+  arról lásd fent a script szakaszát.
 - **Manuálisan**: szövegszerkesztőben (VSCode, Notepad++, Subtitle Edit,
   stb.) sorszám szerint megkeresed és javítod.
+
+> **Sorrend:** a review-javításokat a szegmentálás (2. lépés) **előtt** vidd át.
+> A `resegment --split` újraszámozhatja a cue-kat, és onnantól a riportok
+> sorszámai már nem a régi szekciókra mutatnak.
 
 ### 2. Automatikus szegmentálás — `resegment_srt.py`
 
