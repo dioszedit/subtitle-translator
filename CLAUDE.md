@@ -102,18 +102,38 @@ A szójegyzékben lévő fordításokat MINDIG használd, ne térj el tőlük!
 
 ### Gyakori hibák — KERÜLD EL
 
+A hibák három blokkra bomlanak aszerint, hogy a szabály mihez kötődik. Ez akkor
+számít, ha nem angol forrásból fordítasz: az **A** és **B** blokk olyankor is
+teljes egészében érvényes, a **C** blokk viszont konkrét angol kifejezésekre
+épül, tehát más forrásnyelvnél nem sül el — nem árt, csak nem segít.
+
+#### A. SRT-szerkezet — forrás- és célnyelvtől független
+
 | Hiba | Megoldás |
 |------|---------|
 | Sorszám fejből generálva → eltolódik | Az eredetiből másolni |
 | Időbélyeg felcserélődik | Eredetiből másolni |
-| Karakternév lefordítva | "Yi Gang" → "Yi Folyó", Nevek listája fent |
-| Tükörfordítás | Természetes magyar |
 | Kötőjel → Markdown lista | Kötőjelet hagyni |
 | Több/kevesebb szekció az outputban | Szekciószám ellenőrzés |
-| "get married" mindig nőnemű | Alapból semleges (megházasodni), csak ha BIZTOSAN ismert a nem |
-| "I'll marry you" → "Feleségül veszlek" nőtől férfinak | Nő → férfi: "Hozzád megyek." A beszélő neme dönt, nem a megszólítotté! |
+
+#### B. A magyar kimenet minősége — bármilyen forrásnyelvnél érvényes
+
+| Hiba | Megoldás |
+|------|---------|
+| Karakternév lefordítva | "Yi Gang" → "Yi Folyó", Nevek listája fent |
+| Tükörfordítás | Természetes magyar |
 | Helytelen igeragozás: "tetszesz nekem" | Helyesen: "tetszel nekem" — a "tetszik" ikes ige, E/2 alakja: "tetszel" |
+| A sorozatrész "epizód"-nak fordítva (angol forrásban: "episode") | MINDIG "rész": "1. rész", "a következő rész", "az előző részben" |
+| Házasodás nemi egyeztetés nélkül (angol forrásban: "get married") | Alapból semleges (megházasodni), csak ha BIZTOSAN ismert a nem |
+| "Feleségül veszlek" nőtől férfinak (angol forrásban: "I'll marry you") | Nő → férfi: "Hozzád megyek." A beszélő neme dönt, nem a megszólítotté! |
+
+#### C. Angol forrásnyelvi csapdák — csak EN→HU fordításnál
+
+| Hiba | Megoldás |
+|------|---------|
 | "framed me" → "kereteztek be" (tükörfordítás) | Bűnügyi kontextusban: "tőrbe csaltak", "rám kentek valamit", "hamis vádakkal illettek" |
-| "episode" → "epizód" | MINDIG "rész": "1. rész", "a következő rész", "az előző részben" |
 | "stalker" angolul maradva (jövevényszónak tűnik) | MINDIG fordítsd: "zaklató", "üldöző", "leselkedő"; igeként: "zaklat", "követ", "megfigyel" |
 | "What brings you here?" → jelen idő: "mi hozza ma ide" | MAGYARUL MÚLT IDŐ, és a ragozás tegezés/magázás szerint más. Tegezve: "Mi hozott ma ide?", "Mi szél hozott erre?" — magázva: "Mi hozta ma ide?". A "téged" 2. személyű tárgy alanyi ragozást kér ("hozott"), az "önt/magát" 3. személyű tárgy tárgyasat ("hozta"). A "mi szél hozott erre?" eleve bizalmas hangvételű idióma, magázásba ne erőltesd. |
+
+> Ha más forrásnyelvről fordítasz, a **C** blokkot érdemes a saját forrásnyelved
+> tipikus csapdáira cserélni — a szerkezete ugyanaz marad.

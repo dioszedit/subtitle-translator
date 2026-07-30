@@ -3,8 +3,11 @@
 SRT felirat-fordítási keretrendszer LLM-alapú fordítással és stilisztikai review-val.
 A workflow Claude Code-on alapul, a review opcionálisan Gemini API-val is fut.
 
-**Alapértelmezett irány:** angolról magyarra (EN→HU). Technikailag más nyelvpárokra
-is használható (a glossary konzisztencia miatt projektenként egy forrásnyelv ajánlott).
+**Irány:** angolról magyarra (EN→HU). A **célnyelv fixen magyar** — a fordító és a
+review promptok magyar nyelvre vannak megírva, ez nem paraméter. A **forrásnyelv
+angolra van hangolva**: a promptok is ezt mondják a modellnek. Más forrásnyelvvel a
+folyamat lefut és használható eredményt ad, de több ponton gyengébben — a részletekért
+és a beállításokért lásd a *Más forrásnyelv* szakaszt.
 
 **Tipikus use-case:** sorozat-feliratok fordítása (pl. koreai és más ázsiai drámák),
 ahol fontos a karakterek, megszólítások és kulturális kifejezések konzisztens
@@ -446,6 +449,34 @@ Mind a két fordító, mind a két review script átadja a **CLAUDE.md**-t és a
 **Következmény:** ha bővíted a CLAUDE.md-t (új szabály) vagy a glossary-t,
 a változás a következő futáskor automatikusan érvényesül — a translate-nél
 és a review-nál is. Külön beállítás nem kell.
+
+## Más forrásnyelv (nem angol forrásból)
+
+A **célnyelv fixen magyar**: a fordító és a review promptok magyar nyelvre vannak
+megírva (`translate_*.py`, `review_*.py`), ez nem kapcsolható ki.
+
+A **forrásnyelv angolra van hangolva**, de a folyamat más forrásnyelvvel is lefut, és
+használható eredményt ad. Amit ilyenkor tudni érdemes:
+
+| Mi | Mi történik | Mit tegyél |
+|---|---|---|
+| A fordító prompt kimondja: „angolról magyarra" | A modell téves állítást kap a forrásról. Általában elnézi, de nem ideális | A prompt átírása kódmódosítás — ha rendszeresen kell, érdemes |
+| A `CLAUDE.md` „Gyakori hibák" **C. blokkja** konkrét angol kifejezésekre épül | Ezek a szabályok nem sülnek el — holt teher, de nem ártanak | Cseréld a saját forrásnyelved tipikus csapdáira; az **A** és **B** blokk változatlanul érvényes |
+| A forrás automatikus megkeresése `.hun.srt` → `.eng.srt` névcserével megy | Más kiterjesztésű forrást nem talál meg, és a review **forrás-összevetés nélkül** fut | **Add meg kézzel:** `--english "input\....srt"` — a kapcsoló bármilyen fájlt elfogad |
+| A forrássorok címkéje a promptban `[EN]` | A címke félrevezető, de a párosítás működik | — |
+| A `glossary.json` kulcsa `en` | Csak elnevezés; funkcionálisan „forrásnyelvi kifejezés" | — |
+
+A legfontosabb ezek közül a harmadik. Forrás-összevetés nélkül a review érezhetően
+több téves találatot ad (a lektor ilyenkor csak a magyar szöveget látja, és nem tudja
+ellenőrizni, hogy az eredeti igazolja-e a megoldást), ezért nem angol forrásnál a
+`--english` kézi megadása gyakorlatilag kötelező:
+
+```powershell
+python review_with_gemini.py "output\hun.srt" --english "input\Sorozat - S01E01.kor.srt"
+```
+
+A `glossary.json` szerepe itt még nagyobb, mint EN→HU esetben: mivel a C. blokk
+szabályai kiesnek, a konzisztencia jórészt a szójegyzéken múlik.
 
 ## Tippek
 
