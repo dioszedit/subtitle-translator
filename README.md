@@ -393,10 +393,18 @@ A megtanult limitek **tartósak** (nem évülnek a napi számlálókkal), ezért
 `--forget-limit <modell>` törli, és a következő valódi napi 429-nél újratanul.
 Amíg nincs mért adat, becslést használ, és ezt `(becs)` jelöléssel jelzi.
 
-> **A `remaining` alsó becslés, nem mérés.** Csak a sikeres hívások kerülnek a
-> naplóba, és csak a modul bevezetése óta — az 5xx-szel elhalt hívás is
-> fogyaszthatott kvótát. Ha a számláló és a valóság elcsúszik, a `--reset`
-> visszaállítja a mai könyvelést.
+> **A számláló alsó becslés, a maradék ezért felső korlát.** A naplóba csak
+> azok a hívások kerülnek, amelyek ezeken a scripteken keresztül mentek ki
+> **és** sikeresen vissza is tértek. Kimarad tehát: az API kulcs használata
+> máshol (AI Studio webUI, curl, másik eszköz — ez a legnagyobb forrás), az
+> 5xx-szel elhalt hívás, ami a szerveren már fogyaszthatott, és a válasz előtt
+> megszakított futás. A 429-cel elutasított kérés viszont helyesen marad ki:
+> az nem fogyaszt kvótát.
+>
+> A kiírások ezért „legalább ennyit használtál" / „legfeljebb ennyi maradt"
+> formában fogalmaznak. Ha a könyvelés túl sokat mutat (pl. félresikerült
+> teszt), a `--reset` nullázza a mai számlálókat; ha kevesebbet a valóságnál,
+> azt az első napi 429 korrigálja — onnantól a maradék nullára vált.
 
 ### Szójegyzék bővítése
 

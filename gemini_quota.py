@@ -11,6 +11,16 @@ Vagyis a napi limitbe csak akkor futunk bele, amikor már megtörtént (429).
 Ez a modul ezért helyben számolja a hívásokat, és a futás ELŐTT megmondja,
 belefér-e a tervezett munka.
 
+A SZÁMLÁLÓ ALSÓ BECSLÉS — a maradék tehát FELSŐ korlát:
+Csak azok a hívások kerülnek a naplóba, amelyek ezeken a scripteken keresztül
+mentek ki ÉS sikeresen vissza is tértek. Kimarad ezért:
+  - az API kulcs használata máshol (AI Studio webUI, curl, másik eszköz)
+  - az 5xx-szel elhalt hívás, ami a szerveren már fogyaszthatott
+  - a válasz megérkezése előtt megszakított (Ctrl-C) futás
+Ami helyesen marad ki: a 429-cel elutasított kérés nem fogyaszt kvótát.
+A kiírásokban ezért "legalább ennyit használtál" / "legfeljebb ennyi maradt"
+szerepel — a valódi maradék ennél kevesebb is lehet.
+
 A NAPLÓ GÉPSZINTŰ, NEM PROJEKTSZINTŰ — ez lényeges:
 A napi kvóta az API KULCSHOZ (a mögötte lévő Google-projekthez) tartozik, nem
 a munkakönyvtárhoz. Ha egy gépen több felirat-projekt fut ugyanazzal a kulccsal,
@@ -411,7 +421,11 @@ def note_limit_from_error(model: str, exc) -> "int | None":
 
 
 def status(model: str) -> dict:
-    """Mai állapot egy modellre (a jelenlegi API kulcs szerint)."""
+    """Mai állapot egy modellre (a jelenlegi API kulcs szerint).
+
+    A `used` ALSÓ becslés, a `remaining` ezért FELSŐ korlát — lásd a modul
+    docstringjében, mi marad ki a könyvelésből.
+    """
     fallback = KNOWN_LIMITS.get(model, DEFAULT_LIMIT)
     try:
         data = _load()
@@ -421,8 +435,12 @@ def status(model: str) -> dict:
         exhausted = bool(rec.get("exhausted", False))
         measured = model in b.get("limits", {})
         limit = int(b["limits"][model]) if measured else fallback
+        # Ha ma már volt napi 429, a maradék nulla — függetlenül attól, mit
+        # mutat a számláló. (A számláló alulszámolhat, ezért fordulhatna elő
+        # a "maradék 5, de belefutott a limitbe" önellentmondás.)
+        remaining = 0 if exhausted else max(0, limit - used)
         return {"used": used, "limit": limit, "limit_measured": measured,
-                "exhausted": exhausted, "remaining": max(0, limit - used),
+                "exhausted": exhausted, "remaining": remaining,
                 "by_project": dict(rec.get("by_project", {}))}
     except Exception:
         return {"used": 0, "limit": fallback, "limit_measured": False,
@@ -432,13 +450,15 @@ def status(model: str) -> dict:
 def preflight(model: str, needed: int = 0, quiet: bool = False) -> bool:
     """Futás előtti kvóta-jelzés. Visszatér: belefér-e a tervezett munka.
 
-    NEM állítja meg a futást — csak jelez.
+    NEM állítja meg a futást — csak jelez. A megfogalmazás szándékosan
+    "legalább" / "legfeljebb": a számláló alsó becslés (lásd a modul
+    docstringjét), így a valódi maradék ennél kevesebb is lehet.
     """
     try:
         st = status(model)
         src = "mért" if st["limit_measured"] else "becsült"
-        line = (f"Kvóta ({model}): ma {st['used']}/{st['limit']} elhasználva "
-                f"({src} limit), maradék ~{st['remaining']}")
+        line = (f"Kvóta ({model}): ma legalább {st['used']}/{st['limit']} "
+                f"elhasználva ({src} limit), maradék legfeljebb {st['remaining']}")
         if needed:
             line += f", ez a futás {needed} kérés"
         if not quiet:
@@ -458,8 +478,8 @@ def preflight(model: str, needed: int = 0, quiet: bool = False) -> bool:
         if needed and needed > st["remaining"]:
             if not quiet:
                 print(f"  [!] Valószínűleg NEM fér bele ({needed} kérés kell, "
-                      f"~{st['remaining']} maradt). Válts modellt, vagy futtasd "
-                      f"darabolva (--start-chunk/--end-chunk + --suffix).")
+                      f"legfeljebb {st['remaining']} maradt). Válts modellt, vagy "
+                      f"futtasd darabolva (--start-chunk/--end-chunk + --suffix).")
             return False
         return True
     except Exception:
@@ -497,6 +517,11 @@ def _print_table(days: int, show_projects: bool) -> None:
         print("Ehhez a kulcshoz még nincs könyvelt Gemini-hívás.")
         return
 
+    print("A számláló ALSÓ becslés: csak az ezekkel a scriptekkel indított, sikeres")
+    print("hívások kerülnek bele. Ha ugyanezt a kulcsot máshol is használod (AI Studio,")
+    print("curl, másik eszköz), az láthatatlanul fogyaszt — a valódi maradék kevesebb.")
+    print()
+
     for d in all_days:
         print(f"[{d}]")
         entries = b["days"][d]
@@ -506,9 +531,11 @@ def _print_table(days: int, show_projects: bool) -> None:
             measured = model in limits
             limit = int(limits[model]) if measured else KNOWN_LIMITS.get(model, DEFAULT_LIMIT)
             src = "mért" if measured else "becs"
-            flag = "  <-- belefutott a limitbe (429)" if rec.get("exhausted") else ""
+            exhausted = bool(rec.get("exhausted"))
+            flag = "  <-- belefutott a limitbe (429)" if exhausted else ""
+            remaining = 0 if exhausted else max(0, limit - used)
             print(f"   {model:26s} {used:4d}/{limit:<5d} ({src}) "
-                  f"maradék ~{max(0, limit - used):<5d}{flag}")
+                  f"maradék max {remaining:<5d}{flag}")
             if show_projects:
                 for p, n in sorted(rec.get("by_project", {}).items(),
                                    key=lambda kv: -kv[1]):
