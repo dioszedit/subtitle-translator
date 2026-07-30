@@ -139,11 +139,19 @@ py apply_review.py "output\Sorozat - S01E01.hun.srt"
 py apply_review_auto.py "output\Sorozat - S01E01.hun.srt" decisions.json
 # A decisions.json formátuma (a sorszám + időbélyeg SOHA nem módosul):
 #   [
-#     {"sorszam": 12, "javaslat": "Az új magyar szöveg"},
+#     {"sorszam": 12, "eredeti": "A régi szöveg", "javaslat": "Az új magyar szöveg"},
 #     {"sorszam": 40, "javaslat": "Első sor\nMásodik sor"}
 #   ]
 # Csak listázás módosítás nélkül: --dry-run
 # Az első íráskor .bak mentés készül (ha még nincs).
+#
+# Az "eredeti" mező OPCIONÁLIS, de AJÁNLOTT: ha megadod, a script ellenőrzi,
+# hogy tényleg az áll-e a fájlban, és eltérésnél kihagyja a bejegyzést. Ez azért
+# kell, mert a sorszámok nem örökérvényűek — a resegment_srt.py --split
+# ÚJRASZÁMOZZA a cue-kat, és onnantól egy régebbi döntés-fájl más szekciókra
+# mutat. Enélkül a script némán rossz helyekre írna. A review riportokban
+# (_REVIEW_*.json) amúgy is benne van ez a mező, csak át kell másolni.
+# Felülbírálás: --ignore-drift
 #
 # MIÉRT ÉRDEMES ÍGY: a review-modellek javaslatainak jó része téves — mért
 # adat 10 részen: a gemini-3.1-flash-lite találatainak ~13%-a szó szerint

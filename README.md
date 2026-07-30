@@ -268,18 +268,30 @@ python apply_review_auto.py "output\hun.srt" decisions.json
 python apply_review_auto.py "output\hun.srt" decisions.json --dry-run
 ```
 
-A `decisions.json` egy egyszerű lista — csak szekciószám és a végleges szöveg:
+A `decisions.json` egy egyszerű lista — szekciószám és a végleges szöveg:
 
 ```json
 [
-  {"sorszam": 12, "javaslat": "Az új magyar szöveg"},
+  {"sorszam": 12, "eredeti": "A régi szöveg", "javaslat": "Az új magyar szöveg"},
   {"sorszam": 40, "javaslat": "Első sor\nMásodik sor"}
 ]
 ```
 
 A sorszám + időbélyeg itt is érintetlen marad, az első íráskor `.bak` mentés
 készül, a fájlban nem létező szekciókat kihagyja és jelzi. Ami már egyezik a
-javaslattal, azt nem írja újra.
+javaslattal, azt nem írja újra — a script idempotens.
+
+> **Az `eredeti` mező opcionális, de ajánlott.** Ha megadod, a script
+> ellenőrzi, hogy tényleg az áll-e a fájlban — vagyis hogy a döntés-fájl
+> ehhez a fájl-állapothoz készült-e —, és eltérés esetén **kihagyja** az adott
+> bejegyzést. Erre azért van szükség, mert a sorszámok nem örökérvényűek: a
+> `resegment_srt.py --split` újraszámozza a cue-kat, és onnantól egy korábban
+> készült döntés-fájl más szekciókra mutat. Ha sok bejegyzés tér el egyszerre,
+> a script külön jelzi, hogy valószínűleg ez történt. Az összehasonlítás
+> whitespace-független, és a `--ignore-drift` felülbírálja.
+>
+> A review riportok (`_REVIEW_*.json`) amúgy is tartalmaznak `eredeti` mezőt,
+> úgyhogy a döntés-fájl összeállításakor érdemes átmásolni.
 
 > **Miért éri meg előre szűrni:** a review-modellek javaslatainak jelentős
 > része téves. 10 részen mérve a `gemini-3.1-flash-lite` találatainak ~13%-a
@@ -484,7 +496,8 @@ A riportban listázott hibákat háromféleképpen javíthatod:
 
 > **Sorrend:** a review-javításokat a szegmentálás (2. lépés) **előtt** vidd át.
 > A `resegment --split` újraszámozhatja a cue-kat, és onnantól a riportok
-> sorszámai már nem a régi szekciókra mutatnak.
+> sorszámai már nem a régi szekciókra mutatnak. Az `apply_review_auto.py` ezt
+> észreveszi, ha a döntés-fájlban megadod az `eredeti` mezőt.
 
 ### 2. Automatikus szegmentálás — `resegment_srt.py`
 

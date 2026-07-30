@@ -9,13 +9,24 @@ javításokat.
 
 Döntés-fájl (JSON):
     [
-      {"sorszam": 12, "javaslat": "Az új magyar szöveg"},
+      {"sorszam": 12, "eredeti": "A régi szöveg", "javaslat": "Az új magyar szöveg"},
       {"sorszam": 40, "javaslat": "Első sor\nMásodik sor"}
     ]
+
+Az "eredeti" mező OPCIONÁLIS, de AJÁNLOTT. Ha megadod, a script ellenőrzi, hogy
+a fájlban tényleg az áll-e — vagyis hogy a döntés-fájl ehhez a fájl-állapothoz
+készült-e. Eltérés esetén kihagyja az adott bejegyzést.
+
+Miért kell ez: a sorszámok nem örökérvényűek. A resegment_srt.py --split
+ÚJRASZÁMOZZA a cue-kat, és onnantól egy korábban készült döntés-fájl sorszámai
+már egészen más szekciókra mutatnak. Ilyenkor az "eredeti" nélkül a script
+némán rossz helyekre írna — ezt az ellenőrzés fogja meg. A review riportok
+(_REVIEW_*.json) amúgy is tartalmaznak "eredeti" mezőt, érdemes átvinni.
 
 Használat:
     python apply_review_auto.py "output/Sorozat - S01E01.hun.srt" decisions.json
     python apply_review_auto.py "output/....hun.srt" decisions.json --dry-run
+    python apply_review_auto.py "output/....hun.srt" decisions.json --ignore-drift
 
 Az első íráskor .bak mentés készül az eredetiről (ha még nincs).
 A sorszám + időbélyeg SOHA nem módosul, csak a szövegrész.
@@ -56,6 +67,12 @@ def apply_to_block(block, new_text):
     return "\n".join(lines[:2] + new_text.split("\n"))
 
 
+def norm(text):
+    """Whitespace-független alak az összehasonlításhoz — a review-modellek a
+    sortörést gyakran szóközzel adják vissza, az nem tartalmi eltérés."""
+    return " ".join(text.split())
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Review-javítások nem interaktív alkalmazása a magyar SRT-re")
@@ -63,6 +80,9 @@ def main():
     parser.add_argument("decisions", help="Döntés-fájl (JSON lista)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Csak listázás, nem módosít semmit")
+    parser.add_argument("--ignore-drift", action="store_true",
+                        help="Akkor is alkalmaz, ha az 'eredeti' mező nem egyezik "
+                             "a fájlban lévő szöveggel (alapból ilyenkor kihagy)")
     args = parser.parse_args()
 
     srt_path = Path(args.srt_file)
@@ -77,7 +97,12 @@ def main():
 
     blocks, index = parse_srt_blocks(srt_path)
 
-    applied = missing = unchanged = 0
+    # Hordoz-e a döntés-fájl egyáltalán "eredeti" mezőt? Ezt előre eldöntjük,
+    # mert a ciklusban a már alkalmazott bejegyzések korábban kiesnek, mint
+    # ahol az ellenőrzés futna — abból nem lehetne erre következtetni.
+    has_expected = any(isinstance(d, dict) and d.get("eredeti") for d in decisions)
+
+    applied = missing = unchanged = drifted = checked = 0
     for d in decisions:
         try:
             num = int(d["sorszam"])
@@ -97,6 +122,24 @@ def main():
         if current == new_text:
             unchanged += 1
             continue
+
+        # Illeszkedés-ellenőrzés: tényleg ehhez a fájl-állapothoz készült a
+        # döntés-fájl? Az "unchanged" ág fentebb van, így az újrafuttatás
+        # (már alkalmazott javítás) nem számít eltérésnek.
+        expected = d.get("eredeti", "")
+        if expected:
+            checked += 1
+            if norm(expected) != norm(current):
+                drifted += 1
+                print(f"#{num}: ELTÉRÉS — nem az a szöveg áll a fájlban, "
+                      f"amire a javaslat készült")
+                print(f"  fájlban: {current}")
+                print(f"  várt:    {expected}")
+                if not args.ignore_drift:
+                    print("  -> kihagyva (--ignore-drift felülbírálja)")
+                    continue
+                print("  -> --ignore-drift: mégis alkalmazva")
+
         print(f"#{num}:")
         print(f"  - {current}")
         print(f"  + {new_text}")
@@ -104,9 +147,20 @@ def main():
             blocks[bi] = apply_to_block(blocks[bi], new_text)
         applied += 1
 
+    if drifted and not args.ignore_drift:
+        print(f"\n[!] {drifted} bejegyzés kihagyva eltérés miatt.")
+        if checked and drifted >= max(3, checked // 2):
+            print("    Ennyi eltérés jellemzően azt jelenti, hogy az SRT időközben")
+            print("    ÚJRASZÁMOZÓDOTT (pl. resegment_srt.py --split) — ilyenkor a")
+            print("    döntés-fájl sorszámai már más szekciókra mutatnak, és a")
+            print("    javításokat a review megismétlésével érdemes újra előállítani.")
+    elif not has_expected and decisions:
+        print("\nMegjegyzés: egyik bejegyzésben sem volt \"eredeti\" mező, ezért nem")
+        print("tudtam ellenőrizni, hogy a döntés-fájl ehhez a fájl-állapothoz készült-e.")
+
     if args.dry_run:
-        print(f"\n--dry-run: {applied} javítás alkalmazható "
-              f"({unchanged} már egyezik, {missing} hiányzó szekció)")
+        print(f"\n--dry-run: {applied} javítás alkalmazható ({unchanged} már egyezik, "
+              f"{missing} hiányzó szekció, {drifted} eltérés)")
         return
 
     if applied:
@@ -115,7 +169,8 @@ def main():
             shutil.copy2(srt_path, bak)
         srt_path.write_text("\n\n".join(blocks) + "\n", encoding="utf-8")
         print(f"\nMentve: {srt_path} (backup: {bak.name})")
-    print(f"Alkalmazva: {applied}, már egyezett: {unchanged}, hiányzó szekció: {missing}")
+    print(f"Alkalmazva: {applied}, már egyezett: {unchanged}, "
+          f"hiányzó szekció: {missing}, eltérés: {drifted}")
 
 
 if __name__ == "__main__":
