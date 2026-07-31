@@ -306,6 +306,9 @@ javaslattal, azt nem írja újra — a script idempotens.
 > dobni (nem létező szóalakok, hamis tegezés/magázás-riasztások). Érdemes tehát
 > a javaslatokat egyesével az **angol eredetihez** mérni, és csak a jóváhagyott
 > (esetleg átírt) szöveget beírni a döntés-fájlba.
+>
+> Ezt a szűrési folyamatot a **`/review-triage`** skill automatizálja Claude
+> Code-ban (lásd a *Claude Code skillek* szakaszt).
 
 #### Gemini review (`review_with_gemini.py`)
 ```powershell
@@ -453,6 +456,20 @@ Mind a két fordító, mind a két review script átadja a **CLAUDE.md**-t és a
 **Következmény:** ha bővíted a CLAUDE.md-t (új szabály) vagy a glossary-t,
 a változás a következő futáskor automatikusan érvényesül — a translate-nél
 és a review-nál is. Külön beállítás nem kell.
+
+## Claude Code skillek
+
+A repó két projekt-szintű skillt tartalmaz (`.claude/skills/`) — ezek Claude
+Code-ban `/névvel` hívható, kódolt munkafolyamatok. Clone után azonnal működnek,
+külön telepítés nélkül:
+
+| Skill | Mit csinál |
+|---|---|
+| `/review-triage <hun.srt>` | A `_REVIEW_*.json` riportok minden találatát a forráshoz méri, kiszűri a no-opokat és hamis riasztásokat, `decisions.json`-t épít és az `apply_review_auto.py`-jal átvezeti a jóváhagyottakat |
+| `/epizod <név>` | A fájlokból felismeri, hol tart egy epizód a pipeline-ban, és onnan viszi tovább a lépéseket a `lepesek.txt` szerint — a csapdákkal együtt (`--clean`, `.clean.srt` elleni verify, resegment-sorrend) |
+
+A skillek csak **munkafolyamatot** kódolnak — a fordítási szabályok forrása
+továbbra is a `CLAUDE.md` és a `glossary.json` (a skillek is onnan olvassák).
 
 ## Más forrásnyelv (nem angol forrásból)
 

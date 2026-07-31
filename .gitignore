@@ -21,6 +21,7 @@ __pycache__/
 input/*.srt
 output/*.srt
 output/*.txt
+output/*.json
 blocks/**
 !blocks/.gitkeep
 !input/.gitkeep

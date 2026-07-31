@@ -155,6 +155,9 @@ py apply_review_auto.py "output\Sorozat - S01E01.hun.srt" decisions.json
 # (_REVIEW_*.json) amúgy is benne van ez a mező, csak át kell másolni.
 # Felülbírálás: --ignore-drift
 #
+# A döntés-fájl összeállítását (javaslatok forráshoz mérése, szűrés) a
+# /review-triage skill végzi el Claude Code-ban — kézzel nem kell.
+#
 # MIÉRT ÉRDEMES ÍGY: a review-modellek javaslatainak jó része téves — mért
 # adat 10 részen: a gemini-3.1-flash-lite találatainak ~13%-a szó szerint
 # azonos volt az eredetivel (no-op), és ezen felül is sokat el kell dobni
