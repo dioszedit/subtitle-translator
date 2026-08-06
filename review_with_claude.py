@@ -56,6 +56,7 @@ sys.stdout.reconfigure(encoding='utf-8')
 sys.stderr.reconfigure(encoding='utf-8')
 
 from glossary_categories import CATEGORIES
+from translation_context import load_translation_context
 
 DEFAULT_CHUNK_SIZE = 100  # Ennyi felirat kerül egy chunkba
 TIMEOUT_PER_CHUNK = 600   # 10 perc chunkonként
@@ -176,10 +177,8 @@ def chunk_entries(entries, chunk_size):
 
 
 def load_claude_md() -> str:
-    if os.path.isfile("CLAUDE.md"):
-        with open("CLAUDE.md", 'r', encoding='utf-8') as f:
-            return f.read()
-    return ""
+    """Kompatibilitási név; a közös TRANSLATION.md-t tölti be."""
+    return load_translation_context()
 
 
 def load_glossary() -> str:

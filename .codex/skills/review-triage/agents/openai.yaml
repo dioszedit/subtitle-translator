@@ -1,0 +1,4 @@
+interface:
+  display_name: "Review triage"
+  short_description: "Review-javaslatok biztonságos szűrése."
+  default_prompt: "Vizsgáld át és triageld a review-javaslatokat: $ARGUMENTS"

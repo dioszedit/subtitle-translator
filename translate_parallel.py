@@ -39,6 +39,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from glossary_categories import CATEGORIES
+from translation_context import load_translation_context
 
 sys.stdout.reconfigure(encoding='utf-8')
 sys.stderr.reconfigure(encoding='utf-8')
@@ -77,10 +78,8 @@ def count_sections(filepath: str) -> int:
 
 
 def load_claude_md() -> str:
-    if os.path.isfile("CLAUDE.md"):
-        with open("CLAUDE.md", 'r', encoding='utf-8') as f:
-            return f.read()
-    return ""
+    """Kompatibilitási név; a közös TRANSLATION.md-t tölti be."""
+    return load_translation_context()
 
 
 def load_glossary() -> str:

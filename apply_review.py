@@ -80,7 +80,8 @@ def load_txt_report(path):
     content = Path(path).read_text(encoding="utf-8")
     name = Path(path).stem
     reviewer = ("claude" if "CLAUDE" in name.upper()
-                else "gemini" if "GEMINI" in name.upper() else name)
+                else "gemini" if "GEMINI" in name.upper()
+                else "codex" if "CODEX" in name.upper() else name)
     out = []
     for m in TXT_FINDING_RE.finditer(content):
         out.append({"sorszam": int(m.group(1)), "eredeti": m.group(2),
@@ -94,7 +95,8 @@ def find_reports(srt_path: Path):
     Ha ugyanahhoz a riporthoz .json és .txt is van, csak a .json-t használjuk."""
     stem = srt_path.stem
     found = []
-    for pattern in (f"{stem}_REVIEW_CLAUDE*", f"{stem}_REVIEW_GEMINI*"):
+    for pattern in (f"{stem}_REVIEW_CLAUDE*", f"{stem}_REVIEW_GEMINI*",
+                    f"{stem}_REVIEW_CODEX*"):
         for p in sorted(srt_path.parent.glob(pattern)):
             if p.suffix not in (".json", ".txt"):
                 continue
@@ -154,7 +156,7 @@ def main():
                     else find_reports(srt_path))
     if not report_paths:
         print("Nem találtam review riportot a fájl mellett.")
-        print(f"  Keresett minták: {srt_path.stem}_REVIEW_CLAUDE* / _REVIEW_GEMINI* (.json/.txt)")
+        print(f"  Keresett minták: {srt_path.stem}_REVIEW_CLAUDE* / _REVIEW_GEMINI* / _REVIEW_CODEX* (.json/.txt)")
         sys.exit(1)
 
     findings = []

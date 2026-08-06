@@ -11,7 +11,7 @@ Használat:
     python glossary_extract.py eredeti.eng.srt forditott.hun.srt    # (2) utólagos mód
     python glossary_extract.py eredeti.eng.srt forditott.hun.srt --glossary glossary.json
 
-A feliratot Claude Code-dal elemzi (hosszú fájlnál több darabban, szekció-
+A feliratot Claude Code-dal vagy Codex CLI-vel elemzi (hosszú fájlnál több darabban, szekció-
 határon vágva — párban a két nyelv ugyanazokat a szekciókat kapja), kigyűjti
 a visszatérő kifejezéseket (megszólítások, helyszínek, nevek, speciális
 fogalmak), majd a konzolon egyesével jóváhagyhatod őket.
@@ -28,6 +28,8 @@ import shutil
 import subprocess
 
 from glossary_categories import CATEGORIES
+from codex_runner import CodexRunError, find_codex, run_codex_json
+from translation_context import load_translation_context
 
 sys.stdout.reconfigure(encoding='utf-8')
 sys.stderr.reconfigure(encoding='utf-8')
@@ -101,12 +103,8 @@ CATEGORY_LABELS = {
 
 
 def load_claude_md() -> str:
-    """CLAUDE.md betöltése — az angol-only kinyerésnél a HU javaslatok
-    minőségét javítja (megszólítás-, házasság-, 'rész'-szabályok stb.)."""
-    if os.path.isfile("CLAUDE.md"):
-        with open("CLAUDE.md", 'r', encoding='utf-8') as f:
-            return f.read()
-    return ""
+    """Közös szabályzat betöltése az angol-only HU javaslatokhoz."""
+    return load_translation_context()
 
 
 def load_glossary(path: str) -> dict:
@@ -168,6 +166,27 @@ JSON_SYNTAX_RULES = """JSON SZINTAKTIKAI SZABÁLY (KRITIKUS):
 OUTPUT_SCHEMA = """Válaszolj KIZÁRÓLAG egy JSON tömbbel, semmi más szöveget NE írj:
 [{"en": "angol kifejezés", "hu": "magyar fordítás", "category": "honorifics|place_names|character_names|special_terms|phrases", "context": "rövid megjegyzés"}]"""
 
+CODEX_GLOSSARY_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "suggestions": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "en": {"type": "string"}, "hu": {"type": "string"},
+                    "category": {"type": "string", "enum": CATEGORIES},
+                    "context": {"type": "string"},
+                },
+                "required": ["en", "hu", "category", "context"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["suggestions"],
+    "additionalProperties": False,
+}
+
 
 def _existing_note(existing_terms: set) -> str:
     if not existing_terms:
@@ -227,7 +246,8 @@ def split_srt_pair_chunks(eng_content: str, hun_content: str,
     return chunks or [("", "")]
 
 
-def extract_terms(eng_path: str, hun_path: str, existing_terms: set, timeout: int = 300) -> list[dict]:
+def extract_terms(eng_path: str, hun_path: str, existing_terms: set, timeout: int = 300,
+                  provider: str = "claude", model: str | None = None) -> list[dict]:
     """Claude Code-dal kifejezések kinyerése a feliratpárból (utólagos mód).
     Hosszú fájlnál több darabban — a teljes epizód elemzésre kerül."""
     with open(eng_path, 'r', encoding='utf-8-sig') as f:
@@ -270,7 +290,7 @@ ANGOL FELIRAT (részlet {ci}/{len(chunk_pairs)}):
 MAGYAR FELIRAT (részlet {ci}/{len(chunk_pairs)}):
 {hc}"""
 
-        valid = _run_extraction(prompt, seen, timeout)
+        valid = _run_extraction(prompt, seen, timeout, provider, model)
         for v in valid:
             seen.add(v["en"].lower())
         all_valid.extend(valid)
@@ -278,7 +298,8 @@ MAGYAR FELIRAT (részlet {ci}/{len(chunk_pairs)}):
 
 
 def extract_terms_english(eng_path: str, existing_terms: set, claude_md: str,
-                          timeout: int = 300) -> list[dict]:
+                          timeout: int = 300, provider: str = "claude",
+                          model: str | None = None) -> list[dict]:
     """Fordítás ELŐTTI kinyerés CSAK az angol forrásból.
 
     Az agent JAVASLATOT tesz a magyar fordításra (a CLAUDE.md szabályai +
@@ -332,15 +353,46 @@ FONTOS:
 ANGOL FELIRAT (részlet {ci}/{len(chunks)}):
 {chunk}"""
 
-        valid = _run_extraction(prompt, seen, timeout)
+        valid = _run_extraction(prompt, seen, timeout, provider, model)
         for v in valid:
             seen.add(v["en"].lower())
         all_valid.extend(valid)
     return all_valid
 
 
-def _run_extraction(prompt: str, existing_terms: set, timeout: int) -> list[dict]:
-    """Közös rész: Claude CLI hívás, válasz-parse, validáció."""
+def validate_suggestions(suggestions, existing_terms: set) -> list[dict]:
+    """A provider válaszát a glossary szerződéséhez igazítja."""
+    if not isinstance(suggestions, list):
+        return []
+    valid = []
+    for suggestion in suggestions:
+        if not isinstance(suggestion, dict):
+            continue
+        if all(key in suggestion for key in ("en", "hu", "category")):
+            if suggestion["category"] in CATEGORIES and suggestion["en"].lower() not in existing_terms:
+                valid.append(suggestion)
+    return valid
+
+
+def _run_extraction(prompt: str, existing_terms: set, timeout: int,
+                    provider: str = "claude", model: str | None = None) -> list[dict]:
+    """Közös rész: provider hívás, válasz-parse és validáció."""
+    if provider == "codex":
+        codex_cmd = find_codex()
+        if not codex_cmd:
+            print("HIBA: A 'codex' parancs nem található a PATH-on.")
+            return []
+        print(f"Codex elemzi a feliratot... ({codex_cmd})")
+        try:
+            codex_prompt = (prompt + "\n\nCODEX KIMENET: kizárólag egy JSON objektumot adj "
+                            "`suggestions` tömbbel: {\"suggestions\":[...]}." )
+            result = run_codex_json(codex_prompt, CODEX_GLOSSARY_SCHEMA, timeout=timeout,
+                                    model=model, codex_bin=codex_cmd)
+        except CodexRunError as exc:
+            print(f"HIBA: Codex hiba: {exc}")
+            return []
+        return validate_suggestions(result.get("suggestions", []), existing_terms)
+
     claude_cmd = find_claude_cli()
     print(f"Claude Code elemzi a feliratot... ({claude_cmd})")
     try:
@@ -396,15 +448,7 @@ def _run_extraction(prompt: str, existing_terms: set, timeout: int) -> list[dict
             print(f"  Első 300 karakter:\n  {raw[:300]!r}")
             return []
 
-        # Validáció
-        valid = []
-        for s in suggestions:
-            if all(k in s for k in ("en", "hu", "category")):
-                if s["category"] in CATEGORIES:
-                    if s["en"].lower() not in existing_terms:
-                        valid.append(s)
-
-        return valid
+        return validate_suggestions(suggestions, existing_terms)
 
     except subprocess.TimeoutExpired:
         print(f"HIBA: Timeout ({timeout} mp)")
@@ -509,7 +553,10 @@ def main():
     parser.add_argument("--glossary", type=str, default="glossary.json",
                         help="Szójegyzék fájl útvonala (alapértelmezett: glossary.json)")
     parser.add_argument("--timeout", type=int, default=300,
-                        help="Claude Code timeout másodpercben (alapértelmezett: 300)")
+                        help="Provider timeout másodpercben (alapértelmezett: 300)")
+    parser.add_argument("--provider", choices=("claude", "codex"), default="claude",
+                        help="Kinyerő provider (alapértelmezett: claude)")
+    parser.add_argument("--model", help="Opcionális Codex modellazonosító")
     args = parser.parse_args()
 
     pre_mode = args.hun_srt is None  # fordítás előtti, angol-only mód
@@ -543,10 +590,12 @@ def main():
     if pre_mode:
         claude_md = load_claude_md()
         if claude_md:
-            print(f"CLAUDE.md betöltve a HU javaslatokhoz ({len(claude_md)} char)")
-        suggestions = extract_terms_english(args.eng_srt, existing_terms, claude_md, args.timeout)
+            print(f"TRANSLATION.md betöltve a HU javaslatokhoz ({len(claude_md)} char)")
+        suggestions = extract_terms_english(args.eng_srt, existing_terms, claude_md, args.timeout,
+                                             args.provider, args.model)
     else:
-        suggestions = extract_terms(args.eng_srt, args.hun_srt, existing_terms, args.timeout)
+        suggestions = extract_terms(args.eng_srt, args.hun_srt, existing_terms, args.timeout,
+                                    args.provider, args.model)
 
     if not suggestions:
         print("Nem találtam új kifejezést.")

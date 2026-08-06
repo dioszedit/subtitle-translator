@@ -1,7 +1,7 @@
-# SRT Felirat Fordító — Claude Code projekt
+# SRT Felirat Fordító — Claude, Gemini és Codex
 
 SRT felirat-fordítási keretrendszer LLM-alapú fordítással és stilisztikai review-val.
-A workflow Claude Code-on alapul, a review opcionálisan Gemini API-val is fut.
+A workflow Claude Code-, Gemini API- és Codex CLI-providerrel futtatható.
 
 **Irány:** angolról magyarra (EN→HU). A **célnyelv fixen magyar** — a fordító és a
 review promptok magyar nyelvre vannak megírva, ez nem paraméter. A **forrásnyelv
@@ -17,8 +17,9 @@ kezelése — de a keretrendszer bármilyen videó/film/sorozat-felirathoz haszn
 
 ```
 subtitle-translator/
-├── CLAUDE.md                    ← Fordítási szabályok (a translate + review scriptek
-│                                  system promptként átadják)
+├── TRANSLATION.md               ← Közös fordítási szabályok és sorozat-kontekstus
+├── CLAUDE.md                    ← Claude Code belépési pont a közös szabályzathoz
+├── AGENTS.md                    ← Codex projektutasítások
 ├── glossary.json                ← Fordítási szójegyzék (kézzel validált)
 ├── .env.example                 ← Gemini API kulcs sablonja (.env-be másold)
 ├── .gitignore                   ← Mit ne commit-oljunk
@@ -26,10 +27,12 @@ subtitle-translator/
 ├── split_srt.py                 ← 1. SRT szétvágása blokkokra
 ├── translate_parallel.py        ← 2a. Párhuzamos fordítás Claude Code-dal
 ├── translate_with_gemini.py     ← 2b. Párhuzamos fordítás Gemini API-val (alternatíva)
+├── translate_with_codex.py      ← 2c. Párhuzamos fordítás Codex CLI-vel (alternatíva)
 ├── merge_srt.py                 ← 3. Blokkok összefűzése
 ├── verify_srt.py                ← 4. Strukturális ellenőrzés
 ├── review_with_claude.py        ← 5a. Stilisztikai review Claude Code-dal
 ├── review_with_gemini.py        ← 5b. Stilisztikai review Gemini API-val (opcionális)
+├── review_with_codex.py         ← 5c. Stilisztikai review Codex CLI-vel (opcionális)
 ├── apply_review.py              ← 5c. Review-riportok összefésülése + interaktív alkalmazás
 ├── apply_review_auto.py         ← 5d. Ugyanaz kérdés nélkül, döntés-fájlból (agent / batch)
 ├── resegment_srt.py             ← 7. Sorhossz/CPS QA + újratördelés (lásd resegment_srt.md)
@@ -56,8 +59,9 @@ projektenként / epizódonként más, és gyakran szerzői jogi védettség alá
 ## Előfeltételek
 
 - **Python 3.10+**
-- **Claude Code CLI** (`claude` parancs) — a fordításhoz és a Claude review-hoz
+- **Claude Code CLI** (`claude` parancs, opcionális) — a Claude providerhez
 - **Gemini API kulcs** (opcionális) — ha Gemini-vel fordítasz (`translate_with_gemini.py`) vagy Gemini-vel review-zol (`review_with_gemini.py`)
+- **Codex CLI** (`codex` parancs, opcionális) — a Codex providerhez. Bejelentkezett CLI-t használ; külön Python-csomag nem kell.
 - **Git** (opcionális) — verziókezeléshez
 
 ## Telepítés
@@ -99,8 +103,9 @@ copy .env.example .env
 
 1. A clone-olt mappát használhatod közvetlenül, vagy másolhatod egy új mappába
    sorozatonként (ha külön repóként akarsz több sorozatot vezetni).
-2. Nyisd meg a `CLAUDE.md`-t, és az "Aktuális sorozat adatai" szakaszt
-   töltsd ki a sorozat címével, szereplőivel, stb.
+2. Másold a `TRANSLATION.md` „Aktuális sorozat adatai” sablonját egy új,
+   gitignore-os `TRANSLATION.local.md` fájlba, majd ott töltsd ki a sorozat
+   címét, szereplőit és a speciális kifejezéseket.
 3. Tedd az angol SRT fájlt az `input/` mappába.
 
 ## Használat (PowerShell)
@@ -117,6 +122,8 @@ python split_srt.py "input\Sorozat - S01E01.eng.srt"
 python translate_parallel.py "blocks\Sorozat - S01E01.eng" --agents 3
 # vagy 2b. Ugyanaz Gemini API-val (olcsóbb alternatíva, ugyanazokat a blokkokat dolgozza fel)
 # python translate_with_gemini.py "blocks\Sorozat - S01E01.eng" --agents 3
+# vagy 2c. Codex CLI-vel — első futáskor egy blokkot, egy agenttel ellenőrizz
+# python translate_with_codex.py "blocks\Sorozat - S01E01.eng" --block 1 --agents 1
 
 # 3. Összefűzés egy fájlba
 python merge_srt.py "blocks\Sorozat - S01E01.eng" "output\Sorozat - S01E01.hun.srt"
@@ -132,6 +139,10 @@ python review_with_claude.py "output\Sorozat - S01E01.hun.srt"
 python review_with_gemini.py "output\Sorozat - S01E01.hun.srt"
 # Kimenet: output\Sorozat - S01E01.hun_REVIEW_GEMINI.txt + .json
 
+# 5c. Stilisztikai review Codex CLI-vel (opcionális, párhuzamos vélemény)
+python review_with_codex.py "output\Sorozat - S01E01.hun.srt"
+# Kimenet: output\Sorozat - S01E01.hun_REVIEW_CODEX.txt + .json
+
 # 5c. Review-javaslatok alkalmazása (a riportokat összefésüli, deduplikálja,
 #     találatonként y/n/e/q kérdéssel viszi át a fájlba, .bak mentéssel)
 python apply_review.py "output\Sorozat - S01E01.hun.srt"
@@ -143,14 +154,14 @@ python resegment_srt.py report "output\Sorozat - S01E01.hun.srt"
 python resegment_srt.py reflow "output\Sorozat - S01E01.hun.srt" -o "output\Sorozat - S01E01.hun.reflow.srt"
 ```
 
-A két review script **független** — futtathatod csak az egyiket, csak a másikat,
-vagy mindkettőt. A találatokat az `apply_review.py` fésüli össze és viszi át
+A három review script **független** — futtathatod csak az egyiket vagy többet.
+A találatokat az `apply_review.py` fésüli össze és viszi át
 interaktívan; kézzel is javíthatsz a riportok alapján.
 
 ### Fordítás — opciók
 
-A fordításhoz **két alternatíva** van: a `translate_parallel.py` (Claude Code-os)
-és a `translate_with_gemini.py` (Gemini API-s). Mindkettő ugyanazon a
+A fordításhoz **három alternatíva** van: a `translate_parallel.py` (Claude Code-os),
+a `translate_with_gemini.py` (Gemini API-s) és a `translate_with_codex.py` (Codex CLI-s). Mindegyik ugyanazon a
 `blocks/` mappa-szerkezeten dolgozik (`split_srt.py` outputja) és ugyanúgy
 checkpoint-ol — futtathatod ugyanazon a projekten akár felváltva is.
 
@@ -190,7 +201,19 @@ python translate_with_gemini.py "blocks\eng" --agents 1 --block 3
 # Checkpoint és újraindítás ugyanúgy működik mint a Claude verziónál.
 ```
 
-A két fordító ugyanazt a `CLAUDE.md` + `glossary.json` kontextust adja át a
+#### Codex fordító (`translate_with_codex.py`) — alternatíva
+```powershell
+# Első futás: egy blokk, egy agent — ellenőrizd a kimenetet verify_srt.py-vel
+python translate_with_codex.py "blocks\eng" --block 1 --agents 1
+
+# Ezután a hiányzó blokkok fordítása checkpointtal
+python translate_with_codex.py "blocks\eng" --agents 1
+
+# Opcionális modell és óvatos párhuzamosítás
+python translate_with_codex.py "blocks\eng" --agents 2 --model gpt-5.6-terra
+```
+
+A három fordító ugyanazt a `TRANSLATION.md` + `glossary.json` kontextust adja át a
 modellnek system promptként, így a fordítások konzisztensek maradnak akkor is,
 ha váltogatod őket. A Gemini fordító **strukturált JSON kimenetet** ad
 (Pydantic séma), és a sorszám + időbélyeg Python oldalon garantáltan
@@ -227,7 +250,7 @@ python review_with_claude.py "output\hun.srt" --source "input\eng.srt"
 python review_with_claude.py "output\hun.srt" --no-source
 ```
 
-Mindkét review script automatikusan megkeresi a **forrásnyelvi SRT-t**
+Mindhárom review script automatikusan megkeresi a **forrásnyelvi SRT-t**
 (a `.hun.srt` névből `.eng.srt`-t keres az `input/` mappában, ill. a hun fájl
 mellett), és minden szekció mellé odaadja a modellnek a forrás eredetit is
 `[FORRÁS]` sorként. Így a lektor a forráshoz tudja mérni a magyart — jelentősen
@@ -244,7 +267,7 @@ szúrópróba): ha a két fájl elcsúszott egymáshoz képest (pl. a magyar
 a párosítást — elcsúszott forrássorok tömeges hamis találatot adnának.
 Explicit `--source` megadással felülbírálható.
 
-Mindkét review a szöveges riport mellé **JSON riportot** is ír
+Mindhárom review a szöveges riport mellé **JSON riportot** is ír
 (`_REVIEW_*.json`) — ezt dolgozza fel az `apply_review.py`.
 
 #### Review-javaslatok alkalmazása (`apply_review.py`)
@@ -422,7 +445,7 @@ A `glossary_extract.py` két módban működik — a magyar argumentum dönti el
 
 ```powershell
 # (A) Fordítás ELŐTTI mód — CSAK az angol fájl (a magyar argumentum elhagyva).
-#     Az agent a CLAUDE.md szabályai alapján JAVASLATOT tesz a magyar fordításra,
+#     Az agent a TRANSLATION.md szabályai alapján JAVASLATOT tesz a magyar fordításra,
 #     te jóváhagyod, és a párhuzamos fordítás már egységes nevekkel/címekkel indul.
 python glossary_extract.py "input\eng.srt"
 
@@ -432,18 +455,21 @@ python glossary_extract.py "input\eng.srt" "output\hun.srt"
 
 # Egyéni glossary útvonal (mindkét módban)
 python glossary_extract.py "input\eng.srt" --glossary my_glossary.json
+
+# Ugyanez Codex providerrel (Claude az alapértelmezett)
+python glossary_extract.py "input\eng.srt" --provider codex
 ```
 
 Mindkét mód interaktív: a javasolt kifejezéseket egyesével hagyod jóvá
 (`y` = elfogad, `n` = elutasít, `e` = szerkeszt, `q` = kilép).
 
-A `glossary.json`-t **mind a négy modellt hívó script** (a két fordító és a
-két review) automatikusan betölti és átadja a modellnek, hogy a fordítások
+A `glossary.json`-t minden provideres fordító és review automatikusan betölti
+és átadja a modellnek, hogy a fordítások
 konzisztensek maradjanak.
 
 ## Kontextus-átadás — fontos!
 
-Mind a két fordító, mind a két review script átadja a **CLAUDE.md**-t és a
+Minden fordító és review script átadja a **TRANSLATION.md**-t és a
 **glossary.json**-t system promptként a modellnek:
 
 | Script | Mechanizmus |
@@ -452,12 +478,14 @@ Mind a két fordító, mind a két review script átadja a **CLAUDE.md**-t és a
 | `translate_with_gemini.py` | `system_instruction` (Gemini API) |
 | `review_with_claude.py` | `--append-system-prompt-file` (Claude Code) |
 | `review_with_gemini.py` | `system_instruction` (Gemini API) |
+| `translate_with_codex.py` | Codex `exec --output-schema` |
+| `review_with_codex.py` | Codex `exec --output-schema` |
 
-**Következmény:** ha bővíted a CLAUDE.md-t (új szabály) vagy a glossary-t,
+**Következmény:** ha bővíted a TRANSLATION.md-t (új szabály) vagy a glossary-t,
 a változás a következő futáskor automatikusan érvényesül — a translate-nél
 és a review-nál is. Külön beállítás nem kell.
 
-## Claude Code skillek
+## Workflow-skillek
 
 A repó két projekt-szintű skillt tartalmaz (`.claude/skills/`) — ezek Claude
 Code-ban `/névvel` hívható, kódolt munkafolyamatok. Clone után azonnal működnek,
@@ -469,7 +497,8 @@ külön telepítés nélkül:
 | `/epizod <név>` | A fájlokból felismeri, hol tart egy epizód a pipeline-ban, és onnan viszi tovább a lépéseket a `lepesek.txt` szerint — a csapdákkal együtt (`--clean`, `.clean.srt` elleni verify, resegment-sorrend) |
 
 A skillek csak **munkafolyamatot** kódolnak — a fordítási szabályok forrása
-továbbra is a `CLAUDE.md` és a `glossary.json` (a skillek is onnan olvassák).
+továbbra is a `TRANSLATION.md` és a `glossary.json`. A Codexes megfelelőik a
+`.codex/skills/epizod` és `.codex/skills/review-triage` alatt találhatók.
 
 ## Más forrásnyelv (nem angol forrásból)
 
@@ -482,7 +511,7 @@ használható eredményt ad. Amit ilyenkor tudni érdemes:
 | Mi | Mi történik | Mit tegyél |
 |---|---|---|
 | A fordító prompt kimondja: „angolról magyarra" | A modell téves állítást kap a forrásról. Általában elnézi, de nem ideális | A prompt átírása kódmódosítás — ha rendszeresen kell, érdemes |
-| A `CLAUDE.md` „Gyakori hibák" **C. blokkja** konkrét angol kifejezésekre épül | Ezek a szabályok nem sülnek el — holt teher, de nem ártanak | Cseréld a saját forrásnyelved tipikus csapdáira; az **A** és **B** blokk változatlanul érvényes |
+| A `TRANSLATION.md` angol forrásnyelvi hibamintái konkrét angol kifejezésekre épülnek | Ezek a szabályok nem sülnek el — holt teher, de nem ártanak | Cseréld a saját forrásnyelved tipikus csapdáira |
 | A forrás automatikus megkeresése `.hun.srt` → `.eng.srt` névcserével megy | Más kiterjesztésű forrást nem talál meg, és a review **forrás-összevetés nélkül** fut | **Add meg kézzel:** `--source "input\....srt"` — a kapcsoló bármilyen fájlt elfogad |
 | A forrássorok címkéje a promptban `[FORRÁS]`, a kapcsoló neve `--source` | Nyelvfüggetlen, nincs teendő | — |
 | A `glossary.json` kulcsa `en` | Csak elnevezés; funkcionálisan „forrásnyelvi kifejezés" | — |
@@ -503,18 +532,18 @@ szabályai kiesnek, a konzisztencia jórészt a szójegyzéken múlik.
 
 - **Agent szám:** 3 az ajánlott. 5-nél fölött API rate limit jöhet, üres válasszal.
 - **Blokk méret:** 150 az alapértelmezett. Ha sok a hiba, csökkentsd 100-ra.
-- **CLAUDE.md:** Minél részletesebb az "Aktuális sorozat adatai" rész, annál jobb
+- **TRANSLATION.md:** Minél részletesebb az aktuális sorozat adatai rész, annál jobb
   a fordítás minősége (karakter-háttér, formalitás-szintek, kontextus).
-- **Checkpoint:** mindkét fordító fájl-alapú checkpointtal fut (újraindításkor
+- **Checkpoint:** mindhárom fordító fájl-alapú checkpointtal fut (újraindításkor
   csak a hiányzó blokkokat fordítja; a szekció-eltéréses blokk outputja
-  törlődik, így az is újramegy), mindkét review pedig `--start-chunk` /
+  törlődik, így az is újramegy), mindhárom review pedig `--start-chunk` /
   `--end-chunk` / `--suffix` kapcsolókkal folytatható. A `merge_srt.py`
   `--force` kapcsolóval hiányzó blokkok mellett is összefűz (a hiányt listázza).
 - **Fordító finomhangolás:** `translate_parallel.py --timeout <mp>` (default
   900), `--max-turns <n>` (default 20, futó-galopp elleni plafon),
   `--no-cleanup` (régi sys-prompt fájlok megtartása); `glossary_extract.py
   --timeout <mp>` (default 300).
-- **Két review összevetése:** ugyanazon a fájlon futtasd mindkét review-t —
+- **Review-k összevetése:** ugyanazon a fájlon futtathatsz több review-t —
   a két modell más-más típusú hibákat talál (Claude inkább kontextus,
   Gemini inkább morfológia / ikes igék).
 - **Review modell-választás — tapasztalati javaslat:** kezdetben Claude
@@ -535,7 +564,7 @@ szabályai kiesnek, a konzisztencia jórészt a szójegyzéken múlik.
 
 ## Utómunka — a review után
 
-A review riport (`_REVIEW_CLAUDE.txt` / `_REVIEW_GEMINI.txt`) csak **jelzi**
+A review riport (`_REVIEW_CLAUDE.txt` / `_REVIEW_GEMINI.txt` / `_REVIEW_CODEX.txt`) csak **jelzi**
 a hibákat — a javítást neked kell elvégezni. A teljes folyamat innen még
 négy lépés:
 
@@ -609,7 +638,8 @@ nyelvileg jó lehet, de a néző-élmény nem lesz az.
 
 ## Hivatkozott dokumentumok
 
-- `CLAUDE.md` — fordítási szabályok, sorozat-kontextus sablon
+- `TRANSLATION.md` — közös fordítási szabályok és sorozat-kontekstus
+- `CLAUDE.md` — Claude Code belépési pont a közös szabályzathoz
 - `lepesek.txt` — gyors parancs-cheatsheet
 - `resegment_srt.md` — a szegmentáló eszköz (`resegment_srt.py`) részletes leírása
 - `proposals/` — fejlesztési irányok, alternatívák, tervezési dokumentumok

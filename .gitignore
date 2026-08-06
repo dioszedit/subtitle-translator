@@ -1,6 +1,7 @@
 # Secrets — SOHA ne commitold!
 .env
 .env.local
+TRANSLATION.local.md
 
 # Python
 __pycache__/

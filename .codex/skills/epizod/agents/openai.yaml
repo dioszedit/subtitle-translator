@@ -1,0 +1,4 @@
+interface:
+  display_name: "Epizód pipeline"
+  short_description: "Egy epizód állapotának felismerése."
+  default_prompt: "Vezesd végig vagy folytasd az epizód fordítási pipeline-ját: $ARGUMENTS"

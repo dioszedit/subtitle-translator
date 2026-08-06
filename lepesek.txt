@@ -22,16 +22,18 @@ py split_srt.py "input\Sorozat - S01E01.eng.srt"
 
 # 1.5 (OPCIONÁLIS, AJÁNLOTT) Glossary feltöltése MÉG A FORDÍTÁS ELŐTT
 #     Csak az angol forrásból kinyeri a neveket / megszólításokat / helyszíneket,
-#     az agent JAVASLATOT tesz a magyar fordításra (a CLAUDE.md szabályai alapján),
+#     az agent JAVASLATOT tesz a magyar fordításra (a TRANSLATION.md szabályai alapján),
 #     te jóváhagyod (y/n/e/q). Így a párhuzamos fordítás már EGYSÉGES nevekkel indul.
 #     (Csak az angol fájlt add meg — a magyar argumentum elhagyása kapcsolja be ezt a módot.)
 py glossary_extract.py "input\Sorozat - S01E01.eng.srt"
+# Codex providerrel:
+# py glossary_extract.py "input\Sorozat - S01E01.eng.srt" --provider codex
 
 # 2a. Fordítás Claude Code-dal (ez indítja a párhuzamos agent-eket)
 py translate_parallel.py "blocks\Sorozat - S01E01.eng" --agents 3
 
 # 2b. ALTERNATÍVA: fordítás Gemini API-val (olcsóbb, ugyanazt a blocks/ mappát fordítja)
-#     A két fordító felváltva is használható, mert ugyanúgy checkpoint-olnak.
+#     A Gemini és Codex fordító ugyanúgy checkpoint-ol, ezért provider-váltással is folytatható.
 #     Default modell: gemini-3.1-flash-lite
 # py translate_with_gemini.py "blocks\Sorozat - S01E01.eng" --agents 3
 # Opcionálisan:
@@ -40,6 +42,13 @@ py translate_parallel.py "blocks\Sorozat - S01E01.eng" --agents 3
 #   --max-retries 6               több retry rate-limit/5xx esetén
 # Előfeltétel: pip install google-genai python-dotenv pydantic
 # Előfeltétel: .env fájl GEMINI_API_KEY=... bejegyzéssel
+
+# 2c. ALTERNATÍVA: fordítás Codex CLI-vel
+# Előfeltétel: telepített és bejelentkezett `codex` parancs.
+# Először mindig csak egy blokkot tesztelj:
+# py translate_with_codex.py "blocks\Sorozat - S01E01.eng" --block 1 --agents 1
+# Utána a hiányzó blokkok fordítása:
+# py translate_with_codex.py "blocks\Sorozat - S01E01.eng" --agents 1
 
 # 3. Összefűzés (megint csak sima Python)
 py merge_srt.py "blocks\Sorozat - S01E01.eng" "output\Sorozat - S01E01.hun.srt"
@@ -82,6 +91,10 @@ py review_with_gemini.py "output\Sorozat - S01E01.hun.srt"
 #          output\Sorozat - S01E01.hun_REVIEW_GEMINI.json (az apply_review.py-hoz)
 # Előfeltétel: pip install google-genai python-dotenv pydantic
 # Előfeltétel: .env fájl GEMINI_API_KEY=... bejegyzéssel
+
+# 5c. Stilisztikai review Codex CLI-vel (alternatív / kiegészítő)
+# py review_with_codex.py "output\Sorozat - S01E01.hun.srt"
+# Kimenet: output\Sorozat - S01E01.hun_REVIEW_CODEX.txt + .json
 
 # 5b/2. GEMINI KVÓTA — mennyi hívás van még ma?
 #     A Gemini API NEM adja vissza a maradék napi kvótát (kipróbálva: a Service
@@ -127,7 +140,7 @@ py gemini_quota.py                 # mai fogyás modellenként
 
 # 5c. Review-javaslatok alkalmazása (a két riportot összefésüli és deduplikálja)
 py apply_review.py "output\Sorozat - S01E01.hun.srt"
-# Automatikusan megtalálja a fájl melletti _REVIEW_CLAUDE / _REVIEW_GEMINI
+# Automatikusan megtalálja a fájl melletti _REVIEW_CLAUDE / _REVIEW_GEMINI / _REVIEW_CODEX
 # riportokat (a .json a kanonikus, a .txt-t is érti). Találatonként kérdez:
 #   y = alkalmaz, 1..9 = adott variáns, e = kézi szerkesztés, n = kihagy,
 #   q = kilépés (az addig alkalmazottak mentődnek)
@@ -170,7 +183,7 @@ py apply_review_auto.py "output\Sorozat - S01E01.hun.srt" decisions.json
 #     (Az 1.5 lépés a fordítás ELŐTT javasol; ez a lépés UTÓLAG, a kész párból tanul.)
 py glossary_extract.py "input\Sorozat - S01E01.eng.srt" "output\Sorozat - S01E01.hun.srt"
 # Interaktívan jóváhagyod a javasolt kifejezéseket (y/n/e/q)
-# A glossary.json-t a translate_parallel.py ÉS mindkét review script automatikusan
+# A glossary.json-t minden provideres fordító és review automatikusan
 # betölti és átadja a modellnek (system prompt-ként) a következő futáskor.
 
 # 7. Szegmentálás — sorhossz + CPS (véglegesítő formázás, a kézi review-javítások UTÁN)
@@ -191,5 +204,5 @@ py resegment_srt.py reflow "output\Sorozat - S01E01.hun.srt" -o "output\Sorozat 
 # - Először mindig egy blokkot teszteld --agents 1-gyel; ha jó, emeld 3-ra.
 # - A translate script checkpoint-os: ha leáll, egyszerűen futtasd újra,
 #   csak a hiányzó blokkokat fordítja.
-# - A CLAUDE.md és glossary.json változtatása automatikusan érvényesül
+# - A TRANSLATION.md és glossary.json változtatása automatikusan érvényesül
 #   a következő futáskor (mind translate-nél, mind review-nál).
