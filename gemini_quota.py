@@ -100,6 +100,7 @@ KNOWN_LIMITS = {
     "gemini-3.1-flash-lite": 1000,
     "gemini-3.5-flash-lite": 1000,
     "gemini-2.5-flash-lite": 1000,
+    "gemini-flash-lite-latest": 1000,
 }
 DEFAULT_LIMIT = 20
 

@@ -8,7 +8,7 @@ szempontjából. A talált hibákat egy riportba írja.
 Használat:
     python review_with_gemini.py "output/Sorozat - S01E01.hun.srt"
     python review_with_gemini.py "output/Sorozat - S01E01.hun.srt" --chunk-size 100
-    python review_with_gemini.py "output/Sorozat - S01E01.hun.srt" --model gemini-3.1-flash
+    python review_with_gemini.py "output/Sorozat - S01E01.hun.srt" --model gemini-3.5-flash-lite
 
 Angol eredeti (kevesebb téves találat):
     Ha megtalálja a forrásnyelvi SRT-t, minden szekció mellé odaadja a
@@ -24,11 +24,18 @@ Angol eredeti (kevesebb téves találat):
         python review_with_gemini.py "output/Sorozat - S01E01.hun.srt" --start-chunk 5 --end-chunk 7 --suffix _part2
 
 Modell:
-    Alapértelmezett: gemini-3.1-flash-lite (gyors, olcsó)
+    Alapértelmezett: gemini-3.7-flash (a legújabb Flash — erősebb review)
     --model <név>: tetszőleges Gemini modell-azonosító megadható
-        Példák (stabil): gemini-3.1-flash, gemini-3.1-flash-lite, gemini-2.5-flash
-        Példák (preview): gemini-3.1-pro-preview
+        Flash:      gemini-3.7-flash, gemini-3.6-flash, gemini-3.5-flash
+        Olcsó/lite: gemini-3.5-flash-lite, gemini-3.1-flash-lite
+        Pro:        gemini-3.1-pro-preview
+        Alias:      gemini-flash-latest, gemini-flash-lite-latest, gemini-pro-latest
         Modell-lista: https://ai.google.dev/gemini-api/docs/models
+
+    Free tier: a nem-lite modellek napi kérésszáma szűkös (tapasztalat szerint
+    ~20/nap modellenként — egy ~400 szekciós rész review-ja 4-5 kérés), a -lite
+    modellek bőkezűbbek. Kvótahiba esetén: --model gemini-3.5-flash-lite,
+    illetve a --start-chunk / --end-chunk / --suffix kapcsolók.
 
 Tartomány-paraméterek:
     --start-chunk N    Csak ettől a chunktól kezdje (1-alapú). Default: 1
@@ -92,7 +99,7 @@ except ImportError as _e:
 
 
 DEFAULT_CHUNK_SIZE = 100
-MODEL_DEFAULT = "gemini-3.1-flash-lite"
+MODEL_DEFAULT = "gemini-3.7-flash"
 TEMPERATURE = 0.2
 MAX_RETRIES = 4
 RETRY_BASE_DELAY = 5  # másodperc
@@ -399,7 +406,8 @@ def main():
                         help=f"Feliratok chunkonként (default: {DEFAULT_CHUNK_SIZE})")
     parser.add_argument("--model", type=str, default=MODEL_DEFAULT,
                         help=f"Gemini modell-azonosító (default: {MODEL_DEFAULT}). "
-                             "Pl. gemini-3.1-flash, gemini-2.5-flash, gemini-3.1-pro-preview")
+                             "Pl. gemini-3.6-flash, gemini-3.5-flash-lite, "
+                             "gemini-3.1-flash-lite, gemini-3.1-pro-preview")
     parser.add_argument("--start-chunk", type=int, default=1,
                         help="Csak ettől a chunktól kezdje (1-alapú). Default: 1")
     parser.add_argument("--end-chunk", type=int, default=None,

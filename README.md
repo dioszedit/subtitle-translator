@@ -188,11 +188,12 @@ python translate_parallel.py "blocks\eng" --agents 1
 
 #### Gemini API fordító (`translate_with_gemini.py`) — alternatíva
 ```powershell
-# Default modell: gemini-3.1-flash-lite (gyors, olcsó)
+# Default modell: gemini-3.7-flash (a legújabb Flash — erősebb fordítás)
 python translate_with_gemini.py "blocks\eng" --agents 3
 
 # Tetszőleges Gemini modell --model flag-gel
-python translate_with_gemini.py "blocks\eng" --model gemini-3.1-flash
+python translate_with_gemini.py "blocks\eng" --model gemini-3.6-flash
+python translate_with_gemini.py "blocks\eng" --model gemini-3.5-flash-lite   # olcsó, bő napi kvóta
 python translate_with_gemini.py "blocks\eng" --model gemini-3.1-pro-preview
 
 # Csak egy konkrét blokk újrafordítása (auto zero-pad: 3 → 003)
@@ -220,8 +221,8 @@ ha váltogatod őket. A Gemini fordító **strukturált JSON kimenetet** ad
 változatlan marad — a modell csak a szöveget kapja és csak szöveget ad vissza.
 
 > **Párhuzamosság (`--agents`):** a Gemini API nem tiltja a párhuzamos hívást,
-> csak RPM (requests/min) korlátok vonatkoznak rá. Free tier-en ~30 RPM a default
-> modellnél; `--agents 10` fölött 429 rate limit hibákra számíthatsz, amiket a
+> csak RPM (requests/min) korlátok vonatkoznak rá. Free tier-en ~10-30 RPM
+> modelltől függően; `--agents 10` fölött 429 rate limit hibákra számíthatsz, amiket a
 > retry logika kezel, de pazarol API-időt. A script `--agents > 10` esetén
 > figyelmeztetést is ad. Részletek:
 > [Gemini rate limits](https://ai.google.dev/gemini-api/docs/rate-limits) ·
@@ -335,12 +336,12 @@ javaslattal, azt nem írja újra — a script idempotens.
 
 #### Gemini review (`review_with_gemini.py`)
 ```powershell
-# Default modell: gemini-3.1-flash-lite (gyors, olcsó)
+# Default modell: gemini-3.7-flash (a legújabb Flash — erősebb review)
 python review_with_gemini.py "output\hun.srt"
 
 # Tetszőleges modell-azonosító --model flag-gel
-python review_with_gemini.py "output\hun.srt" --model gemini-3.1-flash
-python review_with_gemini.py "output\hun.srt" --model gemini-2.5-flash
+python review_with_gemini.py "output\hun.srt" --model gemini-3.6-flash
+python review_with_gemini.py "output\hun.srt" --model gemini-3.5-flash-lite   # olcsó, bő napi kvóta
 python review_with_gemini.py "output\hun.srt" --model gemini-3.1-pro-preview
 # Modell-lista: https://ai.google.dev/gemini-api/docs/models
 
@@ -356,6 +357,22 @@ python review_with_gemini.py "output\hun.srt" --no-source
 A Gemini review **strukturált JSON kimenetet** ad (Pydantic séma), ami stabilabb
 mint a szabad szöveg, és automatikusan retry-ol rate limit (429) vagy 5xx hiba esetén.
 A forrásnyelvi SRT párosítása itt is működik (lásd fent a Claude review-nál).
+
+#### Gemini modellek — mit érdemes választani
+
+| Modell | Mire jó |
+|---|---|
+| `gemini-3.7-flash` | **Default** mindkét Gemini scriptben. A legújabb Flash — a legerősebb fordítás/review a Flash sorban. |
+| `gemini-3.6-flash`, `gemini-3.5-flash` | Előző Flash generációk, ha a legújabbnál kvótába vagy 503-ba futsz. |
+| `gemini-3.5-flash-lite`, `gemini-3.1-flash-lite` | Olcsó, gyors, **bő napi kvóta** free tier-en. Nagy tömegű fordításra, illetve ha a nem-lite napi limit elfogyott. |
+| `gemini-3.1-pro-preview` | Pro (preview) — a legerősebb, de lassabb és szűkösebb kvótájú. Nehéz részekhez. |
+| `gemini-flash-latest`, `gemini-flash-lite-latest`, `gemini-pro-latest` | Alias-ok, mindig az adott sáv legújabb kiadására mutatnak. Kényelmes, de nem determinisztikus (kiadásváltáskor csendben más modellt kapsz). |
+
+A pontos, aktuális listát a saját kulcsoddal is le tudod kérni:
+
+```powershell
+curl "https://generativelanguage.googleapis.com/v1beta/models?key=%GEMINI_API_KEY%"
+```
 
 > ⚠️ **A Gemini modellek listája időről időre változik.** Új modellek jelennek
 > meg, preview verziók stabilizálódnak (és a `-preview` suffix lekerül), régi
@@ -548,10 +565,12 @@ szabályai kiesnek, a konzisztencia jórészt a szójegyzéken múlik.
   Gemini inkább morfológia / ikes igék).
 - **Review modell-választás — tapasztalati javaslat:** kezdetben Claude
   Opus-szal (`review_with_claude.py`) review-oztam, ami minőségileg jó,
-  de drága. Később átálltam a Gemini API-ra (`review_with_gemini.py`,
-  jelenlegi default: `gemini-3.1-flash-lite`), és nem bántam meg —
-  töredék költséggel hasonló minőséget ad a felirat-review feladathoz.
-  Ha most kezdesz, érdemes Gemini-vel próbálkozni elsőként.
+  de drága. Később átálltam a Gemini API-ra (`review_with_gemini.py`), és nem
+  bántam meg — töredék költséggel hasonló minőséget ad a felirat-review
+  feladathoz. Ha most kezdesz, érdemes Gemini-vel próbálkozni elsőként.
+  A jelenlegi default a `gemini-3.7-flash`; ha a napi kvótád szűkös, a
+  `--model gemini-3.5-flash-lite` a bevált olcsó alternatíva (a korábbi
+  default a `gemini-3.1-flash-lite` volt, azzal is használható a pipeline).
 - **Gemini napi limit:** ingyenes szinten a `-lite` modellek bőkezűek, a
   nem-lite modellek viszont tapasztalat szerint napi ~20 kérésnél elfogynak —
   **modellenként külön**, ezért modellváltással aznap tovább lehet dolgozni.

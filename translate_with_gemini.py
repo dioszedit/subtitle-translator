@@ -17,17 +17,25 @@ Használat:
     python translate_with_gemini.py blocks/Sorozat_S01E01_eng
     python translate_with_gemini.py blocks/Sorozat_S01E01_eng --agents 5
     python translate_with_gemini.py blocks/Sorozat_S01E01_eng --block 3
-    python translate_with_gemini.py blocks/Sorozat_S01E01_eng --model gemini-3.1-flash
+    python translate_with_gemini.py blocks/Sorozat_S01E01_eng --model gemini-3.5-flash-lite
 
 Modell:
-    Alapértelmezett: gemini-3.1-flash-lite
+    Alapértelmezett: gemini-3.7-flash (a legújabb Flash — erősebb fordítás)
     --model <név>: tetszőleges Gemini modell-azonosító
+        Flash:      gemini-3.7-flash, gemini-3.6-flash, gemini-3.5-flash
+        Olcsó/lite: gemini-3.5-flash-lite, gemini-3.1-flash-lite
+        Pro:        gemini-3.1-pro-preview
+        Alias:      gemini-flash-latest, gemini-flash-lite-latest, gemini-pro-latest
         Modell-lista: https://ai.google.dev/gemini-api/docs/models
+
+    Free tier: a nem-lite modellek napi kérésszáma szűkös (tapasztalat szerint
+    ~20/nap modellenként), a -lite modellek jóval bőkezűbbek. Ha elfogy a napi
+    kvóta, válts lite modellre: --model gemini-3.5-flash-lite
 
 Párhuzamosság:
     Default: --agents 3. A Gemini API a párhuzamos hívást nem tiltja, csak
-    RPM (requests/min) korlátok vonatkoznak rá. Free tier-en a default
-    modellnél (gemini-3.1-flash-lite) ~30 RPM. Magas --agents érték (>10)
+    RPM (requests/min) korlátok vonatkoznak rá. Free tier-en ~10-30 RPM
+    modelltől függően (a -lite modellek bőkezűbbek). Magas --agents érték (>10)
     esetén várhatóan rate limit (429) hibák; ezeket a script automatikusan
     újrapróbálja exponential backoff-fal, de pazarolja az API-időt.
     Hivatalos rate limit doksi:
@@ -87,7 +95,7 @@ except ImportError as _e:
 # Konstansok
 # ────────────────────────────────────────────────────────────────────────────
 
-MODEL_DEFAULT = "gemini-3.1-flash-lite"
+MODEL_DEFAULT = "gemini-3.7-flash"
 TEMPERATURE = 0.3
 MAX_RETRIES = 4
 RETRY_BASE_DELAY = 5  # másodperc — exponential backoff alapja
@@ -444,7 +452,8 @@ def main():
                         help="Csak egy konkrét blokk újrafordítása (pl. 003 vagy 3 — auto zero-pad)")
     parser.add_argument("--model", type=str, default=MODEL_DEFAULT,
                         help=f"Gemini modell-azonosító (default: {MODEL_DEFAULT}). "
-                             "Pl. gemini-3.1-flash, gemini-2.5-flash, gemini-3.1-pro-preview")
+                             "Pl. gemini-3.6-flash, gemini-3.5-flash-lite, "
+                             "gemini-3.1-flash-lite, gemini-3.1-pro-preview")
     parser.add_argument("--max-retries", type=int, default=MAX_RETRIES,
                         help=f"Max API retry rate-limit / 5xx esetén (default: {MAX_RETRIES})")
     args = parser.parse_args()
@@ -461,7 +470,7 @@ def main():
         print(f"FIGYELEM: --agents = {args.agents} > 10. A Gemini API rate limitek")
         print(f"  függvényében magas párhuzamosság esetén 429 (rate limit) hibák várhatók,")
         print(f"  amiket a retry logika kezel, de pazarolnak API-időt.")
-        print(f"  Free tier: ~30 RPM a default modellnél. Részletek:")
+        print(f"  Free tier: ~10-30 RPM modelltől függően. Részletek:")
         print(f"  https://ai.google.dev/gemini-api/docs/rate-limits")
         print()
 
