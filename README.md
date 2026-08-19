@@ -54,7 +54,7 @@ subtitle-translator/
 │
 ├── proposals/                   ← Fejlesztési irányok, alternatívák, tervek
 │                                  (saját README a részletekhez)
-└── lepesek.txt                  ← Quick-reference parancslista
+└── steps.txt                  ← Quick-reference parancslista
 ```
 
 A **`subtr.py`** a repo gyökeréből fut, és minden alparancsa a `subtr/` csomag
@@ -97,7 +97,7 @@ copy .env.example .env
 > |---------|---------------|
 > | `python` | `python3` |
 > | `pip` | `pip3` |
-> | `py` (lepesek.txt-ben) | `python3` |
+> | `py` (steps.txt-ben) | `python3` |
 > | `copy` | `cp` |
 > | `del` | `rm` |
 > | `input\fájl.srt` (backslash) | `input/fájl.srt` (forward slash) |
@@ -578,7 +578,7 @@ külön telepítés nélkül:
 | Skill | Mit csinál |
 |---|---|
 | `/review-triage <hun.srt>` | A `_REVIEW_*.json` riportok minden találatát a forráshoz méri, kiszűri a no-opokat és hamis riasztásokat, `decisions.json`-t épít és a `subtr.py apply-auto`-val átvezeti a jóváhagyottakat |
-| `/epizod <név>` | A fájlokból felismeri, hol tart egy epizód a pipeline-ban, és onnan viszi tovább a lépéseket a `lepesek.txt` szerint — a csapdákkal együtt (`--clean`, `.clean.srt` elleni verify, resegment-sorrend) |
+| `/epizod <név>` | A fájlokból felismeri, hol tart egy epizód a pipeline-ban, és onnan viszi tovább a lépéseket a `steps.txt` szerint — a csapdákkal együtt (`--clean`, `.clean.srt` elleni verify, resegment-sorrend) |
 
 A skillek csak **munkafolyamatot** kódolnak — a fordítási szabályok forrása
 továbbra is a `TRANSLATION.md` és a `glossary.json`. A Codexes megfelelőik a
@@ -783,7 +783,7 @@ nyelvileg jó lehet, de a néző-élmény nem lesz az.
 
 - `TRANSLATION.md` — közös fordítási szabályok és sorozat-kontekstus
 - `CLAUDE.md` — Claude Code belépési pont a közös szabályzathoz
-- `lepesek.txt` — gyors parancs-cheatsheet
+- `steps.txt` — gyors parancs-cheatsheet
 - `resegment_srt.md` — a szegmentáló eszköz (`subtr.py resegment`) részletes leírása
 - `proposals/` — fejlesztési irányok, alternatívák, tervezési dokumentumok
   (lásd: [`proposals/README.md`](proposals/README.md))

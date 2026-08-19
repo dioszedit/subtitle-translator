@@ -1,6 +1,6 @@
 ---
 name: epizod
-description: Egy epizód fordítási folyamatának végigvitele vagy folytatása — a fájlokból felismeri, hol tart a pipeline (split → translate → merge → verify → review → triage), és onnan viszi tovább a lepesek.txt szerint. Akkor használd, ha a felhasználó egy epizód fordítását kéri, vagy azt kérdezi, hol tart / mi a következő lépés.
+description: Egy epizód fordítási folyamatának végigvitele vagy folytatása — a fájlokból felismeri, hol tart a pipeline (split → translate → merge → verify → review → triage), és onnan viszi tovább a steps.txt szerint. Akkor használd, ha a felhasználó egy epizód fordítását kéri, vagy azt kérdezi, hol tart / mi a következő lépés.
 argument-hint: <epizód input SRT vagy név, pl. "Sorozat - S01E01">
 ---
 
@@ -8,7 +8,7 @@ argument-hint: <epizód input SRT vagy név, pl. "Sorozat - S01E01">
 
 A pipeline minden lépése fájl-alapú checkpointtal dolgozik, ezért a "hol
 tartok?" kérdés a fájlrendszerből megválaszolható — SOHA ne futtass újra kész
-lépést. A parancsok kanonikus forrása a **lepesek.txt** (Windows: `py` launcher,
+lépést. A parancsok kanonikus forrása a **steps.txt** (Windows: `py` launcher,
 backslash útvonalak) — a pontos kapcsolókat onnan vedd, ne fejből.
 
 ## 1. Állapot-felismerés

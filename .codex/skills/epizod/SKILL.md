@@ -5,7 +5,7 @@ description: Egy feliratepizód fordítási folyamatának állapotfelismerése �
 
 # Epizód pipeline
 
-Az utasítások forrása a `lepesek.txt`; a fordítási szabályzat a `TRANSLATION.md`. Először fájlokból állapítsd meg az állapotot, és még futtatás előtt mondd meg röviden a következő lépést.
+Az utasítások forrása a `steps.txt`; a fordítási szabályzat a `TRANSLATION.md`. Először fájlokból állapítsd meg az állapotot, és még futtatás előtt mondd meg röviden a következő lépést.
 
 | Lépés | Kész, ha |
 |---|---|
