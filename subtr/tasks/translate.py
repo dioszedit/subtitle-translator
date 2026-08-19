@@ -159,6 +159,8 @@ beszélt magyar nyelvre. NEM tükörfordítasz.
 
 === KEMÉNY SZABÁLYOK ===
 - A sorszámokat és időbélyegeket PONTOSAN másold át, NE generáld fejből!
+- NE számozd újra a szekciókat 1-től, és NE szúrj be plusz sorszám-sort —
+  minden szekció ELSŐ sora az eredeti sorszám maradjon.
 - HTML tagek (<i>, </i>), kötőjeles párbeszéd (-), [megjegyzések], ♫ jelölés őrizve.
 - Karakterneveket NE fordítsd le.
 - Az output PONTOSAN ugyanannyi szekciót tartalmazzon, mint az input.
@@ -421,7 +423,29 @@ def _make_claude_translator(claude_bin, sys_prompt_path, model, timeout, max_tur
         if os.path.isfile(output_path) and os.path.getsize(output_path) > 0:
             in_count = count_sections(block_path)
             out_count = count_sections(output_path)
+            # A count_sections strukturális (szám + időbélyeg-sor pár), ezért nem
+            # veszi észre, ha az agent SAJÁT számozást szúr be az igazi elé (az
+            # eredeti sorszám a 2. sorba csúszik, és a scanner azt találja meg).
+            # Ezért blokk-parse szinten is összevetjük a sorszámokat és
+            # időbélyegeket az inputtal — a gemini/codex ágon ezt a felépítés
+            # garantálja, a claude-ágon ellenőrizni kell.
             if in_count == out_count:
+                try:
+                    in_secs = parse_sections(block_path)
+                    out_secs = parse_sections(output_path)
+                    structure_ok = (
+                        [x["num"] for x in in_secs] == [x["num"] for x in out_secs]
+                        and [x["timestamp"] for x in in_secs] == [x["timestamp"] for x in out_secs]
+                    )
+                except Exception:
+                    structure_ok = False
+                if not structure_ok:
+                    result["status"] = "warning"
+                    result["message"] = ("Sorszám/időbélyeg-eltérés az inputhoz képest "
+                                         "(pl. újraszámozott output) — output törölve, "
+                                         "újrafutáskor újrafordítjuk")
+                    safe_remove(output_path)
+                    return result
                 result["status"] = "ok"
                 result["message"] = f"{out_count} szekció"
             else:
