@@ -142,3 +142,21 @@ def write_sys_prompt_file(content: str, prefix: str) -> str:
     with open(path, "w", encoding="utf-8") as f:
         f.write(content)
     return path
+
+
+def kill_process_tree(proc):
+    """Timeout után a TELJES folyamatfát leöljük. Windows-on a claude.cmd
+    shim alatt futó node process árvaként túlélné a sima kill-t, és utólag
+    (a törlés UTÁN) még kiírhatná a kimeneti fájlt — amit a resume aztán
+    késznek látna."""
+    import subprocess
+
+    if os.name == "nt":
+        subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)],
+                       capture_output=True)
+    else:
+        proc.kill()
+    try:
+        proc.wait(timeout=10)
+    except Exception:
+        pass
