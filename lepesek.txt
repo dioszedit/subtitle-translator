@@ -26,8 +26,10 @@ py split_srt.py "input\Sorozat - S01E01.eng.srt"
 #     te jóváhagyod (y/n/e/q). Így a párhuzamos fordítás már EGYSÉGES nevekkel indul.
 #     (Csak az angol fájlt add meg — a magyar argumentum elhagyása kapcsolja be ezt a módot.)
 py glossary_extract.py "input\Sorozat - S01E01.eng.srt"
-# Codex providerrel:
+# Másik providerrel (default: claude):
 # py glossary_extract.py "input\Sorozat - S01E01.eng.srt" --provider codex
+# py glossary_extract.py "input\Sorozat - S01E01.eng.srt" --provider gemini
+#   (a Gemini ág darabonként 1 API-hívás — hosszú feliratnál nézd a kvótát)
 
 # 1.6 (AJÁNLOTT) Megszólítási regiszter frissítése a TRANSLATION.local.md-ben
 #     Ki kit tegez / magáz — ez kerül bele minden blokk promptjába, és ez az egyetlen,

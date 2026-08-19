@@ -10,8 +10,9 @@ Használat:
     python glossary_extract.py eredeti.eng.srt                      # (1) előzetes mód
     python glossary_extract.py eredeti.eng.srt forditott.hun.srt    # (2) utólagos mód
     python glossary_extract.py eredeti.eng.srt forditott.hun.srt --glossary glossary.json
+    python glossary_extract.py eredeti.eng.srt --provider gemini   # vagy codex / claude
 
-A feliratot Claude Code-dal vagy Codex CLI-vel elemzi (hosszú fájlnál több darabban, szekció-
+A feliratot Claude Code-dal, Codex CLI-vel vagy Gemini API-val elemzi (hosszú fájlnál több darabban, szekció-
 határon vágva — párban a két nyelv ugyanazokat a szekciókat kapja), kigyűjti
 a visszatérő kifejezéseket (megszólítások, helyszínek, nevek, speciális
 fogalmak), majd a konzolon egyesével jóváhagyhatod őket.
@@ -186,6 +187,21 @@ CODEX_GLOSSARY_SCHEMA = {
     "required": ["suggestions"],
     "additionalProperties": False,
 }
+
+GEMINI_MODEL_DEFAULT = "gemini-3.6-flash"
+
+
+def _no_additional(node):
+    """A Gemini response_schema nem ismeri az additionalProperties kulcsot,
+    a Codex strict módja viszont megköveteli — ezért két sémaváltozat kell."""
+    if isinstance(node, dict):
+        return {k: _no_additional(v) for k, v in node.items() if k != "additionalProperties"}
+    if isinstance(node, list):
+        return [_no_additional(v) for v in node]
+    return node
+
+
+GEMINI_GLOSSARY_SCHEMA = _no_additional(CODEX_GLOSSARY_SCHEMA)
 
 
 def _existing_note(existing_terms: set) -> str:
@@ -374,9 +390,75 @@ def validate_suggestions(suggestions, existing_terms: set) -> list[dict]:
     return valid
 
 
+def _run_gemini(prompt: str, existing_terms: set, model: str | None) -> list[dict]:
+    """Gemini API ág — strukturált JSON kimenettel, kvóta-könyveléssel."""
+    try:
+        from dotenv import load_dotenv
+        from google import genai
+        from google.genai import types
+    except ImportError as e:
+        print(f"HIBA: Hiányzó függőség: {e}")
+        print("      Telepítés: pip install google-genai python-dotenv pydantic")
+        return []
+
+    load_dotenv()
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        print("HIBA: GEMINI_API_KEY nincs beállítva. Tedd a .env fájlba.")
+        return []
+
+    model = model or GEMINI_MODEL_DEFAULT
+    try:
+        import gemini_quota as gq
+    except Exception:
+        gq = None
+    if gq:
+        try:
+            gq.preflight(model, needed=1)
+        except Exception:
+            pass
+
+    print(f"Gemini elemzi a feliratot... ({model})")
+    gemini_prompt = (prompt + "\n\nKIMENET: kizárólag egy JSON objektum "
+                     '`suggestions` tömbbel: {"suggestions":[...]}.')
+    try:
+        client = genai.Client(api_key=api_key)
+        resp = client.models.generate_content(
+            model=model,
+            contents=gemini_prompt,
+            config=types.GenerateContentConfig(
+                temperature=0.2,
+                response_mime_type="application/json",
+                response_schema=GEMINI_GLOSSARY_SCHEMA,
+            ),
+        )
+    except Exception as e:
+        if gq:
+            try:
+                gq.note_limit_from_error(model, e)
+            except Exception:
+                pass
+        print(f"HIBA: Gemini API hiba: {e}")
+        return []
+
+    if gq:
+        try:
+            gq.record(model)
+        except Exception:
+            pass
+    try:
+        return validate_suggestions(json.loads(resp.text).get("suggestions", []), existing_terms)
+    except (json.JSONDecodeError, AttributeError) as e:
+        print(f"HIBA: JSON parse hiba: {e}")
+        return []
+
+
 def _run_extraction(prompt: str, existing_terms: set, timeout: int,
                     provider: str = "claude", model: str | None = None) -> list[dict]:
     """Közös rész: provider hívás, válasz-parse és validáció."""
+    if provider == "gemini":
+        return _run_gemini(prompt, existing_terms, model)
+
     if provider == "codex":
         codex_cmd = find_codex()
         if not codex_cmd:
@@ -554,9 +636,11 @@ def main():
                         help="Szójegyzék fájl útvonala (alapértelmezett: glossary.json)")
     parser.add_argument("--timeout", type=int, default=300,
                         help="Provider timeout másodpercben (alapértelmezett: 300)")
-    parser.add_argument("--provider", choices=("claude", "codex"), default="claude",
+    parser.add_argument("--provider", choices=("claude", "codex", "gemini"), default="claude",
                         help="Kinyerő provider (alapértelmezett: claude)")
-    parser.add_argument("--model", help="Opcionális Codex modellazonosító")
+    parser.add_argument("--model",
+                        help="Opcionális modellazonosító (codex / gemini; "
+                             f"gemini default: {GEMINI_MODEL_DEFAULT})")
     args = parser.parse_args()
 
     pre_mode = args.hun_srt is None  # fordítás előtti, angol-only mód

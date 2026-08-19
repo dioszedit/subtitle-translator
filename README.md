@@ -475,9 +475,16 @@ python glossary_extract.py "input\eng.srt" "output\hun.srt"
 # Egyéni glossary útvonal (mindkét módban)
 python glossary_extract.py "input\eng.srt" --glossary my_glossary.json
 
-# Ugyanez Codex providerrel (Claude az alapértelmezett)
+# Másik provider (Claude az alapértelmezett)
 python glossary_extract.py "input\eng.srt" --provider codex
+python glossary_extract.py "input\eng.srt" --provider gemini
+python glossary_extract.py "input\eng.srt" --provider gemini --model gemini-3.5-flash-lite
 ```
+
+A Gemini ág strukturált JSON sémával dolgozik, és a `gemini_quota.py`-ba
+könyvel, mint a többi Gemini script. Hosszú feliratnál a kinyerés több
+darabban megy — **darabonként egy API-hívás**, ezt a napi kvótánál vedd
+figyelembe (`python gemini_quota.py`).
 
 Mindkét mód interaktív: a javasolt kifejezéseket egyesével hagyod jóvá
 (`y` = elfogad, `n` = elutasít, `e` = szerkeszt, `q` = kilép).
