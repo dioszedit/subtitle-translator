@@ -39,22 +39,10 @@ import shutil
 import sys
 from pathlib import Path
 
+from subtr.srt import parse_blocks_with_index as parse_srt_blocks
+
 sys.stdout.reconfigure(encoding='utf-8')
 sys.stderr.reconfigure(encoding='utf-8')
-
-
-def parse_srt_blocks(filepath):
-    content = Path(filepath).read_text(encoding="utf-8-sig")
-    blocks = [b.strip() for b in re.split(r"\n\s*\n", content.strip()) if b.strip()]
-    index = {}
-    for i, block in enumerate(blocks):
-        lines = block.split("\n")
-        if len(lines) >= 2 and "-->" in lines[1]:
-            try:
-                index[int(lines[0].strip())] = i
-            except ValueError:
-                continue
-    return blocks, index
 
 
 def block_text(block):
@@ -73,7 +61,7 @@ def norm(text):
     return " ".join(text.split())
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(
         description="Review-javítások nem interaktív alkalmazása a magyar SRT-re")
     parser.add_argument("srt_file", help="A magyar (hun.srt) fájl")
@@ -83,7 +71,7 @@ def main():
     parser.add_argument("--ignore-drift", action="store_true",
                         help="Akkor is alkalmaz, ha az 'eredeti' mező nem egyezik "
                              "a fájlban lévő szöveggel (alapból ilyenkor kihagy)")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     srt_path = Path(args.srt_file)
     if not srt_path.exists():
@@ -172,6 +160,3 @@ def main():
     print(f"Alkalmazva: {applied}, már egyezett: {unchanged}, "
           f"hiányzó szekció: {missing}, eltérés: {drifted}")
 
-
-if __name__ == "__main__":
-    main()

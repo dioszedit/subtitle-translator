@@ -33,7 +33,7 @@ Készíts `<stem>_decisions.json` fájlt kizárólag elfogadott tételekkel:
 Előbb mindig futtasd:
 
 ```powershell
-py apply_review_auto.py "<hun.srt>" "<decisions.json>" --dry-run
+py subtr.py apply-auto "<hun.srt>" "<decisions.json>" --dry-run
 ```
 
 Mutasd meg az elfogadott, no-opként eldobott és hamisként eldobott tételek számát. Író futtatást csak felhasználói jóváhagyás után végezz. Eltérésnél ne használd az `--ignore-drift` kapcsolót; készíts új döntéslistát.

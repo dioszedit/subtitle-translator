@@ -9,17 +9,13 @@ Használat:
 import glob
 import re
 import sys
+
+from subtr.srt import split_blocks as parse_sections
 import os
 import argparse
 
 sys.stdout.reconfigure(encoding='utf-8')
 sys.stderr.reconfigure(encoding='utf-8')
-
-
-def parse_sections(content: str) -> list[str]:
-    """SRT tartalom szekciókra bontása."""
-    raw = re.split(r'\n\s*\n', content.strip())
-    return [s.strip() for s in raw if s.strip()]
 
 
 def get_section_num(section_text: str) -> int | None:
@@ -87,13 +83,13 @@ def split_srt(input_file: str, block_size: int = 150, clean: bool = False) -> st
     return outdir
 
 
-if __name__ == "__main__":
+def main(argv=None):
     parser = argparse.ArgumentParser(description="SRT fájl feldarabolása blokkokra")
     parser.add_argument("input", help="Bemeneti SRT fájl útvonala")
     parser.add_argument("--block-size", type=int, default=150, help="Blokk méret (alapértelmezett: 150)")
     parser.add_argument("--clean", action="store_true",
                         help="Meglévő blokkfájlok törlése a cél mappából újra-split előtt")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if not os.path.isfile(args.input):
         print(f"HIBA: Nem találom a fájlt: {args.input}")

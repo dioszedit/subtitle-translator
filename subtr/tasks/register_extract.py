@@ -39,20 +39,16 @@ import json
 import os
 import re
 import shutil
-import subprocess
 import sys
 from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8")
 sys.stderr.reconfigure(encoding="utf-8")
 
-from codex_runner import CodexRunError, find_codex, run_codex_json
-from translation_context import load_translation_context
-
-try:
-    import gemini_quota as gq
-except Exception:  # a kvótakövetés kényelmi funkció, nem állíthatja meg a futást
-    gq = None
+from subtr import config
+from subtr.providers.codex_cli import CodexRunError, find_codex, run_codex_json
+from subtr.providers.claude_cli import extract_json, find_claude as find_claude_cli, run_prompt
+from subtr.context import load_translation_context
 
 LOCAL_FILE_DEFAULT = "TRANSLATION.local.md"
 SECTION_HEADER = "Megszólítási regiszter:"
@@ -92,19 +88,6 @@ RESULT_SCHEMA = {
     "required": ["relations"],
     "additionalProperties": False,
 }
-
-
-def _no_additional(node):
-    """A Gemini response_schema nem ismeri az additionalProperties kulcsot (a
-    Codex strict módja viszont megköveteli) — ezért két változat kell."""
-    if isinstance(node, dict):
-        return {k: _no_additional(v) for k, v in node.items() if k != "additionalProperties"}
-    if isinstance(node, list):
-        return [_no_additional(v) for v in node]
-    return node
-
-
-GEMINI_SCHEMA = _no_additional(RESULT_SCHEMA)
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -284,58 +267,26 @@ def _validate(relations) -> list[dict]:
 
 
 def run_gemini(prompt: str, model: str) -> list[dict]:
-    try:
-        from dotenv import load_dotenv
-        from google import genai
-        from google.genai import types
-    except ImportError as e:
-        print(f"HIBA: Hiányzó függőség: {e}")
+    """Gemini ág — a retry/kvóta logika a közös adapterben (subtr.providers.gemini)."""
+    from subtr.providers import gemini as gemini_provider
+    if not gemini_provider.DEPS_OK:
+        print(f"HIBA: Hiányzó függőség: {gemini_provider.DEPS_ERROR}")
         print("      Telepítés: pip install google-genai python-dotenv pydantic")
         return []
-
-    load_dotenv()
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        print("HIBA: GEMINI_API_KEY nincs beállítva. Tedd a .env fájlba.")
-        return []
-
-    if gq:
-        try:
-            gq.preflight(model, needed=1)
-        except Exception:
-            pass
-
-    client = genai.Client(api_key=api_key)
+    gemini_provider.preflight(model, needed=1)
     print(f"Gemini elemzi a feliratot... ({model})")
     try:
-        resp = client.models.generate_content(
-            model=model,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                temperature=0.2,
-                response_mime_type="application/json",
-                response_schema=GEMINI_SCHEMA,
-            ),
-        )
-    except Exception as e:
-        if gq:
-            try:
-                gq.note_limit_from_error(model, e)
-            except Exception:
-                pass
-        print(f"HIBA: Gemini API hiba: {e}")
+        client = gemini_provider.make_client()
+    except RuntimeError as e:
+        print(f"HIBA: {e}")
         return []
-
-    if gq:
-        try:
-            gq.record(model)
-        except Exception:
-            pass
-    try:
-        return _validate(json.loads(resp.text).get("relations"))
-    except Exception as e:
-        print(f"HIBA: JSON parse hiba: {e}")
+    parsed, err = gemini_provider.call_json(client, model, prompt,
+                                            schema=RESULT_SCHEMA,
+                                            temperature=0.2)
+    if err:
+        print(f"HIBA: Gemini API hiba: {err}")
         return []
+    return _validate(parsed.get("relations"))
 
 
 def run_codex(prompt: str, model, timeout: int) -> list[dict]:
@@ -353,53 +304,26 @@ def run_codex(prompt: str, model, timeout: int) -> list[dict]:
     return _validate(result.get("relations"))
 
 
-def find_claude_cli() -> str:
-    found = shutil.which("claude")
-    if found:
-        return found
-    local_bin = os.path.join(os.path.expanduser("~"), ".local", "bin", "claude.exe")
-    if os.path.isfile(local_bin):
-        return local_bin
-    return "claude"
-
-
 def run_claude(prompt: str, timeout: int) -> list[dict]:
     claude_cmd = find_claude_cli()
     print(f"Claude Code elemzi a feliratot... ({claude_cmd})")
     prompt += ('\n\nKIMENET: kizárólag egy JSON objektum, semmi más szöveg:\n'
                '{"relations":[{"a":"","b":"","mutual":false,"form":"MAGÁZ",'
                '"confidence":"biztos","relation":"","evidence":[""]}]}')
-    try:
-        proc = subprocess.run([claude_cmd, "-p", "-"], input=prompt, capture_output=True,
-                              text=True, timeout=timeout, encoding="utf-8")
-    except subprocess.TimeoutExpired:
-        print(f"HIBA: Timeout ({timeout} mp)")
-        return []
-    except FileNotFoundError:
-        print(f"HIBA: A 'claude' parancs nem található (keresett: {claude_cmd})")
-        return []
-    if proc.returncode != 0:
-        print(f"HIBA: Claude Code hiba (exit code: {proc.returncode})")
-        if proc.stderr:
-            print(f"  stderr: {proc.stderr[:400]}")
+    raw, err = run_prompt(prompt, timeout, claude_bin=claude_cmd)
+    if err:
+        print(f"HIBA: {err}")
         return []
 
-    raw = proc.stdout.strip()
-    for cand in (re.search(r"```(?:json)?\s*(\{.*?\})\s*```", raw, re.S),):
-        if cand:
-            raw = cand.group(1)
-            break
-    else:
-        first, last = raw.find("{"), raw.rfind("}")
-        if first != -1 and last > first:
-            raw = raw[first:last + 1]
-    try:
-        return _validate(json.loads(raw).get("relations"))
-    except json.JSONDecodeError as e:
+    parsed = extract_json(raw)
+    if not isinstance(parsed, dict):
+        # None (parse-hiba) VAGY tömb — a válasznak {"relations":[...]}
+        # objektumnak kell lennie; a nyers választ megőrizzük.
         debug = ".register_extract_debug.txt"
-        Path(debug).write_text(proc.stdout, encoding="utf-8")
-        print(f"HIBA: JSON parse hiba: {e}\n  Nyers válasz mentve: {debug}")
+        Path(debug).write_text(raw, encoding="utf-8")
+        print(f"HIBA: JSON parse hiba (nem objektum a válasz)\n  Nyers válasz mentve: {debug}")
         return []
+    return _validate(parsed.get("relations"))
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -507,8 +431,10 @@ def main():
     parser = argparse.ArgumentParser(
         description="Megszólítási regiszter kinyerése angol forrásfeliratból (opcionális lépés)")
     parser.add_argument("srt", nargs="+", help="Egy vagy több angol SRT (több rész = pontosabb)")
-    parser.add_argument("--provider", choices=("gemini", "claude", "codex"), default="gemini",
-                        help="Kinyerő provider (default: gemini)")
+    parser.add_argument("--provider", choices=("gemini", "claude", "codex"),
+                        default=config.default_provider(builtin="gemini"),
+                        help="Kinyerő provider (default: gemini, "
+                             "felülírható: SUBTR_DEFAULT_PROVIDER env)")
     parser.add_argument("--model", help="Modellazonosító (gemini/codex)")
     parser.add_argument("--local-file", default=LOCAL_FILE_DEFAULT,
                         help=f"A regisztert tartalmazó fájl (default: {LOCAL_FILE_DEFAULT})")
@@ -536,7 +462,8 @@ def main():
     print(f"Meglévő regiszter: {len(existing)} pár "
           f"({'szakasz megvan' if has_section else 'még nincs szakasz'}) — {args.local_file}")
 
-    model = args.model or (GEMINI_MODEL_DEFAULT if args.provider == "gemini" else None)
+    model = config.resolve_model(args.model, args.provider, "register",
+                                 builtin=GEMINI_MODEL_DEFAULT if args.provider == "gemini" else None)
     per_episode = []
     for path in args.srt:
         label = Path(path).stem

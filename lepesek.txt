@@ -5,7 +5,7 @@
 #     - "pip"  helyett   "pip3"
 #     - "del"  helyett   "rm"
 #     - backslash (\) helyett forward slash (/) az útvonalakban
-#   Pl.: python3 split_srt.py "input/Sorozat - S01E01.eng.srt"
+#   Pl.: python3 subtr.py split "input/Sorozat - S01E01.eng.srt"
 
 # 0. (OPCIONÁLIS) SDH-forrás előtisztítása — CSAK ha a felirat hang-/zene-
 #    jegyzeteket tartalmaz ([music playing], [sighs], NÉV: címkék stb.)
@@ -16,7 +16,7 @@
 # képest hamis hibákat jelezne), vagy használd az addon verify_preclean.py-át.
 
 # 1. SRT szétvágás (ezt TE futtatod, nem kell hozzá Claude)
-py split_srt.py "input\Sorozat - S01E01.eng.srt"
+py subtr.py split "input\Sorozat - S01E01.eng.srt"
 # Újra-splitnél (pl. más --block-size) a régi blokkok törléséhez: --clean
 # (enélkül leáll, hogy a régi + új blokkok ne keveredjenek a merge-nél)
 
@@ -25,10 +25,10 @@ py split_srt.py "input\Sorozat - S01E01.eng.srt"
 #     az agent JAVASLATOT tesz a magyar fordításra (a TRANSLATION.md szabályai alapján),
 #     te jóváhagyod (y/n/e/q). Így a párhuzamos fordítás már EGYSÉGES nevekkel indul.
 #     (Csak az angol fájlt add meg — a magyar argumentum elhagyása kapcsolja be ezt a módot.)
-py glossary_extract.py "input\Sorozat - S01E01.eng.srt"
+py subtr.py glossary "input\Sorozat - S01E01.eng.srt"
 # Másik providerrel (default: claude):
-# py glossary_extract.py "input\Sorozat - S01E01.eng.srt" --provider codex
-# py glossary_extract.py "input\Sorozat - S01E01.eng.srt" --provider gemini
+# py subtr.py glossary "input\Sorozat - S01E01.eng.srt" --provider codex
+# py subtr.py glossary "input\Sorozat - S01E01.eng.srt" --provider gemini
 #   (a Gemini ág darabonként 1 API-hívás — hosszú feliratnál nézd a kvótát)
 
 # 1.6 (AJÁNLOTT) Megszólítási regiszter frissítése a TRANSLATION.local.md-ben
@@ -40,9 +40,9 @@ py glossary_extract.py "input\Sorozat - S01E01.eng.srt"
 #
 #     OPCIONÁLIS SEGÉDLET: a regisztert egy modell is felvázolhatja az angol
 #     forrásból — a javaslatot te hagyod jóvá, a fájl kézzel bármikor javítható.
-# py register_extract.py "input\Sorozat - S01E01.eng.srt"
+# py subtr.py register "input\Sorozat - S01E01.eng.srt"
 #     Több rész pontosabb (a részek közti eltérés VÁLTÁS-jelöltként jön fel):
-# py register_extract.py "input\S01E01.eng.srt" "input\S01E02.eng.srt"
+# py subtr.py register "input\S01E01.eng.srt" "input\S01E02.eng.srt"
 #     Opcionálisan:
 #       --provider gemini|claude|codex   default: gemini
 #       --dry-run                        csak kiírja, nem ír a fájlba
@@ -52,13 +52,14 @@ py glossary_extract.py "input\Sorozat - S01E01.eng.srt"
 #     bizonytalanoknál kérdez. A meglévő regisztert nem írja felül csendben:
 #     ütközésnél megkérdez. Mentés előtt TRANSLATION.local.md.bak készül.
 
-# 2a. Fordítás Claude Code-dal (ez indítja a párhuzamos agent-eket)
-py translate_parallel.py "blocks\Sorozat - S01E01.eng" --agents 3
+# 2. Fordítás — a --provider választja ki a fordítót (default: claude,
+#    felülírható a SUBTR_DEFAULT_PROVIDER env-vel)
+py subtr.py translate "blocks\Sorozat - S01E01.eng" --provider claude --agents 3
 
-# 2b. ALTERNATÍVA: fordítás Gemini API-val (olcsóbb, ugyanazt a blocks/ mappát fordítja)
-#     A Gemini és Codex fordító ugyanúgy checkpoint-ol, ezért provider-váltással is folytatható.
+# ALTERNATÍVA: fordítás Gemini API-val (olcsóbb, ugyanazt a blocks/ mappát fordítja)
+#     A három provider ugyanúgy checkpoint-ol, ezért provider-váltással is folytatható.
 #     Default modell: gemini-3.6-flash (erős, stabilan elérhető)
-# py translate_with_gemini.py "blocks\Sorozat - S01E01.eng" --agents 3
+# py subtr.py translate "blocks\Sorozat - S01E01.eng" --provider gemini --agents 3
 # Opcionálisan:
 #   --model gemini-3.5-flash-lite olcsóbb, bő napi kvóta (kvótahiba esetén)
 #   --model gemini-3.7-flash      legújabb, de gyakran túlterhelt (503)
@@ -67,42 +68,25 @@ py translate_parallel.py "blocks\Sorozat - S01E01.eng" --agents 3
 # Előfeltétel: pip install google-genai python-dotenv pydantic
 # Előfeltétel: .env fájl GEMINI_API_KEY=... bejegyzéssel
 
-# 2c. ALTERNATÍVA: fordítás Codex CLI-vel
+# ALTERNATÍVA: fordítás Codex CLI-vel
 # Előfeltétel: telepített és bejelentkezett `codex` parancs.
 # Először mindig csak egy blokkot tesztelj:
-# py translate_with_codex.py "blocks\Sorozat - S01E01.eng" --block 1 --agents 1
+# py subtr.py translate "blocks\Sorozat - S01E01.eng" --provider codex --block 1 --agents 1
 # Utána a hiányzó blokkok fordítása:
-# py translate_with_codex.py "blocks\Sorozat - S01E01.eng" --agents 1
+# py subtr.py translate "blocks\Sorozat - S01E01.eng" --provider codex --agents 1
 
 # 3. Összefűzés (megint csak sima Python)
-py merge_srt.py "blocks\Sorozat - S01E01.eng" "output\Sorozat - S01E01.hun.srt"
+py subtr.py merge "blocks\Sorozat - S01E01.eng" "output\Sorozat - S01E01.hun.srt"
 # Hiányzó blokkoknál leáll és listázza őket; --force kapcsolóval mégis összefűz
 
 # 4. Ellenőrzés — ✓ vagy ✗ jelzi ha valami nem stimmel
-py verify_srt.py "input\Sorozat - S01E01.eng.srt" "output\Sorozat - S01E01.hun.srt"
+py subtr.py verify "input\Sorozat - S01E01.eng.srt" "output\Sorozat - S01E01.hun.srt"
 
-# 5. Stilisztikai review Claude-dal (tükörfordítások, ragozási hibák)
-py review_with_claude.py "output\Sorozat - S01E01.hun.srt"
-# Default modell: sonnet
+# 5. Stilisztikai review — a --provider választja ki a lektort (default: gemini)
+py subtr.py review "output\Sorozat - S01E01.hun.srt"
+# Default modell (gemini ág): gemini-3.6-flash
 # Ha megtalálja a forrásnyelvi SRT-t (input\Sorozat - S01E01.eng.srt), automatikusan
 # odaadja a modellnek szekciónként [FORRÁS] sorként — így kevesebb a téves találat.
-# Opcionálisan:
-#   --chunk-size 150            nagyobb chunkok = kevesebb Claude hívás
-#   --model haiku|sonnet|opus   modell-választás (default sonnet)
-#   --source "input\....srt"    forrásnyelvi SRT kézi megadása (bármilyen nyelv;
-#                               a régi név, --english, továbbra is működik)
-#   --no-source                 forrásnyelvi SRT kihagyása
-#   --start-chunk N             chunk-tartomány pl. megszakítás utáni pótlásra
-#   --end-chunk N --suffix _part2  hogy ne írja felül a meglévő riportot
-# Kimenet: output\Sorozat - S01E01.hun_REVIEW_CLAUDE.txt (olvasható riport)
-#          output\Sorozat - S01E01.hun_REVIEW_CLAUDE.json (az apply_review.py-hoz)
-# A javításokat az 5c. lépés (apply_review.py) viszi át interaktívan
-
-# 5b. Stilisztikai review Gemini-vel (alternatív / kiegészítő, Te döntöd mikor futtatod)
-py review_with_gemini.py "output\Sorozat - S01E01.hun.srt"
-# Default modell: gemini-3.6-flash (erős, stabilan elérhető)
-# Ha megtalálja a forrásnyelvi SRT-t (input\Sorozat - S01E01.eng.srt), automatikusan
-# odaadja Gemini-nek szekciónként [FORRÁS] sorként — így kevesebb a téves találat.
 # Opcionálisan:
 #   --chunk-size 150            nagyobb chunkok = kevesebb API hívás
 #   --model <név>               más Gemini modell (pl. gemini-3.7-flash = gyakran 503,
@@ -113,19 +97,28 @@ py review_with_gemini.py "output\Sorozat - S01E01.hun.srt"
 #   --start-chunk N             chunk-tartomány pl. kvótahiba utáni pótlásra
 #   --end-chunk N --suffix _part2  hogy ne írja felül a meglévő riportot
 # Kimenet: output\Sorozat - S01E01.hun_REVIEW_GEMINI.txt (olvasható riport)
-#          output\Sorozat - S01E01.hun_REVIEW_GEMINI.json (az apply_review.py-hoz)
-# Előfeltétel: pip install google-genai python-dotenv pydantic
-# Előfeltétel: .env fájl GEMINI_API_KEY=... bejegyzéssel
+#          output\Sorozat - S01E01.hun_REVIEW_GEMINI.json (a subtr.py apply-hoz)
+# A javításokat az 5c. lépés (subtr.py apply) viszi át interaktívan
 
-# 5c. Stilisztikai review Codex CLI-vel (alternatív / kiegészítő)
-# py review_with_codex.py "output\Sorozat - S01E01.hun.srt"
+# 5b. ALTERNATÍVA/KIEGÉSZÍTÉS: Stilisztikai review Claude Code-dal
+py subtr.py review "output\Sorozat - S01E01.hun.srt" --provider claude
+# Default modell: sonnet (default chunk-size: 100)
+# Opcionálisan:
+#   --model haiku|sonnet|opus   modell-választás (default sonnet)
+#   --source / --no-source      mint fent
+#   --start-chunk / --end-chunk / --suffix  mint fent
+# Kimenet: output\Sorozat - S01E01.hun_REVIEW_CLAUDE.txt (olvasható riport)
+#          output\Sorozat - S01E01.hun_REVIEW_CLAUDE.json (a subtr.py apply-hoz)
+
+# 5c. ALTERNATÍVA/KIEGÉSZÍTÉS: Stilisztikai review Codex CLI-vel
+# py subtr.py review "output\Sorozat - S01E01.hun.srt" --provider codex
 # Kimenet: output\Sorozat - S01E01.hun_REVIEW_CODEX.txt + .json
 
 # 5b/2. GEMINI KVÓTA — mennyi hívás van még ma?
 #     A Gemini API NEM adja vissza a maradék napi kvótát (kipróbálva: a Service
 #     Usage API 403-at ad API kulccsal, a válaszfejlécekben nincs ratelimit-*),
-#     ezért a gemini_quota.py HELYBEN könyveli a hívásokat.
-py gemini_quota.py                 # mai fogyás modellenként
+#     ezért a subtr.py quota HELYBEN könyveli a hívásokat.
+py subtr.py quota                 # mai fogyás modellenként
 # Opcionálisan:
 #   --days 7        utolsó 7 nap
 #   --projects      projektmappa szerinti bontás is (hol fogyott el az adag)
@@ -142,29 +135,30 @@ py gemini_quota.py                 # mai fogyás modellenként
 # fogyaszt — ezért közös a napló, és a kulcs ujjlenyomata szerint van bontva
 # (maga a kulcs SOHA nem kerül a fájlba).
 #
-# A review_with_gemini.py és a translate_with_gemini.py automatikusan használja:
+# A subtr.py review (gemini ág) és a subtr.py translate --provider gemini
+# automatikusan használja:
 #   - indulás előtt kiírja, belefér-e a tervezett futás a napi limitbe
 #   - minden sikeres hívást könyvel
 #   - NAPI limitbe futáskor (429) kiolvassa a tényleges limitet a hibából és
 #     elmenti, így onnantól arra a modellre pontos limitet ismer (nem becsül)
 #
 # A 429 nem mind egyforma! A Gemini percenkénti (RPM) és token-limitre is 429-et
-# ad — azok MÚLÓ hibák, a scriptek retry-logikája átvészeli őket. A könyvelés
+# ad — azok MÚLÓ hibák, a parancsok retry-logikája átvészeli őket. A könyvelés
 # ezért a hiba quotaId mezője alapján osztályoz, és CSAK a napi (PerDay) limitet
 # tanulja meg. Enélkül egy múló percenkénti hiba (magas --agents értéknél ez
 # rutinszerű) rossz napi limitet égetne be, és hamisan "kimerült"-nek jelölné
 # a modellt a nap hátralévő részére.
 #
 # FIGYELEM: a nap NEM helyi éjfélkor vált! A Google ingyenes napi kvótája
-# csendes-óceáni idő (PT) szerint nullázódik. A script PT szerint könyvel, és
+# csendes-óceáni idő (PT) szerint nullázódik. A parancs PT szerint könyvel, és
 # kiírja, hány óra van a nullázásig.
 #
 # Tapasztalat: az ingyenes szinten a nem-lite modellek napi limitje 20 kérés
 # MODELLENKÉNT (a limit modellenként külön van, ezért modellváltással lehet
 # tovább dolgozni). Egy ~400 szekciós rész review-ja 4-5 kérés.
 
-# 5c. Review-javaslatok alkalmazása (a két riportot összefésüli és deduplikálja)
-py apply_review.py "output\Sorozat - S01E01.hun.srt"
+# 5c. Review-javaslatok alkalmazása (a riportokat összefésüli és deduplikálja)
+py subtr.py apply "output\Sorozat - S01E01.hun.srt"
 # Automatikusan megtalálja a fájl melletti _REVIEW_CLAUDE / _REVIEW_GEMINI / _REVIEW_CODEX
 # riportokat (a .json a kanonikus, a .txt-t is érti). Találatonként kérdez:
 #   y = alkalmaz, 1..9 = adott variáns, e = kézi szerkesztés, n = kihagy,
@@ -175,8 +169,8 @@ py apply_review.py "output\Sorozat - S01E01.hun.srt"
 # 5d. ALTERNATÍVA: review-javítások NEM interaktív alkalmazása
 #     Az 5c. lépés konzolon kérdez minden találatnál — sok részt átnézve ez
 #     több száz kérdés. Ha egy agent (vagy Te, előre elkészített listával)
-#     vezeti át a javításokat, ez a script kérdés nélkül dolgozik:
-py apply_review_auto.py "output\Sorozat - S01E01.hun.srt" decisions.json
+#     vezeti át a javításokat, ez a parancs kérdés nélkül dolgozik:
+py subtr.py apply-auto "output\Sorozat - S01E01.hun.srt" decisions.json
 # A decisions.json formátuma (a sorszám + időbélyeg SOHA nem módosul):
 #   [
 #     {"sorszam": 12, "eredeti": "A régi szöveg", "javaslat": "Az új magyar szöveg"},
@@ -185,11 +179,11 @@ py apply_review_auto.py "output\Sorozat - S01E01.hun.srt" decisions.json
 # Csak listázás módosítás nélkül: --dry-run
 # Az első íráskor .bak mentés készül (ha még nincs).
 #
-# Az "eredeti" mező OPCIONÁLIS, de AJÁNLOTT: ha megadod, a script ellenőrzi,
+# Az "eredeti" mező OPCIONÁLIS, de AJÁNLOTT: ha megadod, a parancs ellenőrzi,
 # hogy tényleg az áll-e a fájlban, és eltérésnél kihagyja a bejegyzést. Ez azért
-# kell, mert a sorszámok nem örökérvényűek — a resegment_srt.py --split
+# kell, mert a sorszámok nem örökérvényűek — a subtr.py resegment reflow --split
 # ÚJRASZÁMOZZA a cue-kat, és onnantól egy régebbi döntés-fájl más szekciókra
-# mutat. Enélkül a script némán rossz helyekre írna. A review riportokban
+# mutat. Enélkül a parancs némán rossz helyekre írna. A review riportokban
 # (_REVIEW_*.json) amúgy is benne van ez a mező, csak át kell másolni.
 # Felülbírálás: --ignore-drift
 #
@@ -206,18 +200,18 @@ py apply_review_auto.py "output\Sorozat - S01E01.hun.srt" decisions.json
 # 6. Szójegyzék bővítése a KÉSZ fordításból (fordítás UTÁNI mód)
 #     Itt MINDKÉT fájlt megadod → a "hu" a magyar feliratban TÉNYLEGESEN használt fordítás.
 #     (Az 1.5 lépés a fordítás ELŐTT javasol; ez a lépés UTÓLAG, a kész párból tanul.)
-py glossary_extract.py "input\Sorozat - S01E01.eng.srt" "output\Sorozat - S01E01.hun.srt"
+py subtr.py glossary "input\Sorozat - S01E01.eng.srt" "output\Sorozat - S01E01.hun.srt"
 # Interaktívan jóváhagyod a javasolt kifejezéseket (y/n/e/q)
-# A glossary.json-t minden provideres fordító és review automatikusan
+# A glossary.json-t minden fordító- és review-provider automatikusan
 # betölti és átadja a modellnek (system prompt-ként) a következő futáskor.
 
 # 7. Szegmentálás — sorhossz + CPS (véglegesítő formázás, a kézi review-javítások UTÁN)
-#     Csak Python stdlib, nincs telepítendő függőség. Kiegészíti a verify_srt.py-t
+#     Csak Python stdlib, nincs telepítendő függőség. Kiegészíti a subtr.py verify-t
 #     (az CPS-t jelzi, de sorhosszt/tördelést nem). Részletek: resegment_srt.md
 # 7a. QA-riport (csak olvasás) — bármikor futtatható, ez a QA-kapu:
-py resegment_srt.py report "output\Sorozat - S01E01.hun.srt"
+py subtr.py resegment report "output\Sorozat - S01E01.hun.srt"
 # 7b. Sorhossz-tisztítás (időzítést NEM változtat) — a VÉGLEGES szövegen futtasd:
-py resegment_srt.py reflow "output\Sorozat - S01E01.hun.srt" -o "output\Sorozat - S01E01.hun.reflow.srt"
+py subtr.py resegment reflow "output\Sorozat - S01E01.hun.srt" -o "output\Sorozat - S01E01.hun.reflow.srt"
 # Opcionálisan:
 #   --in-place                     a bemenet felülírása (új fájl helyett)
 #   --split                        2 sorba nem férő cue-k idő-arányos bontása (cue-számot változtat)
@@ -227,7 +221,7 @@ py resegment_srt.py reflow "output\Sorozat - S01E01.hun.srt" -o "output\Sorozat 
 
 # Tippek:
 # - Először mindig egy blokkot teszteld --agents 1-gyel; ha jó, emeld 3-ra.
-# - A translate script checkpoint-os: ha leáll, egyszerűen futtasd újra,
+# - A translate parancs checkpoint-os: ha leáll, egyszerűen futtasd újra,
 #   csak a hiányzó blokkokat fordítja.
 # - A TRANSLATION.md és glossary.json változtatása automatikusan érvényesül
 #   a következő futáskor (mind translate-nél, mind review-nál).

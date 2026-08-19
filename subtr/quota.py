@@ -71,7 +71,7 @@ HASZNÁLAT (parancssorból):
     py gemini_quota.py --forget-limit gemini-3.6-flash   # rossz limit elfelejtése
 
 HASZNÁLAT (kódból):
-    import gemini_quota as gq
+    from subtr import quota as gq
     gq.preflight("gemini-3.6-flash", needed=4)          # futás előtt: belefér?
     gq.record("gemini-3.6-flash")                        # SIKERES hívás után
     gq.note_limit_from_error("gemini-3.6-flash", exc)    # 429 esetén
@@ -89,6 +89,8 @@ import re
 import sys
 import time
 from datetime import datetime, timedelta, timezone
+
+from subtr import config  # noqa: F401  (a .env betöltéséért)
 
 KEEP_DAYS = 14
 LOCK_TIMEOUT = 10.0     # másodperc — ennyit várunk a lock-ra
@@ -118,23 +120,15 @@ def ledger_path() -> str:
 
 
 def _api_key() -> str:
-    """API kulcs beolvasása — env, majd a projekt .env fájlja."""
+    """API kulcs beolvasása — env-változókból.
+
+    A .env betöltése a subtr.config dolga (import-időkor lefut), ide már
+    csak az os.environ-ba került érték olvasása tartozik.
+    """
     for var in ("GEMINI_API_KEY", "GOOGLE_API_KEY"):
         v = os.environ.get(var)
         if v:
             return v.strip()
-    # .env beolvasása dotenv nélkül is (a modul ne függjön tőle)
-    try:
-        with open(".env", "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if line.startswith("#") or "=" not in line:
-                    continue
-                k, _, v = line.partition("=")
-                if k.strip() in ("GEMINI_API_KEY", "GOOGLE_API_KEY"):
-                    return v.strip().strip('"').strip("'")
-    except Exception:
-        pass
     return ""
 
 

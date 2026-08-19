@@ -39,20 +39,20 @@ Az epizód azonosítójából (pl. `Sorozat - S01E01`) sorban ellenőrizd:
   a blokkok párhuzamosan fordulnak, utólag a formát csak kézzel lehet egységesíteni.
   Egy téves regiszter-sor rosszabb, mint a hiányzó: magabiztosan rossz formát
   kényszerít, míg hiány esetén a fordító a kikerülő megfogalmazást választja.
-  Ha a felhasználó kéri, a `register_extract.py` felvázolhat egy első változatot
+  Ha a felhasználó kéri, a `py subtr.py register` felvázolhat egy első változatot
   az angol forrásból (opcionális, interaktív; több epizód pontosabb) — de a
   jóváhagyás mindig a felhasználóé, ne futtasd rákérdezés nélkül.
 - **Translate**: kérdezd meg (ha nem mondta), melyik fordítóval:
-  `translate_parallel.py` (Claude) vagy `translate_with_gemini.py` (olcsóbb).
-  Gemini-nél a script indulásakor kvóta-preflight fut — ha azt írja, a modell
+  `py subtr.py translate --provider claude` vagy `--provider gemini` (olcsóbb).
+  Gemini-nél a parancs indulásakor kvóta-preflight fut — ha azt írja, a modell
   kimerült vagy nem fér bele, javasolj modellváltást (`--model`) vagy Claude-ot;
-  állást a `py gemini_quota.py` mutat. Újrafuttatás biztonságos: csak a hiányzó
+  állást a `py subtr.py quota` mutat. Újrafuttatás biztonságos: csak a hiányzó
   blokkokat fordítja.
-- **Merge**: hiányzó blokknál a script leáll és listáz — ilyenkor a translate-et
+- **Merge**: hiányzó blokknál a parancs leáll és listáz — ilyenkor a translate-et
   kell újrafuttatni; `--force`-ot csak a felhasználó kifejezett kérésére.
 - **Verify**: ha volt preclean, az összevetés a `.clean.srt` ELLEN fut, nem az
   eredeti `.eng.srt` ellen (az addon újraszámoz, hamis hibákat jelezne).
-- **Review**: a két review script független, futhat az egyik vagy mindkettő.
+- **Review**: a review három providere független, futhat az egyik vagy több is.
   NEM ANGOL forrásnál a `--source "<forrás srt>"` kézi megadása kötelező
   (az automatikus keresés csak `.eng.srt`-t talál meg).
 - **Review-javítások átvezetése**: add át a **review-triage** skillnek

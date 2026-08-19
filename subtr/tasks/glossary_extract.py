@@ -28,27 +28,15 @@ import argparse
 import shutil
 import subprocess
 
-from glossary_categories import CATEGORIES
-from codex_runner import CodexRunError, find_codex, run_codex_json
-from translation_context import load_translation_context
+from subtr.glossary import CATEGORIES
+from subtr.providers.codex_cli import CodexRunError, find_codex, run_codex_json
+from subtr import config
+from subtr.context import load_translation_context as load_claude_md
+from subtr.providers.claude_cli import find_claude as find_claude_cli
 
 sys.stdout.reconfigure(encoding='utf-8')
 sys.stderr.reconfigure(encoding='utf-8')
 
-
-def find_claude_cli() -> str:
-    """Claude CLI megkeresése."""
-    found = shutil.which("claude")
-    if found:
-        return found
-    # Tipikus Windows telepítési hely
-    local_bin = os.path.join(os.path.expanduser("~"), ".local", "bin", "claude.exe")
-    if os.path.isfile(local_bin):
-        return local_bin
-    npm_global = os.path.join(os.environ.get("APPDATA", ""), "npm", "claude.cmd")
-    if os.path.isfile(npm_global):
-        return npm_global
-    return "claude"  # fallback, hadd kapja el a FileNotFoundError
 
 def sanitize_inner_quotes(s: str) -> str:
     """Heurisztikusan kicseréli a JSON string értékek BELSEJÉBEN előforduló
@@ -101,11 +89,6 @@ CATEGORY_LABELS = {
     "special_terms": "Speciális kifejezés",
     "phrases": "Kifejezés",
 }
-
-
-def load_claude_md() -> str:
-    """Közös szabályzat betöltése az angol-only HU javaslatokhoz."""
-    return load_translation_context()
 
 
 def load_glossary(path: str) -> dict:
@@ -189,19 +172,6 @@ CODEX_GLOSSARY_SCHEMA = {
 }
 
 GEMINI_MODEL_DEFAULT = "gemini-3.6-flash"
-
-
-def _no_additional(node):
-    """A Gemini response_schema nem ismeri az additionalProperties kulcsot,
-    a Codex strict módja viszont megköveteli — ezért két sémaváltozat kell."""
-    if isinstance(node, dict):
-        return {k: _no_additional(v) for k, v in node.items() if k != "additionalProperties"}
-    if isinstance(node, list):
-        return [_no_additional(v) for v in node]
-    return node
-
-
-GEMINI_GLOSSARY_SCHEMA = _no_additional(CODEX_GLOSSARY_SCHEMA)
 
 
 def _existing_note(existing_terms: set) -> str:
@@ -391,66 +361,30 @@ def validate_suggestions(suggestions, existing_terms: set) -> list[dict]:
 
 
 def _run_gemini(prompt: str, existing_terms: set, model: str | None) -> list[dict]:
-    """Gemini API ág — strukturált JSON kimenettel, kvóta-könyveléssel."""
-    try:
-        from dotenv import load_dotenv
-        from google import genai
-        from google.genai import types
-    except ImportError as e:
-        print(f"HIBA: Hiányzó függőség: {e}")
+    """Gemini API ág — a retry/kvóta logika a közös adapterben (subtr.providers.gemini)."""
+    from subtr.providers import gemini as gemini_provider
+    if not gemini_provider.DEPS_OK:
+        print(f"HIBA: Hiányzó függőség: {gemini_provider.DEPS_ERROR}")
         print("      Telepítés: pip install google-genai python-dotenv pydantic")
         return []
 
-    load_dotenv()
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        print("HIBA: GEMINI_API_KEY nincs beállítva. Tedd a .env fájlba.")
-        return []
-
     model = model or GEMINI_MODEL_DEFAULT
-    try:
-        import gemini_quota as gq
-    except Exception:
-        gq = None
-    if gq:
-        try:
-            gq.preflight(model, needed=1)
-        except Exception:
-            pass
-
+    gemini_provider.preflight(model, needed=1)
     print(f"Gemini elemzi a feliratot... ({model})")
     gemini_prompt = (prompt + "\n\nKIMENET: kizárólag egy JSON objektum "
                      '`suggestions` tömbbel: {"suggestions":[...]}.')
     try:
-        client = genai.Client(api_key=api_key)
-        resp = client.models.generate_content(
-            model=model,
-            contents=gemini_prompt,
-            config=types.GenerateContentConfig(
-                temperature=0.2,
-                response_mime_type="application/json",
-                response_schema=GEMINI_GLOSSARY_SCHEMA,
-            ),
-        )
-    except Exception as e:
-        if gq:
-            try:
-                gq.note_limit_from_error(model, e)
-            except Exception:
-                pass
-        print(f"HIBA: Gemini API hiba: {e}")
+        client = gemini_provider.make_client()
+    except RuntimeError as e:
+        print(f"HIBA: {e}")
         return []
-
-    if gq:
-        try:
-            gq.record(model)
-        except Exception:
-            pass
-    try:
-        return validate_suggestions(json.loads(resp.text).get("suggestions", []), existing_terms)
-    except (json.JSONDecodeError, AttributeError) as e:
-        print(f"HIBA: JSON parse hiba: {e}")
+    parsed, err = gemini_provider.call_json(client, model, gemini_prompt,
+                                            schema=CODEX_GLOSSARY_SCHEMA,
+                                            temperature=0.2)
+    if err:
+        print(f"HIBA: Gemini API hiba: {err}")
         return []
+    return validate_suggestions(parsed.get("suggestions", []), existing_terms)
 
 
 def _run_extraction(prompt: str, existing_terms: set, timeout: int,
@@ -636,12 +570,20 @@ def main():
                         help="Szójegyzék fájl útvonala (alapértelmezett: glossary.json)")
     parser.add_argument("--timeout", type=int, default=300,
                         help="Provider timeout másodpercben (alapértelmezett: 300)")
-    parser.add_argument("--provider", choices=("claude", "codex", "gemini"), default="claude",
-                        help="Kinyerő provider (alapértelmezett: claude)")
+    parser.add_argument("--provider", choices=("claude", "codex", "gemini"),
+                        default=config.default_provider(builtin="claude"),
+                        help="Kinyerő provider (alapértelmezett: claude, "
+                             "felülírható: SUBTR_DEFAULT_PROVIDER env)")
     parser.add_argument("--model",
                         help="Opcionális modellazonosító (codex / gemini; "
                              f"gemini default: {GEMINI_MODEL_DEFAULT})")
     args = parser.parse_args()
+
+    # Modell-feloldás: CLI --model > SUBTR_<P>_MODEL_GLOSSARY > SUBTR_<P>_MODEL
+    # > beégetett default (Gemini-nél GEMINI_MODEL_DEFAULT, CLI-knél None).
+    args.model = config.resolve_model(
+        args.model, args.provider, "glossary",
+        builtin=GEMINI_MODEL_DEFAULT if args.provider == "gemini" else None)
 
     pre_mode = args.hun_srt is None  # fordítás előtti, angol-only mód
 
