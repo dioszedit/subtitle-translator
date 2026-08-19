@@ -43,6 +43,24 @@ subtitle-translator/
 ├── gemini_quota.py              ← Gemini napi kvóta helyi könyvelése — a két Gemini
 │                                  script automatikusan használja, önállóan is lekérdezhető
 │
+├── subtr/                       ← A tényleges fordítás- és review-logika
+│   ├── config.py                ← .env betöltése, modell-feloldás, API-kulcsok
+│   ├── srt.py                   ← SRT parser
+│   ├── blocks.py                ← Blokk-alapú szegmentálás
+│   ├── context.py               ← TRANSLATION.md + glossary.json beolvasása
+│   ├── glossary.py              ← glossary.json kezelés
+│   ├── reports.py               ← Review riportok szerializálása
+│   ├── quota.py                 ← Gemini kvóta-számlálás
+│   ├── providers/               ← Provider adapterek
+│   │   ├── gemini.py            ← Gemini API + retry + kvótakezelés
+│   │   ├── claude_cli.py        ← Claude Code wrapper
+│   │   └── codex_cli.py         ← Codex CLI wrapper
+│   └── tasks/                   ← Fordítás- és review-logika
+│       ├── translate.py         ← Közös fordítási prompt és feldolgozás
+│       ├── review.py            ← Közös review-prompt és feldolgozás
+│       ├── glossary_extract.py  ← Szójegyzék bővítés
+│       └── register_extract.py  ← Regiszter kinyerés
+│
 ├── srt-preclean-addon/          ← Opcionális 0. lépés: SDH-forrás előtisztítása
 │                                  (saját README a részletekhez)
 ├── input/                       ← Ide tedd az angol SRT fájlokat
@@ -53,6 +71,12 @@ subtitle-translator/
 │                                  (saját README a részletekhez)
 └── lepesek.txt                  ← Quick-reference parancslista
 ```
+
+A **gyökér-level scriptek** (pl. `split_srt.py`, `translate_parallel.py`, stb.)
+a repo gyökeréből futnak, és mindegyik a `subtr/` csomag logikáját használja.
+Ez egy tudatos refaktor-döntés: korábban például a glossary-betöltő logika
+6 scriptben élt egyszerre, és a másolatok szétcsúsztak. Most a valódi logika
+egyetlen helyen van (`subtr/`), és az update-ek mindegyikre azonnal érvényes.
 
 Az `input/`, `output/`, `blocks/` mappák tartalma nem kerül a git repóba —
 projektenként / epizódonként más, és gyakran szerzői jogi védettség alá esik.
@@ -600,6 +624,48 @@ python review_with_gemini.py "output\hun.srt" --source "input\Sorozat - S01E01.k
 
 A `glossary.json` szerepe itt még nagyobb, mint EN→HU esetben: mivel a C. blokk
 szabályai kiesnek, a konzisztencia jórészt a szójegyzéken múlik.
+
+## Modell-defaultok .env-ből
+
+Az összes fordítási és review script (Claude, Gemini, Codex) a `.env` fájlból
+automatikusan betölt modell-beállításokat. A definiálandó változók neve mindig
+`SUBTR_<PROVIDER>_MODEL` formátumú, ahol a `<PROVIDER>` az egyik: `GEMINI`,
+`CLAUDE` vagy `CODEX`.
+
+| Env-kulcs | Hatás |
+|---|---|
+| `SUBTR_GEMINI_MODEL` | Gemini default modell minden feladathoz |
+| `SUBTR_GEMINI_MODEL_TRANSLATE` | task-specifikus felülbírálás fordításhoz |
+| `SUBTR_GEMINI_MODEL_REVIEW` | task-specifikus felülbírálás review-hoz |
+| `SUBTR_GEMINI_MODEL_GLOSSARY` | task-specifikus felülbírálás glossary extractionhez |
+| `SUBTR_GEMINI_MODEL_REGISTER` | task-specifikus felülbírálás regiszter extractionhez |
+| `SUBTR_CLAUDE_MODEL` + `_TRANSLATE` / `_REVIEW` / `_GLOSSARY` / `_REGISTER` | ugyanez Claude CLI-hez |
+| `SUBTR_CODEX_MODEL` + `_TRANSLATE` / `_REVIEW` / `_GLOSSARY` / `_REGISTER` | ugyanez Codex CLI-hez |
+| `SUBTR_DEFAULT_PROVIDER` | a `glossary_extract.py` és `register_extract.py` default providere |
+
+**Feloldási precedencia** (az első nem-üres érték nyer):
+1. CLI `--model` kapcsoló (ha megadva)
+2. Task-specifikus env (`SUBTR_<PROVIDER>_MODEL_<TASK>`)
+3. Generikus env (`SUBTR_<PROVIDER>_MODEL`)
+4. Beégetett default a scriptben
+
+**Példa .env-ből:**
+```bash
+# Gemini alapértelmezé: gemini-3.6-flash minden feladathoz
+SUBTR_GEMINI_MODEL=gemini-3.6-flash
+
+# Fordítást egy gyorsabb, olcsóbb modellel végezzük
+SUBTR_GEMINI_MODEL_TRANSLATE=gemini-3.5-flash-lite
+
+# Review pedig a erősebb Pro verzióval
+SUBTR_GEMINI_MODEL_REVIEW=gemini-3.1-pro-preview
+
+# Glossary extraction alapvetően Claudeval, Geminivel nem
+SUBTR_DEFAULT_PROVIDER=claude
+
+# Claude fordító: Opus minden fordítási jobhoz
+SUBTR_CLAUDE_MODEL_TRANSLATE=opus
+```
 
 ## Tippek
 
