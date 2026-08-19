@@ -69,6 +69,7 @@ from subtr.context import load_translation_context as load_claude_md
 from subtr.glossary import as_prompt_text as load_glossary
 from subtr.srt import count_sections, parse_sections, write_srt
 from subtr.blocks import get_all_blocks, get_pending_blocks, safe_remove
+from subtr.providers import gemini as gemini_provider
 
 # Kvótakövetés — gépszintű, API kulcs szerint (a Gemini API nem adja vissza
 # a maradék napi kérésszámot). Ha a modul hiányzik, a script fut tovább.
@@ -100,8 +101,7 @@ except ImportError as _e:
 
 MODEL_DEFAULT = "gemini-3.6-flash"
 TEMPERATURE = 0.3
-MAX_RETRIES = 4
-RETRY_BASE_DELAY = 5  # másodperc — exponential backoff alapja
+MAX_RETRIES = 4  # (a backoff maga a subtr.providers.gemini adapterben)
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -183,74 +183,14 @@ def build_block_prompt(sections: list[dict]) -> str:
     )
 
 
-def is_transient_error(e: Exception) -> bool:
-    """Átmeneti (retry-olható) hiba-e: hálózati megszakadás, timeout stb.
-    A google-genai SDK ezeket httpx/httpcore kivételként dobja, NEM
-    APIError-ként — egy wifi-bukkanó nem indokolja a blokk végleges bukását."""
-    if isinstance(e, (ConnectionError, TimeoutError)):
-        return True
-    mod = type(e).__module__ or ""
-    return mod.split(".")[0] in ("httpx", "httpcore", "anyio", "ssl")
-
-
 def call_gemini(client, model: str, prompt: str, system_instruction: str,
                 max_retries: int):
-    """Egy Gemini API hívás retry-logikával.
-    Visszaad: (parsed: TranslationOutput | None, err_msg | None)."""
-    config = types.GenerateContentConfig(
-        system_instruction=system_instruction,
-        temperature=TEMPERATURE,
-        response_mime_type="application/json",
-        response_schema=TranslationOutput,
-    )
-
-    last_err = None
-    for attempt in range(1, max_retries + 1):
-        try:
-            response = client.models.generate_content(
-                model=model,
-                contents=prompt,
-                config=config,
-            )
-            # A hívás lefutott a modellen → fogyasztotta a napi kvótát.
-            # (Az üres/blokkolt válasz is, ezért a parse ELŐTT könyvelünk.)
-            if _gq:
-                _gq.record(model)
-            parsed: TranslationOutput = response.parsed
-            if parsed is None:
-                # Blokkolt/csonka válasz gyakran átmeneti — megér egy retry-t
-                last_err = "üres / blokkolt válasz"
-                if attempt < max_retries:
-                    delay = RETRY_BASE_DELAY * (2 ** (attempt - 1))
-                    print(f"  Üres/blokkolt válasz, újrapróbálás {delay}s múlva... ({attempt}/{max_retries})")
-                    time.sleep(delay)
-                    continue
-                return None, "[Üres / blokkolt válasz a Gemini-től]"
-            return parsed, None
-        except genai_errors.APIError as e:
-            last_err = e
-            status = getattr(e, "code", None) or getattr(e, "status_code", None)
-            # 429-ből megtanuljuk a modell tényleges NAPI limitjét. Csak a napi
-            # (PerDay) kvóta számít — a percenkénti 429-et, ami magas --agents
-            # értéknél rutinszerű, az alábbi retry-ág kezeli, és nem jelenti
-            # azt, hogy a napi keret elfogyott.
-            if status == 429 and _gq:
-                _gq.note_limit_from_error(model, e)
-            if status in (429, 500, 502, 503, 504) and attempt < max_retries:
-                delay = RETRY_BASE_DELAY * (2 ** (attempt - 1))
-                print(f"  API hiba ({status}), újrapróbálás {delay}s múlva... ({attempt}/{max_retries})")
-                time.sleep(delay)
-                continue
-            return None, f"[API hiba: {e}]"
-        except Exception as e:
-            last_err = e
-            if is_transient_error(e) and attempt < max_retries:
-                delay = RETRY_BASE_DELAY * (2 ** (attempt - 1))
-                print(f"  Hálózati hiba ({type(e).__name__}), újrapróbálás {delay}s múlva... ({attempt}/{max_retries})")
-                time.sleep(delay)
-                continue
-            return None, f"[Váratlan hiba: {e}]"
-    return None, f"[{max_retries} próbálkozás után sem sikerült: {last_err}]"
+    """Egy Gemini API hívás — a retry/kvóta logika a közös adapterben."""
+    return gemini_provider.call_json(client, model, prompt,
+                                     schema=TranslationOutput,
+                                     system=system_instruction,
+                                     temperature=TEMPERATURE,
+                                     max_retries=max_retries)
 
 
 def translate_block(block_path: str, client, model: str,

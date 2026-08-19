@@ -49,11 +49,6 @@ sys.stderr.reconfigure(encoding="utf-8")
 from codex_runner import CodexRunError, find_codex, run_codex_json
 from translation_context import load_translation_context
 
-try:
-    import gemini_quota as gq
-except Exception:  # a kvótakövetés kényelmi funkció, nem állíthatja meg a futást
-    gq = None
-
 LOCAL_FILE_DEFAULT = "TRANSLATION.local.md"
 SECTION_HEADER = "Megszólítási regiszter:"
 GEMINI_MODEL_DEFAULT = "gemini-3.6-flash"
@@ -92,19 +87,6 @@ RESULT_SCHEMA = {
     "required": ["relations"],
     "additionalProperties": False,
 }
-
-
-def _no_additional(node):
-    """A Gemini response_schema nem ismeri az additionalProperties kulcsot (a
-    Codex strict módja viszont megköveteli) — ezért két változat kell."""
-    if isinstance(node, dict):
-        return {k: _no_additional(v) for k, v in node.items() if k != "additionalProperties"}
-    if isinstance(node, list):
-        return [_no_additional(v) for v in node]
-    return node
-
-
-GEMINI_SCHEMA = _no_additional(RESULT_SCHEMA)
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -284,58 +266,26 @@ def _validate(relations) -> list[dict]:
 
 
 def run_gemini(prompt: str, model: str) -> list[dict]:
-    try:
-        from dotenv import load_dotenv
-        from google import genai
-        from google.genai import types
-    except ImportError as e:
-        print(f"HIBA: Hiányzó függőség: {e}")
+    """Gemini ág — a retry/kvóta logika a közös adapterben (subtr.providers.gemini)."""
+    from subtr.providers import gemini as gemini_provider
+    if not gemini_provider.DEPS_OK:
+        print(f"HIBA: Hiányzó függőség: {gemini_provider.DEPS_ERROR}")
         print("      Telepítés: pip install google-genai python-dotenv pydantic")
         return []
-
-    load_dotenv()
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        print("HIBA: GEMINI_API_KEY nincs beállítva. Tedd a .env fájlba.")
-        return []
-
-    if gq:
-        try:
-            gq.preflight(model, needed=1)
-        except Exception:
-            pass
-
-    client = genai.Client(api_key=api_key)
+    gemini_provider.preflight(model, needed=1)
     print(f"Gemini elemzi a feliratot... ({model})")
     try:
-        resp = client.models.generate_content(
-            model=model,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                temperature=0.2,
-                response_mime_type="application/json",
-                response_schema=GEMINI_SCHEMA,
-            ),
-        )
-    except Exception as e:
-        if gq:
-            try:
-                gq.note_limit_from_error(model, e)
-            except Exception:
-                pass
-        print(f"HIBA: Gemini API hiba: {e}")
+        client = gemini_provider.make_client()
+    except RuntimeError as e:
+        print(f"HIBA: {e}")
         return []
-
-    if gq:
-        try:
-            gq.record(model)
-        except Exception:
-            pass
-    try:
-        return _validate(json.loads(resp.text).get("relations"))
-    except Exception as e:
-        print(f"HIBA: JSON parse hiba: {e}")
+    parsed, err = gemini_provider.call_json(client, model, prompt,
+                                            schema=RESULT_SCHEMA,
+                                            temperature=0.2)
+    if err:
+        print(f"HIBA: Gemini API hiba: {err}")
         return []
+    return _validate(parsed.get("relations"))
 
 
 def run_codex(prompt: str, model, timeout: int) -> list[dict]:
