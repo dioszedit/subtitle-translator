@@ -17,12 +17,12 @@ sys.stdout.reconfigure(encoding='utf-8')
 sys.stderr.reconfigure(encoding='utf-8')
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description="Lefordított SRT blokkok összefűzése")
     parser.add_argument("blocks_dir", help="Blokkok mappája")
     parser.add_argument("output", help="Kimeneti fájl útvonala")
     parser.add_argument("--force", action="store_true", help="Összefűzés hiányzó blokkok esetén is")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if not os.path.isdir(args.blocks_dir):
         print(f"HIBA: Nem találom a mappát: {args.blocks_dir}")
@@ -110,7 +110,3 @@ def main():
             print(f"  ... és még {len(continuity_errors) - 10} további")
     else:
         print("✓ Szekciószámok folytonosak")
-
-
-if __name__ == "__main__":
-    main()

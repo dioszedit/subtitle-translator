@@ -85,11 +85,11 @@ def calc_cps(text: str, timestamp: str) -> float | None:
     return chars / duration
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description="SRT fordítás ellenőrzése")
     parser.add_argument("original", help="Eredeti (angol) SRT fájl")
     parser.add_argument("translated", help="Fordított (magyar) SRT fájl")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     print("=" * 45)
     print("  SRT Ellenőrzés")
@@ -259,6 +259,3 @@ def main():
 
     sys.exit(1 if errors > 0 else 0)
 
-
-if __name__ == "__main__":
-    main()

@@ -29,6 +29,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from subtr import config
+from subtr.config import PROVIDERS
 from subtr.blocks import get_all_blocks, get_pending_blocks, hun_path, safe_remove
 from subtr.context import load_translation_context
 from subtr.glossary import as_prompt_text
@@ -43,12 +44,6 @@ MODEL_BUILTIN = {"gemini": "gemini-3.6-flash", "claude": "sonnet", "codex": None
 
 CLAUDE_SYS_PROMPT_PREFIX = ".translate_sys_prompt_"
 CLAUDE_SYS_PROMPT_MAX_AGE_DAYS = 1  # ennél régebbi sys prompt fájlokat takarítjuk
-
-DESCRIPTION = {
-    "claude": "Párhuzamos SRT fordítás Claude Code-dal (multi-process safe)",
-    "gemini": "Párhuzamos SRT fordítás Gemini API-val",
-    "codex": "Párhuzamos SRT fordítás Codex CLI-vel",
-}
 
 # Codex strict séma
 CODEX_TRANSLATION_SCHEMA = {
@@ -450,44 +445,61 @@ def _make_claude_translator(claude_bin, sys_prompt_path, model, timeout, max_tur
 # main
 # ────────────────────────────────────────────────────────────────────────────
 
-def main(provider: str):
+def main(argv=None):
     # Windows cp125x konzolon a ✓/⚠/ő és a box-karakterek elszállnának
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
-    builtin = MODEL_BUILTIN[provider]
-    parser = argparse.ArgumentParser(description=DESCRIPTION[provider])
-    parser.add_argument("blocks_dir", help="Blokkok mappája (split_srt.py outputja)")
-    parser.add_argument("--agents", type=int,
-                        default=1 if provider == "codex" else 3,
-                        help="Párhuzamos futások száma "
-                             f"(default: {1 if provider == 'codex' else 3})")
+    parser = argparse.ArgumentParser(
+        description="Párhuzamos SRT blokk-fordítás (Gemini API / Claude Code / Codex CLI)")
+    parser.add_argument("blocks_dir", help="Blokkok mappája (a split kimenete)")
+    parser.add_argument("--provider", choices=PROVIDERS,
+                        default=config.default_provider(builtin=None),
+                        help="Fordító provider. A fordítás a legdrágább lépés, ezért "
+                             "nincs beégetett default — add meg kapcsolóval, vagy "
+                             "állítsd be: SUBTR_DEFAULT_PROVIDER env")
+    parser.add_argument("--agents", type=int, default=None,
+                        help="Párhuzamos futások száma (default: gemini/claude 3, codex 1)")
     parser.add_argument("--block", type=str, default=None,
                         help="Csak egy konkrét blokk fordítása (pl. 003 vagy 3 — auto zero-pad)")
     parser.add_argument("--model", type=str, default=None,
-                        choices=["haiku", "sonnet", "opus"] if provider == "claude" else None,
-                        help=config.model_help(provider, "translate", builtin))
-    if provider == "claude":
-        parser.add_argument("--timeout", type=int, default=900,
-                            help="Timeout blokkonként másodpercben (alapértelmezett: 900 = 15 perc)")
-        parser.add_argument("--max-turns", type=int, default=20,
-                            help="Maximum agent fordulók blokkonként (alapértelmezett: 20)")
-        parser.add_argument("--no-cleanup", action="store_true",
-                            help="Ne takarítsa ki a régi sys prompt fájlokat startup-kor")
-    elif provider == "gemini":
-        parser.add_argument("--max-retries", type=int, default=MAX_RETRIES,
-                            help=f"Max API retry rate-limit / 5xx esetén (default: {MAX_RETRIES})")
-    else:
-        parser.add_argument("--timeout", type=int, default=900,
-                            help="Timeout blokkonként mp-ben")
-        parser.add_argument("--max-retries", type=int, default=2,
-                            help="Próbálkozások blokkanként")
-    args = parser.parse_args()
+                        help="Modell-azonosító. Feloldás: --model > "
+                             "SUBTR_<PROVIDER>_MODEL_TRANSLATE > SUBTR_<PROVIDER>_MODEL > "
+                             "beégetett (gemini: gemini-3.6-flash, claude: sonnet)")
+    parser.add_argument("--timeout", type=int, default=None,
+                        help="Timeout blokkonként mp-ben (default: 900; a gemini-ágon "
+                             "nem használt — ott a retry-logika véd)")
+    parser.add_argument("--max-retries", type=int, default=None,
+                        help="Újrapróbálkozások (default: gemini 4, codex 2; a claude-ágon "
+                             "nem használt)")
+    parser.add_argument("--max-turns", type=int, default=20,
+                        help="Maximum agent fordulók blokkonként (csak claude; default: 20)")
+    parser.add_argument("--no-cleanup", action="store_true",
+                        help="Ne takarítsa ki a régi sys prompt fájlokat startup-kor (csak claude)")
+    args = parser.parse_args(argv)
+
+    provider = args.provider
+    if not provider:
+        print("HIBA: nincs provider megadva. Használd a --provider gemini|claude|codex")
+        print("      kapcsolót, vagy állítsd be a SUBTR_DEFAULT_PROVIDER env-változót.")
+        sys.exit(1)
+    builtin = MODEL_BUILTIN[provider]
+
+    # Provider-függő defaultok feloldása
+    if args.agents is None:
+        args.agents = 1 if provider == "codex" else 3
+    if args.timeout is None:
+        args.timeout = 900
+    if args.max_retries is None:
+        args.max_retries = {"gemini": MAX_RETRIES, "codex": 2}.get(provider, 1)
 
     if args.agents < 1:
         print(f"HIBA: --agents legalább 1 legyen (kaptam: {args.agents})")
         sys.exit(1)
-    if getattr(args, "max_retries", 1) < 1:
+    if args.max_retries < 1:
         print(f"HIBA: --max-retries legalább 1 legyen (kaptam: {args.max_retries})")
+        sys.exit(1)
+    if provider == "claude" and args.model and args.model not in ("haiku", "sonnet", "opus"):
+        print(f"HIBA: a claude providernél a --model haiku|sonnet|opus lehet (kaptam: {args.model})")
         sys.exit(1)
     if not os.path.isdir(args.blocks_dir):
         print(f"HIBA: Nem találom a mappát: {args.blocks_dir}")

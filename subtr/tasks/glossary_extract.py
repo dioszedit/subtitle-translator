@@ -28,8 +28,8 @@ import argparse
 import shutil
 import subprocess
 
-from glossary_categories import CATEGORIES
-from codex_runner import CodexRunError, find_codex, run_codex_json
+from subtr.glossary import CATEGORIES
+from subtr.providers.codex_cli import CodexRunError, find_codex, run_codex_json
 from subtr import config
 from subtr.context import load_translation_context as load_claude_md
 from subtr.providers.claude_cli import find_claude as find_claude_cli

@@ -303,7 +303,7 @@ def report(cues, cfg):
     return rows
 
 # ---- fő -----------------------------------------------------------------------
-def main():
+def main(argv=None):
     ap = argparse.ArgumentParser(description="Felirat-újraszegmentáló és QA eszköz.")
     ap.add_argument('mode', choices=['report', 'reflow'])
     ap.add_argument('input')
@@ -318,7 +318,7 @@ def main():
     ap.add_argument('--max-dur', type=float, default=7.0)
     ap.add_argument('--min-gap', type=float, default=0.08)
     ap.add_argument('--lang', default='hu')
-    a = ap.parse_args()
+    a = ap.parse_args(argv)
     lang = LANG.get(a.lang, LANG['generic'])
     cfg = dict(max_chars=a.max_chars, max_lines=a.max_lines, target_cps=a.target_cps,
                min_dur=a.min_dur, max_dur=a.max_dur, min_gap=a.min_gap)
@@ -360,6 +360,3 @@ def main():
     if a.split:
         msg += f", {split_n} cue bontva"
     print(f"{msg} -> {dest}", file=sys.stderr)
-
-if __name__ == '__main__':
-    main()

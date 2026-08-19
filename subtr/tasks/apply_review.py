@@ -123,7 +123,7 @@ def apply_to_block(block, new_text):
     return "\n".join(lines[:2] + new_text.split("\n"))
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(
         description="Review riportok interaktív alkalmazása a magyar SRT-re")
     parser.add_argument("srt_file", help="A magyar (hun.srt) fájl")
@@ -131,7 +131,7 @@ def main():
                         help="Riport fájlok (.json/.txt). Üresen: automatikus keresés.")
     parser.add_argument("--dry-run", action="store_true",
                         help="Csak listázás, nem módosít semmit")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     srt_path = Path(args.srt_file)
     if not srt_path.exists():
@@ -237,6 +237,3 @@ def main():
         print(f"Mentve: {srt_path} (backup: {srt_path.name}.bak)")
     print(f"Alkalmazva: {applied}, kihagyva: {skipped}, összesen: {len(merged)} szekció")
 
-
-if __name__ == "__main__":
-    main()

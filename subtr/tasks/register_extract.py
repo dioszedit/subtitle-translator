@@ -46,9 +46,9 @@ sys.stdout.reconfigure(encoding="utf-8")
 sys.stderr.reconfigure(encoding="utf-8")
 
 from subtr import config
-from codex_runner import CodexRunError, find_codex, run_codex_json
+from subtr.providers.codex_cli import CodexRunError, find_codex, run_codex_json
 from subtr.providers.claude_cli import extract_json, find_claude as find_claude_cli, run_prompt
-from translation_context import load_translation_context
+from subtr.context import load_translation_context
 
 LOCAL_FILE_DEFAULT = "TRANSLATION.local.md"
 SECTION_HEADER = "Megszólítási regiszter:"

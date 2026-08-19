@@ -71,7 +71,7 @@ HASZNÁLAT (parancssorból):
     py gemini_quota.py --forget-limit gemini-3.6-flash   # rossz limit elfelejtése
 
 HASZNÁLAT (kódból):
-    import gemini_quota as gq
+    from subtr import quota as gq
     gq.preflight("gemini-3.6-flash", needed=4)          # futás előtt: belefér?
     gq.record("gemini-3.6-flash")                        # SIKERES hívás után
     gq.note_limit_from_error("gemini-3.6-flash", exc)    # 429 esetén

@@ -61,7 +61,7 @@ def norm(text):
     return " ".join(text.split())
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(
         description="Review-javítások nem interaktív alkalmazása a magyar SRT-re")
     parser.add_argument("srt_file", help="A magyar (hun.srt) fájl")
@@ -71,7 +71,7 @@ def main():
     parser.add_argument("--ignore-drift", action="store_true",
                         help="Akkor is alkalmaz, ha az 'eredeti' mező nem egyezik "
                              "a fájlban lévő szöveggel (alapból ilyenkor kihagy)")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     srt_path = Path(args.srt_file)
     if not srt_path.exists():
@@ -160,6 +160,3 @@ def main():
     print(f"Alkalmazva: {applied}, már egyezett: {unchanged}, "
           f"hiányzó szekció: {missing}, eltérés: {drifted}")
 
-
-if __name__ == "__main__":
-    main()

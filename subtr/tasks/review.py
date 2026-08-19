@@ -21,6 +21,7 @@ import sys
 from pathlib import Path
 
 from subtr import config, reports
+from subtr.config import PROVIDERS
 from subtr.context import load_translation_context
 from subtr.glossary import as_prompt_text
 from subtr.providers import claude_cli
@@ -37,12 +38,6 @@ CLAUDE_SYS_PROMPT_PREFIX = ".review_claude_sys_prompt_"
 # Beégetett modell-defaultok — a .env (SUBTR_<P>_MODEL_REVIEW / SUBTR_<P>_MODEL)
 # és a --model kapcsoló a config.resolve_model() precedenciája szerint felülbírálja.
 MODEL_BUILTIN = {"gemini": "gemini-3.6-flash", "claude": "sonnet", "codex": None}
-
-DESCRIPTION = {
-    "claude": "Magyar fordítás review Claude-dal",
-    "gemini": "Magyar fordítás review Gemini-vel",
-    "codex": "Magyar SRT review Codex CLI-vel",
-}
 
 # Codex strict séma (a Gemini-adapter ugyanennek az additionalProperties
 # nélküli változatát használná — de a Gemini-ág pydantic sémával megy)
@@ -314,12 +309,12 @@ SRT BLOKK ({chunk_num}/{total_chunks}):
 # Provider-executorok: (chunk_text, i, total) -> (findings | None, hiba | None)
 # ────────────────────────────────────────────────────────────────────────────
 
-def _make_gemini_executor(client, model, instruction):
+def _make_gemini_executor(client, model, instruction, max_retries=MAX_RETRIES):
     def executor(chunk_text, i, total):
         parsed, err = gemini_provider.call_json(
             client, model, build_prompt(chunk_text, i, total),
             schema=ErrorReport, system=instruction,
-            temperature=TEMPERATURE, max_retries=MAX_RETRIES)
+            temperature=TEMPERATURE, max_retries=max_retries)
         if err:
             return None, err
         return [{"sorszam": e.sorszam, "eredeti": e.eredeti,
@@ -328,7 +323,8 @@ def _make_gemini_executor(client, model, instruction):
     return executor
 
 
-def _make_claude_executor(claude_bin, sys_prompt_path, model):
+def _make_claude_executor(claude_bin, sys_prompt_path, model,
+                          timeout=CLAUDE_TIMEOUT_PER_CHUNK):
     def executor(chunk_text, i, total):
         prompt = _claude_chunk_prompt(chunk_text, i, total)
         # A prompt STDIN-en megy át, nem argumentumként: Windows-on a
@@ -340,9 +336,9 @@ def _make_claude_executor(claude_bin, sys_prompt_path, model):
                  "--allowedTools", "",
                  "--model", model],
                 input=prompt, capture_output=True, text=True,
-                timeout=CLAUDE_TIMEOUT_PER_CHUNK, encoding="utf-8")
+                timeout=timeout, encoding="utf-8")
         except subprocess.TimeoutExpired:
-            return None, f"[TIMEOUT a chunkban {i} ({CLAUDE_TIMEOUT_PER_CHUNK // 60} perc)]"
+            return None, f"[TIMEOUT a chunkban {i} ({timeout // 60} perc)]"
         except FileNotFoundError:
             print("HIBA: A 'claude' parancs nem található!")
             sys.exit(1)
@@ -390,22 +386,29 @@ def _make_codex_executor(codex_bin, model, instruction, timeout, retries):
 # main
 # ────────────────────────────────────────────────────────────────────────────
 
-def main(provider: str):
+def main(argv=None):
     # Windows cp125x konzolon a ✓/⚠/ő és a box-karakterek elszállnának
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
-    builtin = MODEL_BUILTIN[provider]
-    parser = argparse.ArgumentParser(description=DESCRIPTION[provider])
+    parser = argparse.ArgumentParser(
+        description="Magyar fordítás stilisztikai review (Gemini API / Claude Code / Codex CLI)")
     parser.add_argument("srt_file", help="Az összefűzött hun.srt fájl")
+    parser.add_argument("--provider", choices=PROVIDERS,
+                        default=config.default_provider(builtin="gemini"),
+                        help="Lektor provider (default: gemini, "
+                             "felülírható: SUBTR_DEFAULT_PROVIDER env)")
     parser.add_argument("--chunk-size", type=int, default=DEFAULT_CHUNK_SIZE,
                         help=f"Feliratok chunkonként (default: {DEFAULT_CHUNK_SIZE})")
     parser.add_argument("--model", type=str, default=None,
-                        choices=["haiku", "sonnet", "opus"] if provider == "claude" else None,
-                        help=config.model_help(provider, "review", builtin))
-    if provider == "codex":
-        parser.add_argument("--timeout", type=int, default=900,
-                            help="Timeout chunkonként mp-ben")
-        parser.add_argument("--max-retries", type=int, default=2)
+                        help="Modell-azonosító. Feloldás: --model > "
+                             "SUBTR_<PROVIDER>_MODEL_REVIEW > SUBTR_<PROVIDER>_MODEL > "
+                             "beégetett (gemini: gemini-3.6-flash, claude: sonnet)")
+    parser.add_argument("--timeout", type=int, default=None,
+                        help="Timeout chunkonként mp-ben (default: claude 600, codex 900; "
+                             "a gemini-ágon nem használt)")
+    parser.add_argument("--max-retries", type=int, default=None,
+                        help="Újrapróbálkozások (default: gemini 4, codex 2; a claude-ágon "
+                             "nem használt)")
     parser.add_argument("--start-chunk", type=int, default=1,
                         help="Csak ettől a chunktól kezdje (1-alapú). Default: 1")
     parser.add_argument("--end-chunk", type=int, default=None,
@@ -420,7 +423,17 @@ def main(provider: str):
                              "A --english a kapcsoló régi neve.")
     parser.add_argument("--no-source", "--no-english", action="store_true",
                         help="Forrásnyelvi SRT kihagyása akkor is, ha megtalálható")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+
+    provider = args.provider
+    builtin = MODEL_BUILTIN[provider]
+    if args.timeout is None:
+        args.timeout = 600 if provider == "claude" else 900
+    if args.max_retries is None:
+        args.max_retries = {"gemini": MAX_RETRIES, "codex": 2}.get(provider, 1)
+    if provider == "claude" and args.model and args.model not in ("haiku", "sonnet", "opus"):
+        print(f"HIBA: a claude providernél a --model haiku|sonnet|opus lehet (kaptam: {args.model})")
+        sys.exit(1)
 
     if args.chunk_size < 1:
         print(f"HIBA: --chunk-size legalább 1 legyen (kaptam: {args.chunk_size})")
@@ -548,11 +561,13 @@ def main(provider: str):
 
     # Executor összeállítása
     if provider == "gemini":
-        executor = _make_gemini_executor(client, model, instruction)
+        executor = _make_gemini_executor(client, model, instruction,
+                                         max_retries=args.max_retries)
     elif provider == "claude":
         sys_prompt_path = claude_cli.write_sys_prompt_file(
             instruction, CLAUDE_SYS_PROMPT_PREFIX)
-        executor = _make_claude_executor(claude_bin, sys_prompt_path, model)
+        executor = _make_claude_executor(claude_bin, sys_prompt_path, model,
+                                         timeout=args.timeout)
     else:
         executor = _make_codex_executor(codex_bin, model, instruction,
                                         args.timeout, args.max_retries)

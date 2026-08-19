@@ -3,8 +3,19 @@
 import json
 import os
 
-from glossary_categories import CATEGORIES
 from subtr.config import GLOSSARY_PATH
+
+# A `glossary.json` fix kategóriái, fix sorrendben. Új kategória esetén ITT
+# add hozzá egy helyen — minden olvasó modul innen importál:
+#   - subtr/tasks/translate.py, subtr/tasks/review.py
+#   - subtr/tasks/glossary_extract.py, subtr/tasks/register_extract.py
+CATEGORIES = [
+    "honorifics",
+    "place_names",
+    "character_names",
+    "special_terms",
+    "phrases",
+]
 
 
 def load(path: str | None = None) -> dict:

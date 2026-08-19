@@ -12,6 +12,9 @@ dependencies = [
     "pydantic",
 ]
 
+[project.scripts]
+subtr = "subtr.cli:main"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 

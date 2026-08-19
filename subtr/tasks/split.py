@@ -83,13 +83,13 @@ def split_srt(input_file: str, block_size: int = 150, clean: bool = False) -> st
     return outdir
 
 
-if __name__ == "__main__":
+def main(argv=None):
     parser = argparse.ArgumentParser(description="SRT fájl feldarabolása blokkokra")
     parser.add_argument("input", help="Bemeneti SRT fájl útvonala")
     parser.add_argument("--block-size", type=int, default=150, help="Blokk méret (alapértelmezett: 150)")
     parser.add_argument("--clean", action="store_true",
                         help="Meglévő blokkfájlok törlése a cél mappából újra-split előtt")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if not os.path.isfile(args.input):
         print(f"HIBA: Nem találom a fájlt: {args.input}")
