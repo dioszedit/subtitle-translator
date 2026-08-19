@@ -47,7 +47,6 @@ import hashlib
 import json
 import os
 import re
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -57,6 +56,7 @@ sys.stderr.reconfigure(encoding='utf-8')
 
 from subtr.context import load_translation_context as load_claude_md
 from subtr.glossary import as_prompt_text as load_glossary
+from subtr.providers.claude_cli import which_claude
 from subtr.srt import parse_entries as parse_srt
 from subtr.srt import parse_by_index as parse_srt_by_index
 
@@ -350,7 +350,7 @@ def main():
         print("HIBA: --source és --no-source együtt nem használható.")
         sys.exit(1)
 
-    claude_bin = shutil.which("claude")
+    claude_bin = which_claude()
     if not claude_bin:
         print("HIBA: A 'claude' parancs nem található a PATH-on!")
         print("      Telepítés: npm install -g @anthropic-ai/claude-code")

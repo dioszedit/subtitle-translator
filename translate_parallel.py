@@ -31,7 +31,6 @@ import sys
 import glob
 import json
 import hashlib
-import shutil
 import subprocess
 import argparse
 import re
@@ -39,6 +38,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from subtr.context import load_translation_context as load_claude_md
+from subtr.providers.claude_cli import which_claude
 from subtr.glossary import as_prompt_text as load_glossary
 from subtr.srt import count_sections
 from subtr.blocks import get_all_blocks, get_pending_blocks, safe_remove
@@ -124,13 +124,6 @@ def cleanup_stale_sys_prompts(max_age_days: int = SYS_PROMPT_MAX_AGE_DAYS):
                 os.remove(f)
         except Exception:
             pass
-
-
-def find_claude() -> str | None:
-    """A claude CLI feloldása. A shutil.which Windows-on az npm-es claude.cmd
-    shimet is megtalálja — a puszta ["claude", ...] subprocess hívás ott
-    FileNotFoundError-t adna, hiába működik a terminálból."""
-    return shutil.which("claude")
 
 
 def kill_process_tree(proc: subprocess.Popen):
@@ -246,7 +239,7 @@ def main():
         print(f"HIBA: Nem találom a mappát: {args.blocks_dir}")
         sys.exit(1)
 
-    claude_bin = find_claude()
+    claude_bin = which_claude()
     if not claude_bin:
         print("HIBA: A 'claude' parancs nem található a PATH-on!")
         print("      Telepítés: npm install -g @anthropic-ai/claude-code")

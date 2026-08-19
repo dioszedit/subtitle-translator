@@ -31,24 +31,11 @@ import subprocess
 from glossary_categories import CATEGORIES
 from codex_runner import CodexRunError, find_codex, run_codex_json
 from subtr.context import load_translation_context as load_claude_md
+from subtr.providers.claude_cli import find_claude as find_claude_cli
 
 sys.stdout.reconfigure(encoding='utf-8')
 sys.stderr.reconfigure(encoding='utf-8')
 
-
-def find_claude_cli() -> str:
-    """Claude CLI megkeresése."""
-    found = shutil.which("claude")
-    if found:
-        return found
-    # Tipikus Windows telepítési hely
-    local_bin = os.path.join(os.path.expanduser("~"), ".local", "bin", "claude.exe")
-    if os.path.isfile(local_bin):
-        return local_bin
-    npm_global = os.path.join(os.environ.get("APPDATA", ""), "npm", "claude.cmd")
-    if os.path.isfile(npm_global):
-        return npm_global
-    return "claude"  # fallback, hadd kapja el a FileNotFoundError
 
 def sanitize_inner_quotes(s: str) -> str:
     """Heurisztikusan kicseréli a JSON string értékek BELSEJÉBEN előforduló

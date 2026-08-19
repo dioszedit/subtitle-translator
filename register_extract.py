@@ -39,7 +39,6 @@ import json
 import os
 import re
 import shutil
-import subprocess
 import sys
 from pathlib import Path
 
@@ -47,6 +46,7 @@ sys.stdout.reconfigure(encoding="utf-8")
 sys.stderr.reconfigure(encoding="utf-8")
 
 from codex_runner import CodexRunError, find_codex, run_codex_json
+from subtr.providers.claude_cli import extract_json, find_claude as find_claude_cli, run_prompt
 from translation_context import load_translation_context
 
 LOCAL_FILE_DEFAULT = "TRANSLATION.local.md"
@@ -303,53 +303,24 @@ def run_codex(prompt: str, model, timeout: int) -> list[dict]:
     return _validate(result.get("relations"))
 
 
-def find_claude_cli() -> str:
-    found = shutil.which("claude")
-    if found:
-        return found
-    local_bin = os.path.join(os.path.expanduser("~"), ".local", "bin", "claude.exe")
-    if os.path.isfile(local_bin):
-        return local_bin
-    return "claude"
-
-
 def run_claude(prompt: str, timeout: int) -> list[dict]:
     claude_cmd = find_claude_cli()
     print(f"Claude Code elemzi a feliratot... ({claude_cmd})")
     prompt += ('\n\nKIMENET: kizárólag egy JSON objektum, semmi más szöveg:\n'
                '{"relations":[{"a":"","b":"","mutual":false,"form":"MAGÁZ",'
                '"confidence":"biztos","relation":"","evidence":[""]}]}')
-    try:
-        proc = subprocess.run([claude_cmd, "-p", "-"], input=prompt, capture_output=True,
-                              text=True, timeout=timeout, encoding="utf-8")
-    except subprocess.TimeoutExpired:
-        print(f"HIBA: Timeout ({timeout} mp)")
-        return []
-    except FileNotFoundError:
-        print(f"HIBA: A 'claude' parancs nem található (keresett: {claude_cmd})")
-        return []
-    if proc.returncode != 0:
-        print(f"HIBA: Claude Code hiba (exit code: {proc.returncode})")
-        if proc.stderr:
-            print(f"  stderr: {proc.stderr[:400]}")
+    raw, err = run_prompt(prompt, timeout, claude_bin=claude_cmd)
+    if err:
+        print(f"HIBA: {err}")
         return []
 
-    raw = proc.stdout.strip()
-    for cand in (re.search(r"```(?:json)?\s*(\{.*?\})\s*```", raw, re.S),):
-        if cand:
-            raw = cand.group(1)
-            break
-    else:
-        first, last = raw.find("{"), raw.rfind("}")
-        if first != -1 and last > first:
-            raw = raw[first:last + 1]
-    try:
-        return _validate(json.loads(raw).get("relations"))
-    except json.JSONDecodeError as e:
+    parsed = extract_json(raw)
+    if parsed is None:
         debug = ".register_extract_debug.txt"
-        Path(debug).write_text(proc.stdout, encoding="utf-8")
-        print(f"HIBA: JSON parse hiba: {e}\n  Nyers válasz mentve: {debug}")
+        Path(debug).write_text(raw, encoding="utf-8")
+        print(f"HIBA: JSON parse hiba\n  Nyers válasz mentve: {debug}")
         return []
+    return _validate(parsed.get("relations"))
 
 
 # ────────────────────────────────────────────────────────────────────────────
