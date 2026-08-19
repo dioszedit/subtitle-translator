@@ -39,6 +39,9 @@ Az epizód azonosítójából (pl. `Sorozat - S01E01`) sorban ellenőrizd:
   a blokkok párhuzamosan fordulnak, utólag a formát csak kézzel lehet egységesíteni.
   Egy téves regiszter-sor rosszabb, mint a hiányzó: magabiztosan rossz formát
   kényszerít, míg hiány esetén a fordító a kikerülő megfogalmazást választja.
+  Ha a felhasználó kéri, a `register_extract.py` felvázolhat egy első változatot
+  az angol forrásból (opcionális, interaktív; több epizód pontosabb) — de a
+  jóváhagyás mindig a felhasználóé, ne futtasd rákérdezés nélkül.
 - **Translate**: kérdezd meg (ha nem mondta), melyik fordítóval:
   `translate_parallel.py` (Claude) vagy `translate_with_gemini.py` (olcsóbb).
   Gemini-nél a script indulásakor kvóta-preflight fut — ha azt írja, a modell

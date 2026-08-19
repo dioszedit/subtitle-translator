@@ -36,6 +36,9 @@ amiből a blokkonként dolgozó fordító tudja, melyik oldalon van — epizód-
 nem elég. A megszólítások konkrét magyar alakját a `glossary.json` `honorifics`
 bejegyzései rögzítik; a regiszter azokra épül, nem melléjük.
 
+A regisztert kézzel írod. Ha első változatot szeretnél a forrásfeliratból, a
+`register_extract.py` felkínál egyet (opcionális lépés, interaktív jóváhagyással).
+
 ## Kötelező fordítási szabályok
 
 1. Csak a szöveget fordítsd angolról természetes, beszélt magyarra; ne tükörfordíts.

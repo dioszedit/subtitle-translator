@@ -35,6 +35,20 @@ py glossary_extract.py "input\Sorozat - S01E01.eng.srt"
 #     MINDEN epizód előtt nézd át: volt-e tegeződésre váltás, új szereplő, előléptetés.
 #     Egy elavult sor rosszabb, mint a hiányzó — a hiányzónál a fordító kikerüli a döntést.
 #     A szabályokat lásd: TRANSLATION.md → "Tegezés/magázás"
+#
+#     OPCIONÁLIS SEGÉDLET: a regisztert egy modell is felvázolhatja az angol
+#     forrásból — a javaslatot te hagyod jóvá, a fájl kézzel bármikor javítható.
+# py register_extract.py "input\Sorozat - S01E01.eng.srt"
+#     Több rész pontosabb (a részek közti eltérés VÁLTÁS-jelöltként jön fel):
+# py register_extract.py "input\S01E01.eng.srt" "input\S01E02.eng.srt"
+#     Opcionálisan:
+#       --provider gemini|claude|codex   default: gemini
+#       --dry-run                        csak kiírja, nem ír a fájlba
+#       --all-interactive                minden párnál kérdezzen
+#       --yes                            ne kérdezzen (csak a biztos sorok)
+#     A biztos sorok (2+ idézhető bizonyíték) automatikusan bemennek, a
+#     bizonytalanoknál kérdez. A meglévő regisztert nem írja felül csendben:
+#     ütközésnél megkérdez. Mentés előtt TRANSLATION.local.md.bak készül.
 
 # 2a. Fordítás Claude Code-dal (ez indítja a párhuzamos agent-eket)
 py translate_parallel.py "blocks\Sorozat - S01E01.eng" --agents 3

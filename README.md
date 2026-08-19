@@ -36,6 +36,7 @@ subtitle-translator/
 ├── apply_review.py              ← 5c. Review-riportok összefésülése + interaktív alkalmazás
 ├── apply_review_auto.py         ← 5d. Ugyanaz kérdés nélkül, döntés-fájlból (agent / batch)
 ├── resegment_srt.py             ← 7. Sorhossz/CPS QA + újratördelés (lásd resegment_srt.md)
+├── register_extract.py          ← Megszólítási regiszter kinyerése (opcionális, fordítás előtt)
 ├── glossary_extract.py          ← Szójegyzék bővítése (fordítás előtt angol-only, vagy utólag párból)
 ├── glossary_categories.py       ← Közös konstans (CATEGORIES) — itt vedd fel új
 │                                  glossary-kategóriát, mind az 5 script innen olvas
@@ -485,6 +486,52 @@ A `glossary.json`-t minden provideres fordító és review automatikusan betölt
 és átadja a modellnek, hogy a fordítások
 konzisztensek maradjanak.
 
+### Megszólítási regiszter kinyerése (`register_extract.py`) — opcionális
+
+A tegezés/magázás az angol forrásból nem derül ki közvetlenül, ezért a
+`TRANSLATION.local.md` *Megszólítási regisztere* dönt róla (lásd a *Tippek*
+szakaszt). Ezt **kézzel is megírhatod** — ez a script csak felkínál egy első
+változatot, illetve továbbvezeti a meglévőt.
+
+```powershell
+# Egy epizód alapján, Gemini API-val (default provider)
+python register_extract.py "input\S01E01.eng.srt"
+
+# Több rész = pontosabb. A részek közti eltérés VÁLTÁS-jelöltként jön fel,
+# nem néma felülírásként — pont ezt kell a regiszter "váltás:" sorába írni.
+python register_extract.py "input\S01E01.eng.srt" "input\S01E02.eng.srt"
+
+# Másik provider
+python register_extract.py "input\S01E01.eng.srt" --provider claude
+python register_extract.py "input\S01E01.eng.srt" --provider codex
+
+# Csak nézni akarod, nem írni
+python register_extract.py "input\S01E01.eng.srt" --dry-run
+```
+
+Hogyan dönt, mit kérdez meg:
+
+| Eset | Viselkedés |
+|---|---|
+| **Biztos** viszony (legalább 2 idézhető bizonyíték a feliratból) | automatikusan bemegy, a végén bizonyítékkal együtt listázva |
+| **Bizonytalan** viszony | megkérdez: `y` elfogad, `m` a másik forma, `n` kihagy, `e` szerkeszt, `q` kilép |
+| **Ütközik** a meglévő regiszterrel | mindig megkérdez — csendben soha nem ír felül |
+| Epizódok közt **eltér** a forma | VÁLTÁS-jelölt: bizonytalanná válik, és kiírja, melyik részben mi volt |
+
+> **Miért nem a modell magabiztosságára hagyatkozunk:** mérve a modell
+> gyakorlatilag *mindent* „biztos"-nak jelöl magáról. Ezért a script gépi féket
+> tesz elé: két idézhető bizonyíték alatt a sor bizonytalan, akármit állít
+> magáról — és a bizonytalan sorok nálad kötnek ki, nem a fájlban.
+
+A `--all-interactive` minden párnál kérdez, a `--yes` egyáltalán nem kérdez
+(csak a biztos sorokat veszi át). Mentés előtt `TRANSLATION.local.md.bak`
+készül, és a script csak a *pár-sorokat* kezeli — az `alapértelmezés`, `váltás`
+és megjegyzés-sorokat érintetlenül átmenti.
+
+> A regiszterben egy **téves sor rosszabb, mint a hiányzó**: a fordító a
+> regisztert kötelezőnek veszi, hiány esetén viszont kikerülő megfogalmazást
+> választ. Kétes sort inkább hagyj ki.
+
 ## Kontextus-átadás — fontos!
 
 Minden fordító és review script átadja a **TRANSLATION.md**-t és a
@@ -559,7 +606,8 @@ szabályai kiesnek, a konzisztencia jórészt a szójegyzéken múlik.
   ezért ez az egyetlen eszköz, ami a **párhuzamosan futó blokkok között** egységes
   formát tud tartani. Minden epizód előtt frissítsd — egy elavult regiszter rosszabb,
   mint a hiányzó: magabiztosan rossz formát kényszerít. A döntési eljárást a
-  `TRANSLATION.md` *Tegezés/magázás* szakasza írja le.
+  `TRANSLATION.md` *Tegezés/magázás* szakasza írja le. Kézzel írod, de a
+  `register_extract.py` felkínál egy első változatot (lásd fent).
 - **Checkpoint:** mindhárom fordító fájl-alapú checkpointtal fut (újraindításkor
   csak a hiányzó blokkokat fordítja; a szekció-eltéréses blokk outputja
   törlődik, így az is újramegy), mindhárom review pedig `--start-chunk` /
