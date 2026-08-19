@@ -768,7 +768,8 @@ A fordító és a review modellek sosem tökéletesek, és az automatikus
 javítás után is érdemes egyszer **végigolvasni** a kész feliratot —
 ideálisan a videóval szinkronban, lejátszás közben. Ekkor jönnek elő
 azok a finomságok (kontextus-érzékeny tegezés/magázás, karakterek
-beszédstílusa, dialógus-ritmus), amiket egyik LLM sem fog megbízhatóan.
+beszédstílusa, dialógus-ritmus), amiket egyik LLM sem fog megbízhatóan 
+kezelni.
 
 A *Megszólítási regiszter* ebből elveszi a felsorolt karakterpárokat: azokra a
 forma blokkok között is egységes. Ami itt marad: a regiszterben NEM szereplő
