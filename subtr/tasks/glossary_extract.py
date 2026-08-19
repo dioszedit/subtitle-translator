@@ -30,6 +30,7 @@ import subprocess
 
 from glossary_categories import CATEGORIES
 from codex_runner import CodexRunError, find_codex, run_codex_json
+from subtr import config
 from subtr.context import load_translation_context as load_claude_md
 from subtr.providers.claude_cli import find_claude as find_claude_cli
 
@@ -569,8 +570,10 @@ def main():
                         help="Szójegyzék fájl útvonala (alapértelmezett: glossary.json)")
     parser.add_argument("--timeout", type=int, default=300,
                         help="Provider timeout másodpercben (alapértelmezett: 300)")
-    parser.add_argument("--provider", choices=("claude", "codex", "gemini"), default="claude",
-                        help="Kinyerő provider (alapértelmezett: claude)")
+    parser.add_argument("--provider", choices=("claude", "codex", "gemini"),
+                        default=config.default_provider(builtin="claude"),
+                        help="Kinyerő provider (alapértelmezett: claude, "
+                             "felülírható: SUBTR_DEFAULT_PROVIDER env)")
     parser.add_argument("--model",
                         help="Opcionális modellazonosító (codex / gemini; "
                              f"gemini default: {GEMINI_MODEL_DEFAULT})")

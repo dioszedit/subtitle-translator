@@ -45,6 +45,7 @@ from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8")
 sys.stderr.reconfigure(encoding="utf-8")
 
+from subtr import config
 from codex_runner import CodexRunError, find_codex, run_codex_json
 from subtr.providers.claude_cli import extract_json, find_claude as find_claude_cli, run_prompt
 from translation_context import load_translation_context
@@ -428,8 +429,10 @@ def main():
     parser = argparse.ArgumentParser(
         description="Megszólítási regiszter kinyerése angol forrásfeliratból (opcionális lépés)")
     parser.add_argument("srt", nargs="+", help="Egy vagy több angol SRT (több rész = pontosabb)")
-    parser.add_argument("--provider", choices=("gemini", "claude", "codex"), default="gemini",
-                        help="Kinyerő provider (default: gemini)")
+    parser.add_argument("--provider", choices=("gemini", "claude", "codex"),
+                        default=config.default_provider(builtin="gemini"),
+                        help="Kinyerő provider (default: gemini, "
+                             "felülírható: SUBTR_DEFAULT_PROVIDER env)")
     parser.add_argument("--model", help="Modellazonosító (gemini/codex)")
     parser.add_argument("--local-file", default=LOCAL_FILE_DEFAULT,
                         help=f"A regisztert tartalmazó fájl (default: {LOCAL_FILE_DEFAULT})")
