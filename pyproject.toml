@@ -3,7 +3,7 @@
 
 [project]
 name = "subtitle-translator"
-version = "0.1.0"
+version = "2.0.0"
 description = "SRT feliratfordító pipeline LLM providerekkel"
 requires-python = ">=3.10"
 dependencies = [
