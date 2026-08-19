@@ -29,16 +29,23 @@ py glossary_extract.py "input\Sorozat - S01E01.eng.srt"
 # Codex providerrel:
 # py glossary_extract.py "input\Sorozat - S01E01.eng.srt" --provider codex
 
+# 1.6 (AJÁNLOTT) Megszólítási regiszter frissítése a TRANSLATION.local.md-ben
+#     Ki kit tegez / magáz — ez kerül bele minden blokk promptjába, és ez az egyetlen,
+#     ami a párhuzamosan futó blokkok között egységes formát tud tartani.
+#     MINDEN epizód előtt nézd át: volt-e tegeződésre váltás, új szereplő, előléptetés.
+#     Egy elavult sor rosszabb, mint a hiányzó — a hiányzónál a fordító kikerüli a döntést.
+#     A szabályokat lásd: TRANSLATION.md → "Tegezés/magázás"
+
 # 2a. Fordítás Claude Code-dal (ez indítja a párhuzamos agent-eket)
 py translate_parallel.py "blocks\Sorozat - S01E01.eng" --agents 3
 
 # 2b. ALTERNATÍVA: fordítás Gemini API-val (olcsóbb, ugyanazt a blocks/ mappát fordítja)
 #     A Gemini és Codex fordító ugyanúgy checkpoint-ol, ezért provider-váltással is folytatható.
-#     Default modell: gemini-3.7-flash (legújabb Flash)
+#     Default modell: gemini-3.6-flash (erős, stabilan elérhető)
 # py translate_with_gemini.py "blocks\Sorozat - S01E01.eng" --agents 3
 # Opcionálisan:
 #   --model gemini-3.5-flash-lite olcsóbb, bő napi kvóta (kvótahiba esetén)
-#   --model gemini-3.6-flash      előző Flash generáció
+#   --model gemini-3.7-flash      legújabb, de gyakran túlterhelt (503)
 #   --block 3                     csak a 3. blokk újrafordítása (auto zero-pad)
 #   --max-retries 6               több retry rate-limit/5xx esetén
 # Előfeltétel: pip install google-genai python-dotenv pydantic
@@ -77,12 +84,12 @@ py review_with_claude.py "output\Sorozat - S01E01.hun.srt"
 
 # 5b. Stilisztikai review Gemini-vel (alternatív / kiegészítő, Te döntöd mikor futtatod)
 py review_with_gemini.py "output\Sorozat - S01E01.hun.srt"
-# Default modell: gemini-3.7-flash (legújabb Flash)
+# Default modell: gemini-3.6-flash (erős, stabilan elérhető)
 # Ha megtalálja a forrásnyelvi SRT-t (input\Sorozat - S01E01.eng.srt), automatikusan
 # odaadja Gemini-nek szekciónként [FORRÁS] sorként — így kevesebb a téves találat.
 # Opcionálisan:
 #   --chunk-size 150            nagyobb chunkok = kevesebb API hívás
-#   --model <név>               más Gemini modell (pl. gemini-3.6-flash,
+#   --model <név>               más Gemini modell (pl. gemini-3.7-flash = gyakran 503,
 #                               gemini-3.5-flash-lite = olcsó/bő kvóta, gemini-3.1-pro-preview)
 #   --source "input\....srt"    forrásnyelvi SRT kézi megadása (bármilyen nyelv;
 #                               a régi név, --english, továbbra is működik)

@@ -24,9 +24,10 @@ Angol eredeti (kevesebb téves találat):
         python review_with_gemini.py "output/Sorozat - S01E01.hun.srt" --start-chunk 5 --end-chunk 7 --suffix _part2
 
 Modell:
-    Alapértelmezett: gemini-3.7-flash (a legújabb Flash — erősebb review)
+    Alapértelmezett: gemini-3.6-flash (erős és stabilan elérhető)
     --model <név>: tetszőleges Gemini modell-azonosító megadható
-        Flash:      gemini-3.7-flash, gemini-3.6-flash, gemini-3.5-flash
+        Flash:      gemini-3.6-flash, gemini-3.5-flash
+        Legújabb:   gemini-3.7-flash — gyakran túlterhelt (503), ezért nem default
         Olcsó/lite: gemini-3.5-flash-lite, gemini-3.1-flash-lite
         Pro:        gemini-3.1-pro-preview
         Alias:      gemini-flash-latest, gemini-flash-lite-latest, gemini-pro-latest
@@ -99,7 +100,7 @@ except ImportError as _e:
 
 
 DEFAULT_CHUNK_SIZE = 100
-MODEL_DEFAULT = "gemini-3.7-flash"
+MODEL_DEFAULT = "gemini-3.6-flash"
 TEMPERATURE = 0.2
 MAX_RETRIES = 4
 RETRY_BASE_DELAY = 5  # másodperc
@@ -263,6 +264,16 @@ nézel át, és STÍLUS / NYELVTANI hibákat keresel.
    semleges forma kell, csak ha BIZTOSAN ismert a beszélő/alany neme)
 4. Természetellenes, angolos magyar nyelvezet
 5. Rossz szórend, helytelen határozott/határozatlan ragozás
+6. Tegezés/magázás AKKOR ÉS CSAK AKKOR, ha valamelyik feltétel teljesül:
+   (a) a sorozatkontextus Megszólítási regisztere mást ír elő a szereplőpárra,
+   (b) a [FORRÁS] sor explicit formalitás-jelet tartalmaz (megszólítási forma,
+       rang/titulus, udvariassági fordulat), amivel a magyar forma ütközik,
+   (c) a blokkon belül ugyanaz a szereplőpár váltogatja a formát ÉS a beszélő a
+       szövegből azonosítható (elhangzó név, megszólítás, beszélőcímke vagy
+       [FORRÁS]-jel alapján).
+   Ilyen találatnál a "hiba" mező NEVEZZE MEG, mire hivatkozol: melyik
+   regiszter-sorra, melyik idézett forrás-jelre, vagy melyik másik sorszámmal
+   ütközik. Indoklás nélküli tegezés/magázás-találatot ne adj.
 
 === AMIT NE JELENTS ===
 - Helyesírás apróságok (azokat a helyesírás-ellenőrző elkapja)
@@ -270,7 +281,12 @@ nézel át, és STÍLUS / NYELVTANI hibákat keresel.
 - HTML tagek, időbélyegek, sorszámok
 - A szójegyzékben (lent) szereplő fordításokat NE javasold átírni —
   ezek a sorozat kötelező, jóváhagyott fordításai
-- Karakterneveket NE javasold lefordítani (a szójegyzékben szerepelnek)"""]
+- Karakterneveket NE javasold lefordítani (a szójegyzékben szerepelnek)
+- Tegezés/magázás váltást NE javasolj "érzésre", ha a fenti (a)/(b)/(c)
+  feltételek egyike sem áll fenn
+- A semleges, formát nem eldöntő megfogalmazás (T/1, főnévi igenév,
+  személytelen szerkezet) HELYES megoldás — ne javasolj helyette konkrét
+  tegező vagy magázó alakot"""]
 
     if has_source:
         parts.append("""=== FORRÁSNYELVI EREDETI ===
@@ -406,7 +422,7 @@ def main():
                         help=f"Feliratok chunkonként (default: {DEFAULT_CHUNK_SIZE})")
     parser.add_argument("--model", type=str, default=MODEL_DEFAULT,
                         help=f"Gemini modell-azonosító (default: {MODEL_DEFAULT}). "
-                             "Pl. gemini-3.6-flash, gemini-3.5-flash-lite, "
+                             "Pl. gemini-3.7-flash (gyakran túlterhelt), gemini-3.5-flash-lite, "
                              "gemini-3.1-flash-lite, gemini-3.1-pro-preview")
     parser.add_argument("--start-chunk", type=int, default=1,
                         help="Csak ettől a chunktól kezdje (1-alapú). Default: 1")

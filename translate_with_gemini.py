@@ -20,9 +20,10 @@ Használat:
     python translate_with_gemini.py blocks/Sorozat_S01E01_eng --model gemini-3.5-flash-lite
 
 Modell:
-    Alapértelmezett: gemini-3.7-flash (a legújabb Flash — erősebb fordítás)
+    Alapértelmezett: gemini-3.6-flash (erős és stabilan elérhető)
     --model <név>: tetszőleges Gemini modell-azonosító
-        Flash:      gemini-3.7-flash, gemini-3.6-flash, gemini-3.5-flash
+        Flash:      gemini-3.6-flash, gemini-3.5-flash
+        Legújabb:   gemini-3.7-flash — gyakran túlterhelt (503), ezért nem default
         Olcsó/lite: gemini-3.5-flash-lite, gemini-3.1-flash-lite
         Pro:        gemini-3.1-pro-preview
         Alias:      gemini-flash-latest, gemini-flash-lite-latest, gemini-pro-latest
@@ -95,7 +96,7 @@ except ImportError as _e:
 # Konstansok
 # ────────────────────────────────────────────────────────────────────────────
 
-MODEL_DEFAULT = "gemini-3.7-flash"
+MODEL_DEFAULT = "gemini-3.6-flash"
 TEMPERATURE = 0.3
 MAX_RETRIES = 4
 RETRY_BASE_DELAY = 5  # másodperc — exponential backoff alapja
@@ -232,6 +233,9 @@ beszélt magyar nyelvre. NEM tükörfordítasz.
 - Karakterneveket NE fordítsd le (a szójegyzékben szerepelnek a helyes
   írásmódok).
 - Az "episode" magyarul mindig "rész", NEM "epizód".
+- Tegezés/magázás: kövesd a sorozatkontextus Megszólítási regiszterét; ha nincs
+  rá adat és a forrás jeleiből sem egyértelmű, fogalmazz úgy, hogy ne kelljen
+  választani. Ne találj ki viszonyt.
 - Minden átadott szekcióhoz pontosan egy fordítás tartozzon — sem több, sem kevesebb.
 
 === KIMENET ===
@@ -452,7 +456,7 @@ def main():
                         help="Csak egy konkrét blokk újrafordítása (pl. 003 vagy 3 — auto zero-pad)")
     parser.add_argument("--model", type=str, default=MODEL_DEFAULT,
                         help=f"Gemini modell-azonosító (default: {MODEL_DEFAULT}). "
-                             "Pl. gemini-3.6-flash, gemini-3.5-flash-lite, "
+                             "Pl. gemini-3.7-flash (gyakran túlterhelt), gemini-3.5-flash-lite, "
                              "gemini-3.1-flash-lite, gemini-3.1-pro-preview")
     parser.add_argument("--max-retries", type=int, default=MAX_RETRIES,
                         help=f"Max API retry rate-limit / 5xx esetén (default: {MAX_RETRIES})")

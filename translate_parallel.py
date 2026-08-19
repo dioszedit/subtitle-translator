@@ -117,6 +117,9 @@ beszélt magyar nyelvre. NEM tükörfordítasz.
 - Karakterneveket NE fordítsd le.
 - Az output PONTOSAN ugyanannyi szekciót tartalmazzon, mint az input.
 - Csak a kért output fájlt írd ki — semmi extra magyarázat, semmi visszajelzés.
+- Tegezés/magázás: kövesd a sorozatkontextus Megszólítási regiszterét; ha nincs
+  rá adat és a forrás jeleiből sem egyértelmű, fogalmazz úgy, hogy ne kelljen
+  választani. Ne találj ki viszonyt.
 
 === FOLYAMAT ===
 1. Olvasd be a megadott input SRT fájlt.

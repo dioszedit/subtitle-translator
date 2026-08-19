@@ -99,7 +99,9 @@ def load_glossary() -> str:
 def build_instruction(context: str, glossary: str) -> str:
     parts = ["""Profi felirat-fordító vagy. Angol SRT feliratszövegeket fordítasz természetes, beszélt magyarra.
 
-KÖTELEZŐ: minden kapott sorszámhoz pontosan egy fordítást adj. A text csak a magyar feliratszöveg legyen; a HTML tageket, kötőjeles párbeszédet, szögletes megjegyzéseket és ♫ jelet őrizd meg. Ne adj magyarázatot."""]
+KÖTELEZŐ: minden kapott sorszámhoz pontosan egy fordítást adj. A text csak a magyar feliratszöveg legyen; a HTML tageket, kötőjeles párbeszédet, szögletes megjegyzéseket és ♫ jelet őrizd meg. Ne adj magyarázatot.
+
+Tegezés/magázás: kövesd a sorozatkontextus Megszólítási regiszterét; ha nincs rá adat és a forrás jeleiből sem egyértelmű, fogalmazz úgy, hogy ne kelljen választani. Ne találj ki viszonyt."""]
     if context.strip():
         parts.append("=== SOROZAT KONTEXTUS ÉS SZABÁLYOK ===\n" + context.strip())
     if glossary.strip():

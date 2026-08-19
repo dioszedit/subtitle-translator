@@ -32,6 +32,13 @@ Az epizód azonosítójából (pl. `Sorozat - S01E01`) sorban ellenőrizd:
 
 - **Split**: ha a `blocks/<X>.eng/` már létezik és újra-split kell (más
   `--block-size`), CSAK `--clean`-nel — enélkül a script szándékosan leáll.
+- **Regiszter-ellenőrzés (translate ELŐTT)**: nézd meg, van-e `Megszólítási
+  regiszter` a `TRANSLATION.local.md`-ben, és tartalmazza-e az előző epizód óta
+  történt viszonyváltozásokat (tegeződésre váltás, előléptetés, új szereplő). Ha
+  hiányzik vagy elavultnak tűnik, kérdezz rá a felhasználónál, MIELŐTT fordítasz —
+  a blokkok párhuzamosan fordulnak, utólag a formát csak kézzel lehet egységesíteni.
+  Egy téves regiszter-sor rosszabb, mint a hiányzó: magabiztosan rossz formát
+  kényszerít, míg hiány esetén a fordító a kikerülő megfogalmazást választja.
 - **Translate**: kérdezd meg (ha nem mondta), melyik fordítóval:
   `translate_parallel.py` (Claude) vagy `translate_with_gemini.py` (olcsóbb).
   Gemini-nél a script indulásakor kvóta-preflight fut — ha azt írja, a modell

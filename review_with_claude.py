@@ -210,6 +210,16 @@ nézel át, és STÍLUS / NYELVTANI hibákat keresel.
    semleges forma kell, csak ha BIZTOSAN ismert a beszélő/alany neme)
 4. Természetellenes, angolos magyar nyelvezet
 5. Rossz szórend, helytelen határozott/határozatlan ragozás
+6. Tegezés/magázás AKKOR ÉS CSAK AKKOR, ha valamelyik feltétel teljesül:
+   (a) a sorozatkontextus Megszólítási regisztere mást ír elő a szereplőpárra,
+   (b) a [FORRÁS] sor explicit formalitás-jelet tartalmaz (megszólítási forma,
+       rang/titulus, udvariassági fordulat), amivel a magyar forma ütközik,
+   (c) a blokkon belül ugyanaz a szereplőpár váltogatja a formát ÉS a beszélő a
+       szövegből azonosítható (elhangzó név, megszólítás, beszélőcímke vagy
+       [FORRÁS]-jel alapján).
+   Ilyen találatnál a "hiba" mező NEVEZZE MEG, mire hivatkozol: melyik
+   regiszter-sorra, melyik idézett forrás-jelre, vagy melyik másik sorszámmal
+   ütközik. Indoklás nélküli tegezés/magázás-találatot ne adj.
 
 === AMIT NE JELENTS ===
 - Helyesírás apróságok (azokat a helyesírás-ellenőrző elkapja)
@@ -217,7 +227,12 @@ nézel át, és STÍLUS / NYELVTANI hibákat keresel.
 - HTML tagek, időbélyegek, sorszámok
 - A szójegyzékben (lent) szereplő fordításokat NE javasold átírni —
   ezek a sorozat kötelező, jóváhagyott fordításai
-- Karakterneveket NE javasold lefordítani (a szójegyzékben szerepelnek)"""]
+- Karakterneveket NE javasold lefordítani (a szójegyzékben szerepelnek)
+- Tegezés/magázás váltást NE javasolj "érzésre", ha a fenti (a)/(b)/(c)
+  feltételek egyike sem áll fenn
+- A semleges, formát nem eldöntő megfogalmazás (T/1, főnévi igenév,
+  személytelen szerkezet) HELYES megoldás — ne javasolj helyette konkrét
+  tegező vagy magázó alakot"""]
 
     if has_source:
         parts.append("""=== FORRÁSNYELVI EREDETI ===

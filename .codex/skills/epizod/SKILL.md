@@ -20,6 +20,7 @@ Az utasítások forrása a `lepesek.txt`; a fordítási szabályzat a `TRANSLATI
 
 ## Biztonságos végrehajtás
 
+- Fordítás előtt ellenőrizd, hogy a `TRANSLATION.local.md` *Megszólítási regisztere* megvan-e és tartalmazza-e az előző epizód óta történt viszonyváltozásokat; hiány vagy elavulás esetén kérdezz rá. Utólag a tegezés/magázás csak kézzel egységesíthető.
 - Új split csak `--clean`-nel törölhet régi blokkokat.
 - Fordítóválasztáskor kérdezz rá, ha a felhasználó nem nevez meg providert: Claude (`translate_parallel.py`), Gemini (`translate_with_gemini.py`) vagy Codex (`translate_with_codex.py`). A Codexet először `--agents 1`-gyel futtasd.
 - A checkpoint miatt újrafuttatás csak a hiányzó blokkokat dolgozza fel. Egy konkrét blokk újrafordítását a `--block` kapcsolóval végezd.

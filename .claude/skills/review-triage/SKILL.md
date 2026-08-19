@@ -11,9 +11,11 @@ no-op, plusz nem létező szóalakok és hamis tegezés/magázás-riasztások). 
 javaslatok NEM vezethetők át szűrés nélkül — minden találatot egyesével a
 forrásnyelvi eredetihez kell mérni. Ez a skill ezt a triage-folyamatot írja le.
 
-A fordítási szabályok forrása a projekt gyökerében lévő **CLAUDE.md** (különösen
-a "Gyakori hibák" A/B/C blokkjai) és a **glossary.json** — ítélet előtt olvasd be
-mindkettőt. A szabályokat NE innen idézd, hanem onnan.
+A fordítási szabályok forrása a projekt gyökerében lévő **TRANSLATION.md**
+(különösen a "Tegezés/magázás" és a "Gyakori hibák" szakasz), a sorozat-specifikus
+**TRANSLATION.local.md** (itt van a *Megszólítási regiszter*, ami eldönti, ki kit tegez
+vagy magáz) és a **glossary.json** — ítélet előtt olvasd be mind a hármat. A szabályokat
+NE innen idézd, hanem onnan.
 
 ## 1. Bemenetek összegyűjtése
 
@@ -44,7 +46,9 @@ A két riport találatait szekciószám szerint fésüld össze. Találatonként
 | a riport `eredeti`-je ≠ aktuális szöveg | már javítva vagy elcsúszott — **kihagy** |
 | nem létező magyar szóalak a javaslatban | **eldob** |
 | a javaslat ellentmond a glossary.json-nak | **eldob** (a glossary kötelező) |
-| tegezés/magázás-riasztás | a forrás + a jelenet kontextusa alapján ítélj (ki beszél kihez); kétes esetben **eldob** |
+| tegezés/magázás-riasztás, amit a *Megszólítási regiszter* alátámaszt | **elfogad** — a regiszter kötelező, a fordító tévedett |
+| tegezés/magázás-riasztás indoklás nélkül (a `hiba` mező nem nevez meg regiszter-sort, forrás-jelet vagy ütköző sorszámot) | **eldob** |
+| egyéb tegezés/magázás-riasztás | a forrás + a jelenet kontextusa alapján ítélj (ki beszél kihez); kétes esetben **eldob** |
 | a javaslat mást mond, mint a forrás | **eldob** — a "javítás" nem lehet hűtlenebb az eredetinél |
 | jó irányú, de pontatlan javaslat | **átírva elfogad** — a végleges szöveget te adod meg |
 | mindkét lektor ugyanazt javasolja | magasabb bizalom, de a forrás-ellenőrzés akkor is kötelező |

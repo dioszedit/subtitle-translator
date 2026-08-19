@@ -5,7 +5,7 @@ description: Review-javaslatok forrásalapú szűrése, decisions JSON összeál
 
 # Review triage
 
-Olvasd el a `TRANSLATION.md`-t és a `glossary.json`-t. A review-modellek javaslatai nem alkalmazhatók automatikusan: minden tételt az aktuális magyar SRT-hez és lehetőleg a forráshoz mérj.
+Olvasd el a `TRANSLATION.md`-t, a `TRANSLATION.local.md`-t (ebben van a *Megszólítási regiszter*: ki kit tegez vagy magáz) és a `glossary.json`-t. A review-modellek javaslatai nem alkalmazhatók automatikusan: minden tételt az aktuális magyar SRT-hez és lehetőleg a forráshoz mérj.
 
 ## Bemenet és ellenőrzés
 
@@ -18,7 +18,7 @@ Olvasd el a `TRANSLATION.md`-t és a `glossary.json`-t. A review-modellek javasl
 - Ha a javaslat whitespace-normalizálva megegyezik a jelenlegi szöveggel: no-op, dobd el.
 - Ha a riport `eredeti` mezője eltér az aktuálistól: kihagyás; valószínűleg már javított vagy elcsúszott.
 - Glossary-val ellentétes, nem létező magyar szóalakú vagy a forrástól hűtlen javaslat: dobd el.
-- Tegezés/magázás és stilisztika esetén kételykor dobd el.
+- Tegezés/magázás: ha a *Megszólítási regiszter* alátámasztja a találatot, fogadd el; ha a `hiba` mező nem nevez meg regiszter-sort, forrás-jelet vagy ütköző sorszámot, dobd el. Egyéb esetben — és stilisztikánál — kételykor dobd el.
 - A jó, de pontatlan javaslatot írd át a végleges szövegre.
 - Két provider azonos javaslata nagyobb bizalom, de nem helyettesíti a forrásellenőrzést.
 

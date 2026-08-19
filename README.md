@@ -188,11 +188,11 @@ python translate_parallel.py "blocks\eng" --agents 1
 
 #### Gemini API fordító (`translate_with_gemini.py`) — alternatíva
 ```powershell
-# Default modell: gemini-3.7-flash (a legújabb Flash — erősebb fordítás)
+# Default modell: gemini-3.6-flash (erős és stabilan elérhető)
 python translate_with_gemini.py "blocks\eng" --agents 3
 
 # Tetszőleges Gemini modell --model flag-gel
-python translate_with_gemini.py "blocks\eng" --model gemini-3.6-flash
+python translate_with_gemini.py "blocks\eng" --model gemini-3.7-flash
 python translate_with_gemini.py "blocks\eng" --model gemini-3.5-flash-lite   # olcsó, bő napi kvóta
 python translate_with_gemini.py "blocks\eng" --model gemini-3.1-pro-preview
 
@@ -336,11 +336,11 @@ javaslattal, azt nem írja újra — a script idempotens.
 
 #### Gemini review (`review_with_gemini.py`)
 ```powershell
-# Default modell: gemini-3.7-flash (a legújabb Flash — erősebb review)
+# Default modell: gemini-3.6-flash (erős és stabilan elérhető)
 python review_with_gemini.py "output\hun.srt"
 
 # Tetszőleges modell-azonosító --model flag-gel
-python review_with_gemini.py "output\hun.srt" --model gemini-3.6-flash
+python review_with_gemini.py "output\hun.srt" --model gemini-3.7-flash
 python review_with_gemini.py "output\hun.srt" --model gemini-3.5-flash-lite   # olcsó, bő napi kvóta
 python review_with_gemini.py "output\hun.srt" --model gemini-3.1-pro-preview
 # Modell-lista: https://ai.google.dev/gemini-api/docs/models
@@ -362,8 +362,9 @@ A forrásnyelvi SRT párosítása itt is működik (lásd fent a Claude review-n
 
 | Modell | Mire jó |
 |---|---|
-| `gemini-3.7-flash` | **Default** mindkét Gemini scriptben. A legújabb Flash — a legerősebb fordítás/review a Flash sorban. |
-| `gemini-3.6-flash`, `gemini-3.5-flash` | Előző Flash generációk, ha a legújabbnál kvótába vagy 503-ba futsz. |
+| `gemini-3.6-flash` | **Default** mindkét Gemini scriptben. Erős és — a 3.7-tel ellentétben — stabilan elérhető. |
+| `gemini-3.7-flash` | A legújabb Flash, papíron a legerősebb, de a gyakorlatban rendszeresen `503 UNAVAILABLE` („high demand") — több egymást követő próbálkozás sem ment át rajta, ezért nem default. Érdemes időnként újrapróbálni. |
+| `gemini-3.5-flash` | Előző Flash generáció, ha a 3.6-nál kvótába futsz. |
 | `gemini-3.5-flash-lite`, `gemini-3.1-flash-lite` | Olcsó, gyors, **bő napi kvóta** free tier-en. Nagy tömegű fordításra, illetve ha a nem-lite napi limit elfogyott. |
 | `gemini-3.1-pro-preview` | Pro (preview) — a legerősebb, de lassabb és szűkösebb kvótájú. Nehéz részekhez. |
 | `gemini-flash-latest`, `gemini-flash-lite-latest`, `gemini-pro-latest` | Alias-ok, mindig az adott sáv legújabb kiadására mutatnak. Kényelmes, de nem determinisztikus (kiadásváltáskor csendben más modellt kapsz). |
@@ -532,6 +533,7 @@ használható eredményt ad. Amit ilyenkor tudni érdemes:
 | A forrás automatikus megkeresése `.hun.srt` → `.eng.srt` névcserével megy | Más kiterjesztésű forrást nem talál meg, és a review **forrás-összevetés nélkül** fut | **Add meg kézzel:** `--source "input\....srt"` — a kapcsoló bármilyen fájlt elfogad |
 | A forrássorok címkéje a promptban `[FORRÁS]`, a kapcsoló neve `--source` | Nyelvfüggetlen, nincs teendő | — |
 | A `glossary.json` kulcsa `en` | Csak elnevezés; funkcionálisan „forrásnyelvi kifejezés" | — |
+| A `TRANSLATION.md` *Tegezés/magázás* szakasza | A döntési sorrend, a Megszólítási regiszter és a kikerülő megfogalmazás nyelvfüggetlen | A *Formalitás-jelek angol forrásban* alszakaszt cseréld a saját forrásnyelved jeleire; az *eredeti nyelvből átvett megszólítások* alszakasz nem ázsiai eredetinél elhagyható |
 
 A legfontosabb ezek közül a harmadik. Forrás-összevetés nélkül a review érezhetően
 több téves találatot ad (a lektor ilyenkor csak a magyar szöveget látja, és nem tudja
@@ -551,6 +553,13 @@ szabályai kiesnek, a konzisztencia jórészt a szójegyzéken múlik.
 - **Blokk méret:** 150 az alapértelmezett. Ha sok a hiba, csökkentsd 100-ra.
 - **TRANSLATION.md:** Minél részletesebb az aktuális sorozat adatai rész, annál jobb
   a fordítás minősége (karakter-háttér, formalitás-szintek, kontextus).
+- **Megszólítási regiszter:** a tegezés/magázás az angol forrásból nem derül ki
+  megbízhatóan, a magyar viszont megköveteli a döntést. A `TRANSLATION.local.md`
+  *Megszólítási regisztere* (ki kit tegez / magáz) minden blokk promptjába bekerül,
+  ezért ez az egyetlen eszköz, ami a **párhuzamosan futó blokkok között** egységes
+  formát tud tartani. Minden epizód előtt frissítsd — egy elavult regiszter rosszabb,
+  mint a hiányzó: magabiztosan rossz formát kényszerít. A döntési eljárást a
+  `TRANSLATION.md` *Tegezés/magázás* szakasza írja le.
 - **Checkpoint:** mindhárom fordító fájl-alapú checkpointtal fut (újraindításkor
   csak a hiányzó blokkokat fordítja; a szekció-eltéréses blokk outputja
   törlődik, így az is újramegy), mindhárom review pedig `--start-chunk` /
@@ -568,7 +577,7 @@ szabályai kiesnek, a konzisztencia jórészt a szójegyzéken múlik.
   de drága. Később átálltam a Gemini API-ra (`review_with_gemini.py`), és nem
   bántam meg — töredék költséggel hasonló minőséget ad a felirat-review
   feladathoz. Ha most kezdesz, érdemes Gemini-vel próbálkozni elsőként.
-  A jelenlegi default a `gemini-3.7-flash`; ha a napi kvótád szűkös, a
+  A jelenlegi default a `gemini-3.6-flash`; ha a napi kvótád szűkös, a
   `--model gemini-3.5-flash-lite` a bevált olcsó alternatíva (a korábbi
   default a `gemini-3.1-flash-lite` volt, azzal is használható a pipeline).
 - **Gemini napi limit:** ingyenes szinten a `-lite` modellek bőkezűek, a
@@ -651,6 +660,11 @@ javítás után is érdemes egyszer **végigolvasni** a kész feliratot —
 ideálisan a videóval szinkronban, lejátszás közben. Ekkor jönnek elő
 azok a finomságok (kontextus-érzékeny tegezés/magázás, karakterek
 beszédstílusa, dialógus-ritmus), amiket egyik LLM sem fog megbízhatóan.
+
+A *Megszólítási regiszter* ebből elveszi a felsorolt karakterpárokat: azokra a
+forma blokkok között is egységes. Ami itt marad: a regiszterben NEM szereplő
+párok, az epizódon belüli váltások, ha a regiszter nem jelöli meg a helyüket,
+és minden olyan jelenet, ahol a szövegből nem derül ki, ki beszél kihez.
 
 Ez a négy utómunka-lépés teszi teljessé a folyamatot — nélkülük a fordítás
 nyelvileg jó lehet, de a néző-élmény nem lesz az.

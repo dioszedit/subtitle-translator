@@ -82,7 +82,7 @@ Hely:
   },
   "default_models": {
     "translate": "sonnet",
-    "review_gemini": "gemini-3.7-flash"
+    "review_gemini": "gemini-3.6-flash"
   },
   "default_chunk_size": 100,
   "default_agents": 3,
@@ -121,7 +121,7 @@ my_drama_s01e03/
   "language": "ko",
   "chunk_size": 100,
   "agents": 3,
-  "review_model": "gemini-3.7-flash",
+  "review_model": "gemini-3.6-flash",
   "translate_model": "sonnet",
   "current_episode": "S01E03",
   "history": [
