@@ -70,6 +70,8 @@ sys.stderr.reconfigure(encoding='utf-8')
 
 from glossary_categories import CATEGORIES
 from translation_context import load_translation_context
+from subtr.srt import parse_entries as parse_srt
+from subtr.srt import parse_by_index as parse_srt_by_index
 
 # Kvótakövetés — gépszintű, API kulcs szerint (a Gemini API nem adja vissza
 # a maradék napi kérésszámot). Ha a modul hiányzik, a script fut tovább.
@@ -115,39 +117,6 @@ class ErrorItem(BaseModel):
 
 class ErrorReport(BaseModel):
     errors: List[ErrorItem]
-
-
-def parse_srt(filepath):
-    """SRT blokkok beolvasása teljes szöveggel együtt."""
-    content = Path(filepath).read_text(encoding="utf-8-sig")
-    blocks = re.split(r"\n\s*\n", content.strip())
-    entries = []
-    for block in blocks:
-        lines = block.strip().split("\n")
-        if len(lines) >= 3:
-            entries.append(block.strip())
-    return entries
-
-
-def parse_srt_by_index(filepath):
-    """SRT beolvasása: {sorszám: (időbélyeg, szöveg egyben)} dict.
-
-    A forrásnyelvi SRT-hez kell — az időbélyeg az igazítás-ellenőrzéshez,
-    a szöveg a review kontextushoz.
-    """
-    content = Path(filepath).read_text(encoding="utf-8-sig")
-    blocks = re.split(r"\n\s*\n", content.strip())
-    entries = {}
-    for block in blocks:
-        lines = block.strip().split("\n")
-        if len(lines) >= 3:
-            try:
-                idx = int(lines[0].strip())
-            except ValueError:
-                continue
-            entries[idx] = (lines[1].strip(),
-                            " | ".join(l.strip() for l in lines[2:] if l.strip()))
-    return entries
 
 
 def check_source_alignment(entries, src_map):

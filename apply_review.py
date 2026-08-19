@@ -35,6 +35,8 @@ import shutil
 import sys
 from pathlib import Path
 
+from subtr.srt import parse_blocks_with_index as parse_srt_blocks
+
 sys.stdout.reconfigure(encoding='utf-8')
 sys.stderr.reconfigure(encoding='utf-8')
 
@@ -43,22 +45,6 @@ TXT_FINDING_RE = re.compile(
     r'\s*→ HIBA:\s*(.*)\s*\n'
     r'\s*→ JAVASLAT:\s*(.*)\s*$',
     re.MULTILINE)
-
-
-def parse_srt_blocks(filepath):
-    """SRT beolvasása: (blokk-lista, {sorszám: blokk-index}) — a blokkok
-    sorrendje és a nem szabványos blokkok is megőrződnek."""
-    content = Path(filepath).read_text(encoding="utf-8-sig")
-    blocks = [b.strip() for b in re.split(r"\n\s*\n", content.strip()) if b.strip()]
-    index = {}
-    for i, block in enumerate(blocks):
-        lines = block.split("\n")
-        if len(lines) >= 2 and "-->" in lines[1]:
-            try:
-                index[int(lines[0].strip())] = i
-            except ValueError:
-                continue
-    return blocks, index
 
 
 def load_json_report(path):

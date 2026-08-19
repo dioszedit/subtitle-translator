@@ -9,17 +9,13 @@ Használat:
 import glob
 import re
 import sys
+
+from subtr.srt import split_blocks as parse_sections
 import os
 import argparse
 
 sys.stdout.reconfigure(encoding='utf-8')
 sys.stderr.reconfigure(encoding='utf-8')
-
-
-def parse_sections(content: str) -> list[str]:
-    """SRT tartalom szekciókra bontása."""
-    raw = re.split(r'\n\s*\n', content.strip())
-    return [s.strip() for s in raw if s.strip()]
 
 
 def get_section_num(section_text: str) -> int | None:

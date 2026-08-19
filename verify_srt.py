@@ -7,6 +7,8 @@ Használat:
 
 import re
 import sys
+
+from subtr.srt import parse_sections
 import argparse
 
 sys.stdout.reconfigure(encoding='utf-8')
@@ -32,30 +34,6 @@ def extract_timestamps(filepath: str) -> list[str]:
         return [line.strip() for line in f if re.match(r'^\d{2}:\d{2}:\d{2}[,.]\d{3}\s*-->', line.strip())]
 
 
-def parse_sections(filepath: str) -> list[dict]:
-    """SRT szekciók kinyerése: num, timestamp, text."""
-    with open(filepath, 'r', encoding='utf-8-sig') as f:
-        content = f.read()
-    sections = []
-    raw_blocks = re.split(r'\n\s*\n', content.strip())
-    for block in raw_blocks:
-        block = block.strip()
-        if not block:
-            continue
-        lines = block.split('\n')
-        if len(lines) >= 3:
-            sections.append({
-                "num": lines[0].strip(),
-                "timestamp": lines[1].strip(),
-                "text": "\n".join(lines[2:])
-            })
-        elif len(lines) == 2:
-            sections.append({"num": lines[0].strip(), "timestamp": lines[1].strip(), "text": ""})
-    return sections
-
-
-# Magyar toldalékok, amiket kötőjellel írunk idegen név után — ezeket
-# NEM tekintjük rossz koreai névnek (pl. 'Joo In Ah-ra' = 'Ah' + '-ra' rag).
 HUN_SUFFIX_PREFIXES = (
     'val', 'vel', 'ban', 'ben', 'ba', 'be', 'bol', 'ből',
     'ra', 're', 'ról', 'ről', 'hoz', 'hez', 'höz',

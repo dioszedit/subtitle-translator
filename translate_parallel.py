@@ -40,41 +40,14 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from glossary_categories import CATEGORIES
 from translation_context import load_translation_context
+from subtr.srt import count_sections
+from subtr.blocks import get_all_blocks, get_pending_blocks, safe_remove
 
 sys.stdout.reconfigure(encoding='utf-8')
 sys.stderr.reconfigure(encoding='utf-8')
 
 SYS_PROMPT_PREFIX = ".translate_sys_prompt_"
 SYS_PROMPT_MAX_AGE_DAYS = 1  # ennél régebbi sys prompt fájlokat takarítjuk
-
-
-def get_all_blocks(blocks_dir: str) -> list[str]:
-    pattern = os.path.join(blocks_dir, "*_block_*.srt")
-    all_files = sorted(glob.glob(pattern))
-    return [f for f in all_files if not f.endswith("_HUN.srt")]
-
-
-def get_pending_blocks(blocks_dir: str) -> list[str]:
-    pending = []
-    for f in get_all_blocks(blocks_dir):
-        hun_file = f[:-len(".srt")] + "_HUN.srt"
-        if not os.path.isfile(hun_file):
-            pending.append(f)
-    return pending
-
-
-def count_sections(filepath: str) -> int:
-    """Strukturális számlálás: csak az a csupa-számjegy sor számít szekciónak,
-    amit időbélyeg-sor követ. Így a csak számot tartalmazó felirat-SZÖVEG
-    (pl. visszaszámlálás: "3") nem torzítja az ellenőrzést."""
-    try:
-        with open(filepath, 'r', encoding='utf-8-sig') as f:
-            lines = f.read().split('\n')
-        return sum(1 for i, line in enumerate(lines)
-                   if re.match(r'^\d+$', line.strip())
-                   and i + 1 < len(lines) and '-->' in lines[i + 1])
-    except Exception:
-        return 0
 
 
 def load_claude_md() -> str:
@@ -172,21 +145,6 @@ def cleanup_stale_sys_prompts(max_age_days: int = SYS_PROMPT_MAX_AGE_DAYS):
                 os.remove(f)
         except Exception:
             pass
-
-
-def safe_remove(filepath: str):
-    """Fájl biztonságos törlése — Windows-on kezeli a fájl-zárolást."""
-    try:
-        if os.path.isfile(filepath):
-            os.remove(filepath)
-    except PermissionError:
-        time.sleep(2)
-        try:
-            if os.path.isfile(filepath):
-                os.remove(filepath)
-        except PermissionError:
-            print(f"  [!] Nem sikerült törölni (zárolva): {os.path.basename(filepath)}")
-            print(f"      Töröld kézzel, majd futtasd újra a scriptet.")
 
 
 def find_claude() -> str | None:

@@ -67,6 +67,8 @@ sys.stderr.reconfigure(encoding='utf-8')
 
 from glossary_categories import CATEGORIES
 from translation_context import load_translation_context
+from subtr.srt import count_sections, parse_sections, write_srt
+from subtr.blocks import get_all_blocks, get_pending_blocks, safe_remove
 
 # Kvótakövetés — gépszintű, API kulcs szerint (a Gemini API nem adja vissza
 # a maradék napi kérésszámot). Ha a modul hiányzik, a script fut tovább.
@@ -119,83 +121,9 @@ class TranslationOutput(BaseModel):
 # SRT parsing / írás
 # ────────────────────────────────────────────────────────────────────────────
 
-def parse_sections(filepath: str) -> list[dict]:
-    """SRT szekciók kinyerése: {num, timestamp, text}."""
-    with open(filepath, 'r', encoding='utf-8-sig') as f:
-        content = f.read()
-    sections = []
-    raw_blocks = re.split(r'\n\s*\n', content.strip())
-    for block in raw_blocks:
-        block = block.strip()
-        if not block:
-            continue
-        lines = block.split('\n')
-        if len(lines) >= 3:
-            sections.append({
-                "num": lines[0].strip(),
-                "timestamp": lines[1].strip(),
-                "text": "\n".join(lines[2:])
-            })
-        elif len(lines) == 2:
-            sections.append({"num": lines[0].strip(), "timestamp": lines[1].strip(), "text": ""})
-    return sections
-
-
-def write_srt(filepath: str, sections: list[dict]):
-    """SRT írása — szekciók közt üres sor, fájl végén egy újsor."""
-    with open(filepath, 'w', encoding='utf-8') as f:
-        out = []
-        for s in sections:
-            out.append(f"{s['num']}\n{s['timestamp']}\n{s['text']}")
-        f.write("\n\n".join(out) + "\n")
-
-
-def count_sections(filepath: str) -> int:
-    """Strukturális számlálás: csak az a csupa-számjegy sor számít szekciónak,
-    amit időbélyeg-sor követ. Így a csak számot tartalmazó felirat-SZÖVEG
-    (pl. visszaszámlálás: "3") nem torzítja az ellenőrzést."""
-    try:
-        with open(filepath, 'r', encoding='utf-8-sig') as f:
-            lines = f.read().split('\n')
-        return sum(1 for i, line in enumerate(lines)
-                   if re.match(r'^\d+$', line.strip())
-                   and i + 1 < len(lines) and '-->' in lines[i + 1])
-    except Exception:
-        return 0
-
-
 # ────────────────────────────────────────────────────────────────────────────
 # Blokk-felfedezés / checkpoint
 # ────────────────────────────────────────────────────────────────────────────
-
-def get_all_blocks(blocks_dir: str) -> list[str]:
-    pattern = os.path.join(blocks_dir, "*_block_*.srt")
-    all_files = sorted(glob.glob(pattern))
-    return [f for f in all_files if not f.endswith("_HUN.srt")]
-
-
-def get_pending_blocks(blocks_dir: str) -> list[str]:
-    pending = []
-    for f in get_all_blocks(blocks_dir):
-        hun_file = f[:-len(".srt")] + "_HUN.srt"
-        if not os.path.isfile(hun_file):
-            pending.append(f)
-    return pending
-
-
-def safe_remove(filepath: str):
-    """Fájl biztonságos törlése — Windows-on kezeli a fájl-zárolást."""
-    try:
-        if os.path.isfile(filepath):
-            os.remove(filepath)
-    except PermissionError:
-        time.sleep(2)
-        try:
-            if os.path.isfile(filepath):
-                os.remove(filepath)
-        except PermissionError:
-            print(f"  [!] Nem sikerült törölni (zárolva): {os.path.basename(filepath)}")
-
 
 # ────────────────────────────────────────────────────────────────────────────
 # Kontextus betöltés (CLAUDE.md + glossary)

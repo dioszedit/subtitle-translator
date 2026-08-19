@@ -13,6 +13,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from codex_runner import CodexRunError, find_codex, run_codex_json
 from glossary_categories import CATEGORIES
 from translation_context import load_translation_context
+from subtr.srt import count_sections, parse_sections, write_srt
+from subtr.blocks import get_all_blocks, get_pending_blocks, safe_remove
 
 sys.stdout.reconfigure(encoding="utf-8")
 sys.stderr.reconfigure(encoding="utf-8")
@@ -34,53 +36,6 @@ TRANSLATION_SCHEMA = {
     "required": ["translations"],
     "additionalProperties": False,
 }
-
-
-def parse_sections(filepath: str) -> list[dict]:
-    content = open(filepath, encoding="utf-8-sig").read()
-    sections = []
-    for block in re.split(r"\n\s*\n", content.strip()):
-        lines = block.strip().split("\n")
-        if len(lines) >= 3:
-            sections.append({"num": lines[0].strip(), "timestamp": lines[1].strip(),
-                             "text": "\n".join(lines[2:])})
-    return sections
-
-
-def write_srt(filepath: str, sections: list[dict]):
-    output = [f"{s['num']}\n{s['timestamp']}\n{s['text']}" for s in sections]
-    with open(filepath, "w", encoding="utf-8") as handle:
-        handle.write("\n\n".join(output) + "\n")
-
-
-def count_sections(filepath: str) -> int:
-    try:
-        lines = open(filepath, encoding="utf-8-sig").read().split("\n")
-        return sum(1 for i, line in enumerate(lines)
-                   if re.fullmatch(r"\d+", line.strip()) and i + 1 < len(lines)
-                   and "-->" in lines[i + 1])
-    except OSError:
-        return 0
-
-
-def get_all_blocks(blocks_dir: str) -> list[str]:
-    return [p for p in sorted(glob.glob(os.path.join(blocks_dir, "*_block_*.srt")))
-            if not p.endswith("_HUN.srt")]
-
-
-def get_pending_blocks(blocks_dir: str) -> list[str]:
-    return [p for p in get_all_blocks(blocks_dir)
-            if not os.path.isfile(p[:-4] + "_HUN.srt")]
-
-
-def safe_remove(filepath: str):
-    try:
-        if os.path.isfile(filepath):
-            os.remove(filepath)
-    except PermissionError:
-        time.sleep(2)
-        if os.path.isfile(filepath):
-            os.remove(filepath)
 
 
 def load_glossary() -> str:
