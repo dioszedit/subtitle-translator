@@ -1,6 +1,6 @@
 ---
 name: review-triage
-description: Review-javaslatok átvizsgálása és alkalmazása — a _REVIEW_*.json riportok minden találatát a forráshoz méri, kiszűri a no-opokat és hamis riasztásokat, decisions.json-t épít, és az apply_review_auto.py-jal átvezeti a jóváhagyottakat. Akkor használd, ha a felhasználó a review-találatok javítását, átvezetését vagy átnézését kéri.
+description: Review-javaslatok átvizsgálása és alkalmazása — a _REVIEW_*.json riportok minden találatát a forráshoz méri, kiszűri a no-opokat és hamis riasztásokat, decisions.json-t épít, és a subtr.py apply-auto-val átvezeti a jóváhagyottakat. Akkor használd, ha a felhasználó a review-találatok javítását, átvezetését vagy átnézését kéri.
 argument-hint: <hun.srt útvonal>
 ---
 
@@ -24,7 +24,7 @@ NE innen idézd, hanem onnan.
 2. **Riportok**: a hun.srt mellett `<stem>_REVIEW_CLAUDE*.json` és
    `<stem>_REVIEW_GEMINI*.json` (ha egy riportnak .json és .txt változata is van,
    a .json a kanonikus). Ha EGYIK sincs → állj meg, és mondd meg, hogy előbb
-   review-t kell futtatni (`review_with_claude.py` / `review_with_gemini.py`).
+   review-t kell futtatni (`py subtr.py review --provider claude` / `py subtr.py review`).
 3. **Forrás SRT**: a hun.srt nevéből `.hun.` → `.eng.` csere, keresés az
    `input/`-ban és a hun.srt mellett. Ha nem található (pl. nem angol a forrás),
    kérdezd meg a felhasználót, melyik fájl a forrás — forrás nélkül csak
@@ -74,7 +74,7 @@ A hun.srt mellé, `<stem>_decisions.json` néven, CSAK az elfogadott (esetleg
 ## 5. Dry-run → jóváhagyás → alkalmazás
 
 ```powershell
-py apply_review_auto.py "<hun.srt>" "<decisions.json>" --dry-run
+py subtr.py apply-auto "<hun.srt>" "<decisions.json>" --dry-run
 ```
 
 Mutasd meg a felhasználónak az összegzést: hány javaslat érkezett a riportokból,
@@ -88,5 +88,5 @@ került a fájlba) — javítsd a decisions.json-t, ne `--ignore-drift`-tel tör
 ## 6. Zárójelentés
 
 Az alkalmazás után: mennyi ment át, mi lett eldobva és MIÉRT (kategóriánként),
-és emlékeztető, hogy a resegment (`resegment_srt.py report/reflow`) csak EZUTÁN
+és emlékeztető, hogy a resegment (`subtr.py resegment report/reflow`) csak EZUTÁN
 következik.

@@ -119,7 +119,7 @@ sorokat figyelmeztetésként listázza (a lefordított [megjegyzések] és a
 címkártya jogosak, nem számítanak hibának — a címkártya-cue-t, ahol minden sor
 teljes egészében zárójeles, automatikusan kihagyja). Kilépési kód 0 = rendben,
 1 = hiba (CI/szkript-barát). *Korábbi neve `verify_srt.py` volt — átnevezve,
-hogy ne ütközzön a projekt gyökerében lévő másik verify_srt.py-vel.*
+hogy ne ütközzön a projekt gyökerében lévő másik ellenőrzéssel (ma: `py subtr.py verify`).*
 
 ## Megjegyzések, finomhangolás
 

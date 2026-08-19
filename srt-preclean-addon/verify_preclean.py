@@ -5,7 +5,8 @@ tisztított forrással, és jelzi a tipikus hibákat.
 
 (Korábbi neve verify_srt.py volt — átnevezve, mert a projekt gyökerében
 lévő, MÁSIK verify_srt.py-vel azonos néven és argumentum-formával futott,
-és rossz mappából indítva észrevétlenül a másik ellenőrzés futott le.)
+és rossz mappából indítva észrevétlenül a másik ellenőrzés futott le.
+A gyökér-ellenőrzés ma a `py subtr.py verify` parancs.)
 
 Ellenőrzi:
   1. Ugyanannyi felirat van-e a fordításban, mint a forrásban.

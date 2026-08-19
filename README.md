@@ -24,24 +24,9 @@ subtitle-translator/
 ├── .env.example                 ← Gemini API kulcs sablonja (.env-be másold)
 ├── .gitignore                   ← Mit ne commit-oljunk
 │
-├── split_srt.py                 ← 1. SRT szétvágása blokkokra
-├── translate_parallel.py        ← 2a. Párhuzamos fordítás Claude Code-dal
-├── translate_with_gemini.py     ← 2b. Párhuzamos fordítás Gemini API-val (alternatíva)
-├── translate_with_codex.py      ← 2c. Párhuzamos fordítás Codex CLI-vel (alternatíva)
-├── merge_srt.py                 ← 3. Blokkok összefűzése
-├── verify_srt.py                ← 4. Strukturális ellenőrzés
-├── review_with_claude.py        ← 5a. Stilisztikai review Claude Code-dal
-├── review_with_gemini.py        ← 5b. Stilisztikai review Gemini API-val (opcionális)
-├── review_with_codex.py         ← 5c. Stilisztikai review Codex CLI-vel (opcionális)
-├── apply_review.py              ← 5c. Review-riportok összefésülése + interaktív alkalmazás
-├── apply_review_auto.py         ← 5d. Ugyanaz kérdés nélkül, döntés-fájlból (agent / batch)
-├── resegment_srt.py             ← 7. Sorhossz/CPS QA + újratördelés (lásd resegment_srt.md)
-├── register_extract.py          ← Megszólítási regiszter kinyerése (opcionális, fordítás előtt)
-├── glossary_extract.py          ← Szójegyzék bővítése (fordítás előtt angol-only, vagy utólag párból)
-├── glossary_categories.py       ← Közös konstans (CATEGORIES) — itt vedd fel új
-│                                  glossary-kategóriát, mind az 5 script innen olvas
-├── gemini_quota.py              ← Gemini napi kvóta helyi könyvelése — a két Gemini
-│                                  script automatikusan használja, önállóan is lekérdezhető
+├── subtr.py                     ← Egyparancsos CLI — minden lépés ezen keresztül fut
+│                                  (split, glossary, register, translate, merge,
+│                                  verify, review, apply, apply-auto, resegment, quota)
 │
 ├── subtr/                       ← A tényleges fordítás- és review-logika
 │   ├── config.py                ← .env betöltése, modell-feloldás, API-kulcsok
@@ -72,11 +57,11 @@ subtitle-translator/
 └── lepesek.txt                  ← Quick-reference parancslista
 ```
 
-A **gyökér-level scriptek** (pl. `split_srt.py`, `translate_parallel.py`, stb.)
-a repo gyökeréből futnak, és mindegyik a `subtr/` csomag logikáját használja.
-Ez egy tudatos refaktor-döntés: korábban például a glossary-betöltő logika
-6 scriptben élt egyszerre, és a másolatok szétcsúsztak. Most a valódi logika
-egyetlen helyen van (`subtr/`), és az update-ek mindegyikre azonnal érvényes.
+A **`subtr.py`** a repo gyökeréből fut, és minden alparancsa a `subtr/` csomag
+logikáját használja. Ez egy tudatos refaktor-döntés: korábban a glossary-betöltő
+logika 6 különálló scriptben élt egyszerre, és a másolatok szétcsúsztak. Most a
+valódi logika egyetlen helyen van (`subtr/`), az alparancsok csak vékony
+kapcsolódási pontok, és az update-ek mindegyikre azonnal érvényesek.
 
 Az `input/`, `output/`, `blocks/` mappák tartalma nem kerül a git repóba —
 projektenként / epizódonként más, és gyakran szerzői jogi védettség alá esik.
@@ -85,7 +70,7 @@ projektenként / epizódonként más, és gyakran szerzői jogi védettség alá
 
 - **Python 3.10+**
 - **Claude Code CLI** (`claude` parancs, opcionális) — a Claude providerhez
-- **Gemini API kulcs** (opcionális) — ha Gemini-vel fordítasz (`translate_with_gemini.py`) vagy Gemini-vel review-zol (`review_with_gemini.py`)
+- **Gemini API kulcs** (opcionális) — ha Gemini-vel fordítasz vagy review-zol (`subtr.py translate --provider gemini` / `subtr.py review --provider gemini`)
 - **Codex CLI** (`codex` parancs, opcionális) — a Codex providerhez. Bejelentkezett CLI-t használ; külön Python-csomag nem kell.
 - **Git** (opcionális) — verziókezeléshez
 
@@ -97,7 +82,7 @@ projektenként / epizódonként más, és gyakran szerzői jogi védettség alá
 git clone https://github.com/dioszedit/subtitle-translator.git
 cd subtitle-translator
 
-# Gemini scriptek függőségei (translate_with_gemini.py és/vagy review_with_gemini.py)
+# Gemini-provideres parancsok függőségei (translate --provider gemini és/vagy review --provider gemini)
 pip install google-genai python-dotenv pydantic
 
 # .env létrehozása a sablonból
@@ -121,7 +106,7 @@ copy .env.example .env
 > ```bash
 > pip3 install google-genai python-dotenv pydantic
 > cp .env.example .env
-> python3 split_srt.py "input/Sorozat - S01E01.eng.srt"
+> python3 subtr.py split "input/Sorozat - S01E01.eng.srt"
 > ```
 
 ### Új projekt indítása
@@ -139,144 +124,146 @@ copy .env.example .env
 
 ```powershell
 # 1. Szétvágás blokkokra (alapból 150 szekciónként)
-python split_srt.py "input\Sorozat - S01E01.eng.srt"
+python subtr.py split "input\Sorozat - S01E01.eng.srt"
 # Újra-splitnél (pl. más --block-size) --clean törli a régi blokkokat —
-# enélkül a script leáll, hogy a két generáció ne keveredjen a merge-nél
+# enélkül a parancs leáll, hogy a két generáció ne keveredjen a merge-nél
 
-# 2a. Fordítás 3 párhuzamos agent-tel — Claude Code
-python translate_parallel.py "blocks\Sorozat - S01E01.eng" --agents 3
-# vagy 2b. Ugyanaz Gemini API-val (olcsóbb alternatíva, ugyanazokat a blokkokat dolgozza fel)
-# python translate_with_gemini.py "blocks\Sorozat - S01E01.eng" --agents 3
-# vagy 2c. Codex CLI-vel — első futáskor egy blokkot, egy agenttel ellenőrizz
-# python translate_with_codex.py "blocks\Sorozat - S01E01.eng" --block 1 --agents 1
+# 2. Fordítás — a --provider választja ki a fordítót (nincs beégetett default)
+python subtr.py translate "blocks\Sorozat - S01E01.eng" --provider claude --agents 3
+# vagy Gemini API-val (olcsóbb alternatíva, ugyanazokat a blokkokat dolgozza fel)
+# python subtr.py translate "blocks\Sorozat - S01E01.eng" --provider gemini --agents 3
+# vagy Codex CLI-vel — első futáskor egy blokkot, egy agenttel ellenőrizz
+# python subtr.py translate "blocks\Sorozat - S01E01.eng" --provider codex --block 1 --agents 1
 
 # 3. Összefűzés egy fájlba
-python merge_srt.py "blocks\Sorozat - S01E01.eng" "output\Sorozat - S01E01.hun.srt"
+python subtr.py merge "blocks\Sorozat - S01E01.eng" "output\Sorozat - S01E01.hun.srt"
 
 # 4. Strukturális ellenőrzés (sorszámok, időbélyegek, szekciószámok)
-python verify_srt.py "input\Sorozat - S01E01.eng.srt" "output\Sorozat - S01E01.hun.srt"
+python subtr.py verify "input\Sorozat - S01E01.eng.srt" "output\Sorozat - S01E01.hun.srt"
 
-# 5a. Stilisztikai review Claude Code-dal
-python review_with_claude.py "output\Sorozat - S01E01.hun.srt"
-# Kimenet: output\Sorozat - S01E01.hun_REVIEW_CLAUDE.txt + .json
-
-# 5b. Stilisztikai review Gemini-vel (opcionális, párhuzamos vélemény)
-python review_with_gemini.py "output\Sorozat - S01E01.hun.srt"
+# 5. Stilisztikai review — a default provider gemini, --provider-rel válthatsz
+python subtr.py review "output\Sorozat - S01E01.hun.srt"
 # Kimenet: output\Sorozat - S01E01.hun_REVIEW_GEMINI.txt + .json
 
-# 5c. Stilisztikai review Codex CLI-vel (opcionális, párhuzamos vélemény)
-python review_with_codex.py "output\Sorozat - S01E01.hun.srt"
+# vagy Claude Code-dal
+python subtr.py review "output\Sorozat - S01E01.hun.srt" --provider claude
+# Kimenet: output\Sorozat - S01E01.hun_REVIEW_CLAUDE.txt + .json
+
+# vagy Codex CLI-vel
+python subtr.py review "output\Sorozat - S01E01.hun.srt" --provider codex
 # Kimenet: output\Sorozat - S01E01.hun_REVIEW_CODEX.txt + .json
 
-# 5c. Review-javaslatok alkalmazása (a riportokat összefésüli, deduplikálja,
+# 5b. Review-javaslatok alkalmazása (a riportokat összefésüli, deduplikálja,
 #     találatonként y/n/e/q kérdéssel viszi át a fájlba, .bak mentéssel)
-python apply_review.py "output\Sorozat - S01E01.hun.srt"
-# vagy 5d. Ugyanez kérdés nélkül, előre elkészített döntés-fájlból
-# python apply_review_auto.py "output\Sorozat - S01E01.hun.srt" decisions.json
+python subtr.py apply "output\Sorozat - S01E01.hun.srt"
+# vagy 5c. Ugyanez kérdés nélkül, előre elkészített döntés-fájlból
+# python subtr.py apply-auto "output\Sorozat - S01E01.hun.srt" decisions.json
 
 # 7. Szegmentálás — sorhossz-riport + automatikus tördelés (a review-javítások után)
-python resegment_srt.py report "output\Sorozat - S01E01.hun.srt"
-python resegment_srt.py reflow "output\Sorozat - S01E01.hun.srt" -o "output\Sorozat - S01E01.hun.reflow.srt"
+python subtr.py resegment report "output\Sorozat - S01E01.hun.srt"
+python subtr.py resegment reflow "output\Sorozat - S01E01.hun.srt" -o "output\Sorozat - S01E01.hun.reflow.srt"
 ```
 
-A három review script **független** — futtathatod csak az egyiket vagy többet.
-A találatokat az `apply_review.py` fésüli össze és viszi át
+A review parancs **három providere** — Gemini (default), Claude, Codex —
+**független** egymástól: futtathatod csak az egyiket vagy többet, `--provider`-rel
+váltva. A találatokat a `subtr.py apply` fésüli össze és viszi át
 interaktívan; kézzel is javíthatsz a riportok alapján.
 
 ### Fordítás — opciók
 
-A fordításhoz **három alternatíva** van: a `translate_parallel.py` (Claude Code-os),
-a `translate_with_gemini.py` (Gemini API-s) és a `translate_with_codex.py` (Codex CLI-s). Mindegyik ugyanazon a
-`blocks/` mappa-szerkezeten dolgozik (`split_srt.py` outputja) és ugyanúgy
-checkpoint-ol — futtathatod ugyanazon a projekten akár felváltva is.
+A fordításhoz **három alternatíva** van: a Claude Code-, a Gemini API- és a Codex
+CLI-provider — mindhárom a `subtr.py translate --provider <claude|gemini|codex>`
+parancson keresztül érhető el. Mindegyik ugyanazon a `blocks/` mappa-szerkezeten
+dolgozik (`subtr.py split` outputja) és ugyanúgy checkpoint-ol — futtathatod
+ugyanazon a projekten akár felváltva is.
 
-#### Claude Code fordító (`translate_parallel.py`)
+#### Claude Code fordító (`subtr.py translate --provider claude`)
 ```powershell
 # Egyedi blokk méret szétvágáshoz
-python split_srt.py "input\eng.srt" --block-size 100
+python subtr.py split "input\eng.srt" --block-size 100
 
 # Claude modell-választás (default: sonnet)
-python translate_parallel.py "blocks\eng" --model haiku    # olcsóbb
-python translate_parallel.py "blocks\eng" --model opus     # alaposabb
+python subtr.py translate "blocks\eng" --provider claude --model haiku    # olcsóbb
+python subtr.py translate "blocks\eng" --provider claude --model opus     # alaposabb
 
 # Csak egy konkrét blokk újrafordítása
-python translate_parallel.py "blocks\eng" --agents 1 --block 003
+python subtr.py translate "blocks\eng" --provider claude --agents 1 --block 003
 
 # Sikertelen blokkok újrafordítása — egyszerűen futtasd újra
-python translate_parallel.py "blocks\eng" --agents 3
-# A script automatikusan csak a hiányzó blokkokat fordítja (checkpoint).
+python subtr.py translate "blocks\eng" --provider claude --agents 3
+# A parancs automatikusan csak a hiányzó blokkokat fordítja (checkpoint).
 
 # Hibás blokk törlése és újrafordítása
 del "blocks\eng\eng_block_003_0301-0450_HUN.srt"
-python translate_parallel.py "blocks\eng" --agents 1
+python subtr.py translate "blocks\eng" --provider claude --agents 1
 ```
 
-#### Gemini API fordító (`translate_with_gemini.py`) — alternatíva
+#### Gemini API fordító (`subtr.py translate --provider gemini`) — alternatíva
 ```powershell
 # Default modell: gemini-3.6-flash (erős és stabilan elérhető)
-python translate_with_gemini.py "blocks\eng" --agents 3
+python subtr.py translate "blocks\eng" --provider gemini --agents 3
 
 # Tetszőleges Gemini modell --model flag-gel
-python translate_with_gemini.py "blocks\eng" --model gemini-3.7-flash
-python translate_with_gemini.py "blocks\eng" --model gemini-3.5-flash-lite   # olcsó, bő napi kvóta
-python translate_with_gemini.py "blocks\eng" --model gemini-3.1-pro-preview
+python subtr.py translate "blocks\eng" --provider gemini --model gemini-3.7-flash
+python subtr.py translate "blocks\eng" --provider gemini --model gemini-3.5-flash-lite   # olcsó, bő napi kvóta
+python subtr.py translate "blocks\eng" --provider gemini --model gemini-3.1-pro-preview
 
 # Csak egy konkrét blokk újrafordítása (auto zero-pad: 3 → 003)
-python translate_with_gemini.py "blocks\eng" --agents 1 --block 3
+python subtr.py translate "blocks\eng" --provider gemini --agents 1 --block 3
 
-# Checkpoint és újraindítás ugyanúgy működik mint a Claude verziónál.
+# Checkpoint és újraindítás ugyanúgy működik mint a Claude-ágnál.
 ```
 
-#### Codex fordító (`translate_with_codex.py`) — alternatíva
+#### Codex fordító (`subtr.py translate --provider codex`) — alternatíva
 ```powershell
-# Első futás: egy blokk, egy agent — ellenőrizd a kimenetet verify_srt.py-vel
-python translate_with_codex.py "blocks\eng" --block 1 --agents 1
+# Első futás: egy blokk, egy agent — ellenőrizd a kimenetet subtr.py verify-jal
+python subtr.py translate "blocks\eng" --provider codex --block 1 --agents 1
 
 # Ezután a hiányzó blokkok fordítása checkpointtal
-python translate_with_codex.py "blocks\eng" --agents 1
+python subtr.py translate "blocks\eng" --provider codex --agents 1
 
 # Opcionális modell és óvatos párhuzamosítás
-python translate_with_codex.py "blocks\eng" --agents 2 --model gpt-5.6-terra
+python subtr.py translate "blocks\eng" --provider codex --agents 2 --model gpt-5.6-terra
 ```
 
-A három fordító ugyanazt a `TRANSLATION.md` + `glossary.json` kontextust adja át a
+A három fordító-ág ugyanazt a `TRANSLATION.md` + `glossary.json` kontextust adja át a
 modellnek system promptként, így a fordítások konzisztensek maradnak akkor is,
-ha váltogatod őket. A Gemini fordító **strukturált JSON kimenetet** ad
+ha váltogatod őket. A Gemini-ág **strukturált JSON kimenetet** ad
 (Pydantic séma), és a sorszám + időbélyeg Python oldalon garantáltan
 változatlan marad — a modell csak a szöveget kapja és csak szöveget ad vissza.
 
 > **Párhuzamosság (`--agents`):** a Gemini API nem tiltja a párhuzamos hívást,
 > csak RPM (requests/min) korlátok vonatkoznak rá. Free tier-en ~10-30 RPM
 > modelltől függően; `--agents 10` fölött 429 rate limit hibákra számíthatsz, amiket a
-> retry logika kezel, de pazarol API-időt. A script `--agents > 10` esetén
+> retry logika kezel, de pazarol API-időt. A parancs `--agents > 10` esetén
 > figyelmeztetést is ad. Részletek:
 > [Gemini rate limits](https://ai.google.dev/gemini-api/docs/rate-limits) ·
 > [saját tier-limitek (AI Studio)](https://aistudio.google.com/rate-limit).
 
 ### Review — opciók
 
-#### Claude review (`review_with_claude.py`)
+#### Claude review (`subtr.py review --provider claude`)
 ```powershell
 # Default modell: sonnet (default chunk-size: 100)
-python review_with_claude.py "output\hun.srt"
+python subtr.py review "output\hun.srt" --provider claude
 
 # Modell-választás: haiku (olcsóbb), sonnet (default), opus (alaposabb)
-python review_with_claude.py "output\hun.srt" --model haiku
-python review_with_claude.py "output\hun.srt" --model opus
+python subtr.py review "output\hun.srt" --provider claude --model haiku
+python subtr.py review "output\hun.srt" --provider claude --model opus
 
 # Egyedi chunk méret
-python review_with_claude.py "output\hun.srt" --chunk-size 150
+python subtr.py review "output\hun.srt" --provider claude --chunk-size 150
 
 # Csak egy chunk-tartomány lefuttatása (pl. megszakítás utáni pótlás)
-python review_with_claude.py "output\hun.srt" --start-chunk 9 --suffix _part2
-python review_with_claude.py "output\hun.srt" --start-chunk 5 --end-chunk 7 --suffix _part2
+python subtr.py review "output\hun.srt" --provider claude --start-chunk 9 --suffix _part2
+python subtr.py review "output\hun.srt" --provider claude --start-chunk 5 --end-chunk 7 --suffix _part2
 
 # Forrásnyelvi SRT kézi megadása / kikapcsolása
-python review_with_claude.py "output\hun.srt" --source "input\eng.srt"
-python review_with_claude.py "output\hun.srt" --no-source
+python subtr.py review "output\hun.srt" --provider claude --source "input\eng.srt"
+python subtr.py review "output\hun.srt" --provider claude --no-source
 ```
 
-Mindhárom review script automatikusan megkeresi a **forrásnyelvi SRT-t**
+A review mindhárom providernél automatikusan megkeresi a **forrásnyelvi SRT-t**
 (a `.hun.srt` névből `.eng.srt`-t keres az `input/` mappában, ill. a hun fájl
 mellett), és minden szekció mellé odaadja a modellnek a forrás eredetit is
 `[FORRÁS]` sorként. Így a lektor a forráshoz tudja mérni a magyart — jelentősen
@@ -289,39 +276,39 @@ neve `--english` volt; aliasként továbbra is működik, de az új név a helye
 
 A párosítás előtt **igazítás-ellenőrzés** fut (cue-számok + időbélyeg-
 szúrópróba): ha a két fájl elcsúszott egymáshoz képest (pl. a magyar
-`resegment --split` után újraszámozódott), a script figyelmeztet és kihagyja
+`resegment --split` után újraszámozódott), a parancs figyelmeztet és kihagyja
 a párosítást — elcsúszott forrássorok tömeges hamis találatot adnának.
 Explicit `--source` megadással felülbírálható.
 
-Mindhárom review a szöveges riport mellé **JSON riportot** is ír
-(`_REVIEW_*.json`) — ezt dolgozza fel az `apply_review.py`.
+A review mindhárom providernél a szöveges riport mellé **JSON riportot** is ír
+(`_REVIEW_*.json`) — ezt dolgozza fel a `subtr.py apply`.
 
-#### Review-javaslatok alkalmazása (`apply_review.py`)
+#### Review-javaslatok alkalmazása (`subtr.py apply`)
 ```powershell
 # A hun.srt melletti összes riport összefésülése + interaktív alkalmazás
-python apply_review.py "output\hun.srt"
+python subtr.py apply "output\hun.srt"
 
 # Csak megadott riportok, ill. csak listázás módosítás nélkül
-python apply_review.py "output\hun.srt" "output\hun_REVIEW_GEMINI.json"
-python apply_review.py "output\hun.srt" --dry-run
+python subtr.py apply "output\hun.srt" "output\hun_REVIEW_GEMINI.json"
+python subtr.py apply "output\hun.srt" --dry-run
 ```
 
-A script a Claude- és Gemini-riportokat szekciószám szerint összefésüli, az
+A parancs a Claude-, Gemini- és Codex-riportokat szekciószám szerint összefésüli, az
 azonos javaslatokat deduplikálja (jelölve, hogy mindkét lektor egyetért), az
 eltérőeket variánsként kínálja fel. Találatonként kérdez: `y` = alkalmaz,
 `1..9` = adott variáns, `e` = kézi szerkesztés, `n` = kihagy, `q` = kilépés
 mentéssel. Az első módosítás előtt `.bak` mentést készít az eredetiről.
 
-#### Nem interaktív alkalmazás (`apply_review_auto.py`)
+#### Nem interaktív alkalmazás (`subtr.py apply-auto`)
 
-Az `apply_review.py` minden találatnál kérdez — sok részt átnézve ez több száz
+A `subtr.py apply` minden találatnál kérdez — sok részt átnézve ez több száz
 konzol-kérdés. Ha a döntéseket **előre** meghozod (magad, vagy egy agenttel,
-aki a javaslatokat az angol eredetihez méri), ez a testvér-script kérdés nélkül
+aki a javaslatokat az angol eredetihez méri), ez a testvér-parancs kérdés nélkül
 vezeti át őket:
 
 ```powershell
-python apply_review_auto.py "output\hun.srt" decisions.json
-python apply_review_auto.py "output\hun.srt" decisions.json --dry-run
+python subtr.py apply-auto "output\hun.srt" decisions.json
+python subtr.py apply-auto "output\hun.srt" decisions.json --dry-run
 ```
 
 A `decisions.json` egy egyszerű lista — szekciószám és a végleges szöveg:
@@ -335,15 +322,15 @@ A `decisions.json` egy egyszerű lista — szekciószám és a végleges szöveg
 
 A sorszám + időbélyeg itt is érintetlen marad, az első íráskor `.bak` mentés
 készül, a fájlban nem létező szekciókat kihagyja és jelzi. Ami már egyezik a
-javaslattal, azt nem írja újra — a script idempotens.
+javaslattal, azt nem írja újra — a parancs idempotens.
 
-> **Az `eredeti` mező opcionális, de ajánlott.** Ha megadod, a script
+> **Az `eredeti` mező opcionális, de ajánlott.** Ha megadod, a parancs
 > ellenőrzi, hogy tényleg az áll-e a fájlban — vagyis hogy a döntés-fájl
 > ehhez a fájl-állapothoz készült-e —, és eltérés esetén **kihagyja** az adott
 > bejegyzést. Erre azért van szükség, mert a sorszámok nem örökérvényűek: a
-> `resegment_srt.py --split` újraszámozza a cue-kat, és onnantól egy korábban
+> `subtr.py resegment reflow --split` újraszámozza a cue-kat, és onnantól egy korábban
 > készült döntés-fájl más szekciókra mutat. Ha sok bejegyzés tér el egyszerre,
-> a script külön jelzi, hogy valószínűleg ez történt. Az összehasonlítás
+> a parancs külön jelzi, hogy valószínűleg ez történt. Az összehasonlítás
 > whitespace-független, és a `--ignore-drift` felülbírálja.
 >
 > A review riportok (`_REVIEW_*.json`) amúgy is tartalmaznak `eredeti` mezőt,
@@ -359,27 +346,27 @@ javaslattal, azt nem írja újra — a script idempotens.
 > Ezt a szűrési folyamatot a **`/review-triage`** skill automatizálja Claude
 > Code-ban (lásd a *Claude Code skillek* szakaszt).
 
-#### Gemini review (`review_with_gemini.py`)
+#### Gemini review (`subtr.py review` — a default provider)
 ```powershell
 # Default modell: gemini-3.6-flash (erős és stabilan elérhető)
-python review_with_gemini.py "output\hun.srt"
+python subtr.py review "output\hun.srt"
 
 # Tetszőleges modell-azonosító --model flag-gel
-python review_with_gemini.py "output\hun.srt" --model gemini-3.7-flash
-python review_with_gemini.py "output\hun.srt" --model gemini-3.5-flash-lite   # olcsó, bő napi kvóta
-python review_with_gemini.py "output\hun.srt" --model gemini-3.1-pro-preview
+python subtr.py review "output\hun.srt" --model gemini-3.7-flash
+python subtr.py review "output\hun.srt" --model gemini-3.5-flash-lite   # olcsó, bő napi kvóta
+python subtr.py review "output\hun.srt" --model gemini-3.1-pro-preview
 # Modell-lista: https://ai.google.dev/gemini-api/docs/models
 
 # Csak egy chunk-tartomány lefuttatása (pl. kvótahiba utáni pótlás)
-python review_with_gemini.py "output\hun.srt" --start-chunk 9 --suffix _part2
-python review_with_gemini.py "output\hun.srt" --start-chunk 5 --end-chunk 7 --suffix _part2
+python subtr.py review "output\hun.srt" --start-chunk 9 --suffix _part2
+python subtr.py review "output\hun.srt" --start-chunk 5 --end-chunk 7 --suffix _part2
 
 # Forrásnyelvi SRT kézi megadása / kikapcsolása
-python review_with_gemini.py "output\hun.srt" --source "input\eng.srt"
-python review_with_gemini.py "output\hun.srt" --no-source
+python subtr.py review "output\hun.srt" --source "input\eng.srt"
+python subtr.py review "output\hun.srt" --no-source
 ```
 
-A Gemini review **strukturált JSON kimenetet** ad (Pydantic séma), ami stabilabb
+A Gemini-ág **strukturált JSON kimenetet** ad (Pydantic séma), ami stabilabb
 mint a szabad szöveg, és automatikusan retry-ol rate limit (429) vagy 5xx hiba esetén.
 A forrásnyelvi SRT párosítása itt is működik (lásd fent a Claude review-nál).
 
@@ -387,7 +374,7 @@ A forrásnyelvi SRT párosítása itt is működik (lásd fent a Claude review-n
 
 | Modell | Mire jó |
 |---|---|
-| `gemini-3.6-flash` | **Default** mindkét Gemini scriptben. Erős és — a 3.7-tel ellentétben — stabilan elérhető. |
+| `gemini-3.6-flash` | **Default** a fordításban és a review-ban is. Erős és — a 3.7-tel ellentétben — stabilan elérhető. |
 | `gemini-3.7-flash` | A legújabb Flash, papíron a legerősebb, de a gyakorlatban rendszeresen `503 UNAVAILABLE` („high demand") — több egymást követő próbálkozás sem ment át rajta, ezért nem default. Érdemes időnként újrapróbálni. |
 | `gemini-3.5-flash` | Előző Flash generáció, ha a 3.6-nál kvótába futsz. |
 | `gemini-3.5-flash-lite`, `gemini-3.1-flash-lite` | Olcsó, gyors, **bő napi kvóta** free tier-en. Nagy tömegű fordításra, illetve ha a nem-lite napi limit elfogyott. |
@@ -407,33 +394,34 @@ curl "https://generativelanguage.googleapis.com/v1beta/models?key=%GEMINI_API_KE
 > ellenőrizd az aktuálisan elérhető modelleket:
 > **https://ai.google.dev/gemini-api/docs/models**
 >
-> Ha egy nem létező modell-azonosítót adsz át, a script API hibával fog
+> Ha egy nem létező modell-azonosítót adsz át, a parancs API hibával fog
 > visszatérni — ilyenkor a fenti oldalon nézd meg a helyes nevet.
 
-### Gemini kvóta — mennyi hívás van még ma? (`gemini_quota.py`)
+### Gemini kvóta — mennyi hívás van még ma? (`subtr.py quota`)
 
 A Gemini API **nem adja vissza a maradék napi kvótát**: a Service Usage API
 API-kulccsal 403-at ad, a válaszfejlécekben nincs `ratelimit-*`, a `models.get()`
 csak token-limiteket ismer. A napi limitbe így csak akkor futnál bele, amikor
-már megtörtént (429) — a `gemini_quota.py` ezért **helyben könyveli** a
+már megtörtént (429) — a `subtr.py quota` ezért **helyben könyveli** a
 hívásokat, és a futás előtt megmondja, belefér-e a tervezett munka.
 
 Csak Python stdlib, nincs telepítendő függőség.
 
 ```powershell
-python gemini_quota.py                  # mai fogyás modellenként
-python gemini_quota.py --days 7         # utolsó 7 nap
-python gemini_quota.py --projects       # projektmappa szerinti bontás is
-python gemini_quota.py --model gemini-3.1-flash-lite   # csak egy modell
-python gemini_quota.py --where          # hol van a napló
-python gemini_quota.py --reset          # mai számlálók nullázása
-python gemini_quota.py --forget-limit gemini-3.6-flash # megtanult limit elfelejtése
+python subtr.py quota                  # mai fogyás modellenként
+python subtr.py quota --days 7         # utolsó 7 nap
+python subtr.py quota --projects       # projektmappa szerinti bontás is
+python subtr.py quota --model gemini-3.1-flash-lite   # csak egy modell
+python subtr.py quota --where          # hol van a napló
+python subtr.py quota --reset          # mai számlálók nullázása
+python subtr.py quota --forget-limit gemini-3.6-flash # megtanult limit elfelejtése
 ```
 
-A `translate_with_gemini.py` és a `review_with_gemini.py` **automatikusan**
-használja: indulás előtt kiírja a várható fogyást, és minden sikeres hívást
-elkönyvel. Ha a modul hiányzik, a scriptek változatlanul futnak tovább — a
-kvótakövetés kényelmi funkció, nem állíthatja meg a fordítást.
+A `subtr.py translate --provider gemini` és a `subtr.py review --provider gemini`
+(illetve a review default ága) **automatikusan** használja: indulás előtt kiírja
+a várható fogyást, és minden sikeres hívást elkönyvel. Ha a modul hiányzik, a
+parancsok változatlanul futnak tovább — a kvótakövetés kényelmi funkció, nem
+állíthatja meg a fordítást.
 
 **A napló gépszintű, nem projektszintű** — ez a leggyakoribb félreértés:
 
@@ -448,7 +436,7 @@ fogyaszt — ezért közös a napló, és a kulcs **ujjlenyomata** szerint van b
 mappából mennyi fogyott.
 
 > ⚠️ **A nap nem helyi éjfélkor vált.** A Google ingyenes napi kvótája
-> csendes-óceáni idő (PT) szerint nullázódik. A script PT szerint könyvel, és
+> csendes-óceáni idő (PT) szerint nullázódik. A parancs PT szerint könyvel, és
 > kiírja, hány óra van hátra a nullázásig.
 
 **A limitek öntanulók — de csak a napi limit.** A Gemini többféle 429-et ad, és
@@ -465,12 +453,12 @@ rutinszerű, és ha azt napi limitnek vennénk, egy múló hiba rossz értéket 
 be, és a nap hátralévő részére hamisan „kimerült"-nek jelölné a modellt.
 
 A megtanult limitek **tartósak** (nem évülnek a napi számlálókkal), ezért a
-`python gemini_quota.py` kiírja őket — ha valamelyik hibásnak tűnik, a
+`python subtr.py quota` kiírja őket — ha valamelyik hibásnak tűnik, a
 `--forget-limit <modell>` törli, és a következő valódi napi 429-nél újratanul.
 Amíg nincs mért adat, becslést használ, és ezt `(becs)` jelöléssel jelzi.
 
 > **A számláló alsó becslés, a maradék ezért felső korlát.** A naplóba csak
-> azok a hívások kerülnek, amelyek ezeken a scripteken keresztül mentek ki
+> azok a hívások kerülnek, amelyek a `subtr.py` Gemini-ágán mentek ki
 > **és** sikeresen vissza is tértek. Kimarad tehát: az API kulcs használata
 > máshol (AI Studio webUI, curl, másik eszköz — ez a legnagyobb forrás), az
 > 5xx-szel elhalt hívás, ami a szerveren már fogyaszthatott, és a válasz előtt
@@ -484,60 +472,60 @@ Amíg nincs mért adat, becslést használ, és ezt `(becs)` jelöléssel jelzi.
 
 ### Szójegyzék bővítése
 
-A `glossary_extract.py` két módban működik — a magyar argumentum dönti el, melyikben:
+A `subtr.py glossary` két módban működik — a magyar argumentum dönti el, melyikben:
 
 ```powershell
 # (A) Fordítás ELŐTTI mód — CSAK az angol fájl (a magyar argumentum elhagyva).
 #     Az agent a TRANSLATION.md szabályai alapján JAVASLATOT tesz a magyar fordításra,
 #     te jóváhagyod, és a párhuzamos fordítás már egységes nevekkel/címekkel indul.
-python glossary_extract.py "input\eng.srt"
+python subtr.py glossary "input\eng.srt"
 
 # (B) Fordítás UTÁNI mód — angol-magyar pár. A "hu" a kész feliratban
 #     ténylegesen használt fordítás (a meglévő viselkedés).
-python glossary_extract.py "input\eng.srt" "output\hun.srt"
+python subtr.py glossary "input\eng.srt" "output\hun.srt"
 
 # Egyéni glossary útvonal (mindkét módban)
-python glossary_extract.py "input\eng.srt" --glossary my_glossary.json
+python subtr.py glossary "input\eng.srt" --glossary my_glossary.json
 
 # Másik provider (Claude az alapértelmezett)
-python glossary_extract.py "input\eng.srt" --provider codex
-python glossary_extract.py "input\eng.srt" --provider gemini
-python glossary_extract.py "input\eng.srt" --provider gemini --model gemini-3.5-flash-lite
+python subtr.py glossary "input\eng.srt" --provider codex
+python subtr.py glossary "input\eng.srt" --provider gemini
+python subtr.py glossary "input\eng.srt" --provider gemini --model gemini-3.5-flash-lite
 ```
 
-A Gemini ág strukturált JSON sémával dolgozik, és a `gemini_quota.py`-ba
-könyvel, mint a többi Gemini script. Hosszú feliratnál a kinyerés több
+A Gemini ág strukturált JSON sémával dolgozik, és a `subtr.py quota`-ba
+könyvel, mint a többi Gemini-ágú parancs. Hosszú feliratnál a kinyerés több
 darabban megy — **darabonként egy API-hívás**, ezt a napi kvótánál vedd
-figyelembe (`python gemini_quota.py`).
+figyelembe (`python subtr.py quota`).
 
 Mindkét mód interaktív: a javasolt kifejezéseket egyesével hagyod jóvá
 (`y` = elfogad, `n` = elutasít, `e` = szerkeszt, `q` = kilép).
 
-A `glossary.json`-t minden provideres fordító és review automatikusan betölti
+A `glossary.json`-t minden fordító- és review-provider automatikusan betölti
 és átadja a modellnek, hogy a fordítások
 konzisztensek maradjanak.
 
-### Megszólítási regiszter kinyerése (`register_extract.py`) — opcionális
+### Megszólítási regiszter kinyerése (`subtr.py register`) — opcionális
 
 A tegezés/magázás az angol forrásból nem derül ki közvetlenül, ezért a
 `TRANSLATION.local.md` *Megszólítási regisztere* dönt róla (lásd a *Tippek*
-szakaszt). Ezt **kézzel is megírhatod** — ez a script csak felkínál egy első
+szakaszt). Ezt **kézzel is megírhatod** — ez a parancs csak felkínál egy első
 változatot, illetve továbbvezeti a meglévőt.
 
 ```powershell
 # Egy epizód alapján, Gemini API-val (default provider)
-python register_extract.py "input\S01E01.eng.srt"
+python subtr.py register "input\S01E01.eng.srt"
 
 # Több rész = pontosabb. A részek közti eltérés VÁLTÁS-jelöltként jön fel,
 # nem néma felülírásként — pont ezt kell a regiszter "váltás:" sorába írni.
-python register_extract.py "input\S01E01.eng.srt" "input\S01E02.eng.srt"
+python subtr.py register "input\S01E01.eng.srt" "input\S01E02.eng.srt"
 
 # Másik provider
-python register_extract.py "input\S01E01.eng.srt" --provider claude
-python register_extract.py "input\S01E01.eng.srt" --provider codex
+python subtr.py register "input\S01E01.eng.srt" --provider claude
+python subtr.py register "input\S01E01.eng.srt" --provider codex
 
 # Csak nézni akarod, nem írni
-python register_extract.py "input\S01E01.eng.srt" --dry-run
+python subtr.py register "input\S01E01.eng.srt" --dry-run
 ```
 
 Hogyan dönt, mit kérdez meg:
@@ -550,13 +538,13 @@ Hogyan dönt, mit kérdez meg:
 | Epizódok közt **eltér** a forma | VÁLTÁS-jelölt: bizonytalanná válik, és kiírja, melyik részben mi volt |
 
 > **Miért nem a modell magabiztosságára hagyatkozunk:** mérve a modell
-> gyakorlatilag *mindent* „biztos"-nak jelöl magáról. Ezért a script gépi féket
+> gyakorlatilag *mindent* „biztos"-nak jelöl magáról. Ezért a parancs gépi féket
 > tesz elé: két idézhető bizonyíték alatt a sor bizonytalan, akármit állít
 > magáról — és a bizonytalan sorok nálad kötnek ki, nem a fájlban.
 
 A `--all-interactive` minden párnál kérdez, a `--yes` egyáltalán nem kérdez
 (csak a biztos sorokat veszi át). Mentés előtt `TRANSLATION.local.md.bak`
-készül, és a script csak a *pár-sorokat* kezeli — az `alapértelmezés`, `váltás`
+készül, és a parancs csak a *pár-sorokat* kezeli — az `alapértelmezés`, `váltás`
 és megjegyzés-sorokat érintetlenül átmenti.
 
 > A regiszterben egy **téves sor rosszabb, mint a hiányzó**: a fordító a
@@ -565,17 +553,17 @@ készül, és a script csak a *pár-sorokat* kezeli — az `alapértelmezés`, `
 
 ## Kontextus-átadás — fontos!
 
-Minden fordító és review script átadja a **TRANSLATION.md**-t és a
+Minden fordító- és review-ág átadja a **TRANSLATION.md**-t és a
 **glossary.json**-t system promptként a modellnek:
 
-| Script | Mechanizmus |
+| Provider / feladat | Mechanizmus |
 |--------|-------------|
-| `translate_parallel.py` | `--append-system-prompt-file` (Claude Code) |
-| `translate_with_gemini.py` | `system_instruction` (Gemini API) |
-| `review_with_claude.py` | `--append-system-prompt-file` (Claude Code) |
-| `review_with_gemini.py` | `system_instruction` (Gemini API) |
-| `translate_with_codex.py` | Codex `exec --output-schema` |
-| `review_with_codex.py` | Codex `exec --output-schema` |
+| `translate --provider claude` | `--append-system-prompt-file` (Claude Code) |
+| `translate --provider gemini` | `system_instruction` (Gemini API) |
+| `translate --provider codex` | Codex `exec --output-schema` |
+| `review --provider claude` | `--append-system-prompt-file` (Claude Code) |
+| `review` (default: gemini) | `system_instruction` (Gemini API) |
+| `review --provider codex` | Codex `exec --output-schema` |
 
 **Következmény:** ha bővíted a TRANSLATION.md-t (új szabály) vagy a glossary-t,
 a változás a következő futáskor automatikusan érvényesül — a translate-nél
@@ -589,7 +577,7 @@ külön telepítés nélkül:
 
 | Skill | Mit csinál |
 |---|---|
-| `/review-triage <hun.srt>` | A `_REVIEW_*.json` riportok minden találatát a forráshoz méri, kiszűri a no-opokat és hamis riasztásokat, `decisions.json`-t épít és az `apply_review_auto.py`-jal átvezeti a jóváhagyottakat |
+| `/review-triage <hun.srt>` | A `_REVIEW_*.json` riportok minden találatát a forráshoz méri, kiszűri a no-opokat és hamis riasztásokat, `decisions.json`-t épít és a `subtr.py apply-auto`-val átvezeti a jóváhagyottakat |
 | `/epizod <név>` | A fájlokból felismeri, hol tart egy epizód a pipeline-ban, és onnan viszi tovább a lépéseket a `lepesek.txt` szerint — a csapdákkal együtt (`--clean`, `.clean.srt` elleni verify, resegment-sorrend) |
 
 A skillek csak **munkafolyamatot** kódolnak — a fordítási szabályok forrása
@@ -598,8 +586,8 @@ továbbra is a `TRANSLATION.md` és a `glossary.json`. A Codexes megfelelőik a
 
 ## Más forrásnyelv (nem angol forrásból)
 
-A **célnyelv fixen magyar**: a fordító és a review promptok magyar nyelvre vannak
-megírva (`translate_*.py`, `review_*.py`), ez nem kapcsolható ki.
+A **célnyelv fixen magyar**: a `subtr.py translate` és a `subtr.py review`
+promptjai magyar nyelvre vannak megírva, ez nem kapcsolható ki.
 
 A **forrásnyelv angolra van hangolva**, de a folyamat más forrásnyelvvel is lefut, és
 használható eredményt ad. Amit ilyenkor tudni érdemes:
@@ -619,7 +607,7 @@ ellenőrizni, hogy az eredeti igazolja-e a megoldást), ezért nem angol forrás
 `--source` kézi megadása gyakorlatilag kötelező:
 
 ```powershell
-python review_with_gemini.py "output\hun.srt" --source "input\Sorozat - S01E01.kor.srt"
+python subtr.py review "output\hun.srt" --source "input\Sorozat - S01E01.kor.srt"
 ```
 
 A `glossary.json` szerepe itt még nagyobb, mint EN→HU esetben: mivel a C. blokk
@@ -627,7 +615,7 @@ szabályai kiesnek, a konzisztencia jórészt a szójegyzéken múlik.
 
 ## Modell-defaultok .env-ből
 
-Az összes fordítási és review script (Claude, Gemini, Codex) a `.env` fájlból
+Az összes fordítási és review parancs (Claude, Gemini, Codex ág) a `.env` fájlból
 automatikusan betölt modell-beállításokat. A definiálandó változók neve mindig
 `SUBTR_<PROVIDER>_MODEL` formátumú, ahol a `<PROVIDER>` az egyik: `GEMINI`,
 `CLAUDE` vagy `CODEX`.
@@ -641,13 +629,13 @@ automatikusan betölt modell-beállításokat. A definiálandó változók neve 
 | `SUBTR_GEMINI_MODEL_REGISTER` | task-specifikus felülbírálás regiszter extractionhez |
 | `SUBTR_CLAUDE_MODEL` + `_TRANSLATE` / `_REVIEW` / `_GLOSSARY` / `_REGISTER` | ugyanez Claude CLI-hez |
 | `SUBTR_CODEX_MODEL` + `_TRANSLATE` / `_REVIEW` / `_GLOSSARY` / `_REGISTER` | ugyanez Codex CLI-hez |
-| `SUBTR_DEFAULT_PROVIDER` | a `glossary_extract.py` és `register_extract.py` default providere |
+| `SUBTR_DEFAULT_PROVIDER` | fordításnál kötelező helyettesítő (`--provider` nélkül ez dönt), a `subtr.py glossary` default providere (`claude`, felülírható), a `subtr.py register` default providere (`gemini`, felülírható) |
 
 **Feloldási precedencia** (az első nem-üres érték nyer):
 1. CLI `--model` kapcsoló (ha megadva)
 2. Task-specifikus env (`SUBTR_<PROVIDER>_MODEL_<TASK>`)
 3. Generikus env (`SUBTR_<PROVIDER>_MODEL`)
-4. Beégetett default a scriptben
+4. Beégetett default a parancsban
 
 **Példa .env-ből:**
 ```bash
@@ -680,22 +668,22 @@ SUBTR_CLAUDE_MODEL_TRANSLATE=opus
   formát tud tartani. Minden epizód előtt frissítsd — egy elavult regiszter rosszabb,
   mint a hiányzó: magabiztosan rossz formát kényszerít. A döntési eljárást a
   `TRANSLATION.md` *Tegezés/magázás* szakasza írja le. Kézzel írod, de a
-  `register_extract.py` felkínál egy első változatot (lásd fent).
-- **Checkpoint:** mindhárom fordító fájl-alapú checkpointtal fut (újraindításkor
+  `subtr.py register` felkínál egy első változatot (lásd fent).
+- **Checkpoint:** mind a három fordító-ág fájl-alapú checkpointtal fut (újraindításkor
   csak a hiányzó blokkokat fordítja; a szekció-eltéréses blokk outputja
-  törlődik, így az is újramegy), mindhárom review pedig `--start-chunk` /
-  `--end-chunk` / `--suffix` kapcsolókkal folytatható. A `merge_srt.py`
+  törlődik, így az is újramegy), mind a három review-ág pedig `--start-chunk` /
+  `--end-chunk` / `--suffix` kapcsolókkal folytatható. A `subtr.py merge`
   `--force` kapcsolóval hiányzó blokkok mellett is összefűz (a hiányt listázza).
-- **Fordító finomhangolás:** `translate_parallel.py --timeout <mp>` (default
+- **Fordító finomhangolás:** `subtr.py translate --provider claude --timeout <mp>` (default
   900), `--max-turns <n>` (default 20, futó-galopp elleni plafon),
-  `--no-cleanup` (régi sys-prompt fájlok megtartása); `glossary_extract.py
+  `--no-cleanup` (régi sys-prompt fájlok megtartása); `subtr.py glossary
   --timeout <mp>` (default 300).
 - **Review-k összevetése:** ugyanazon a fájlon futtathatsz több review-t —
   a két modell más-más típusú hibákat talál (Claude inkább kontextus,
   Gemini inkább morfológia / ikes igék).
 - **Review modell-választás — tapasztalati javaslat:** kezdetben Claude
-  Opus-szal (`review_with_claude.py`) review-oztam, ami minőségileg jó,
-  de drága. Később átálltam a Gemini API-ra (`review_with_gemini.py`), és nem
+  Opus-szal (`subtr.py review --provider claude`) review-oztam, ami minőségileg jó,
+  de drága. Később átálltam a Gemini API-ra (`subtr.py review`, a default ág), és nem
   bántam meg — töredék költséggel hasonló minőséget ad a felirat-review
   feladathoz. Ha most kezdesz, érdemes Gemini-vel próbálkozni elsőként.
   A jelenlegi default a `gemini-3.6-flash`; ha a napi kvótád szűkös, a
@@ -705,9 +693,9 @@ SUBTR_CLAUDE_MODEL_TRANSLATE=opus
   nem-lite modellek viszont tapasztalat szerint napi ~20 kérésnél elfogynak —
   **modellenként külön**, ezért modellváltással aznap tovább lehet dolgozni.
   (Nagyságrend: egy ~400 szekciós rész review-ja 4-5 kérés.) Hogy hol tartasz:
-  `python gemini_quota.py`. Ha egy hosszú futás közben fogyna el, a review
+  `python subtr.py quota`. Ha egy hosszú futás közben fogyna el, a review
   `--start-chunk` / `--end-chunk` / `--suffix` kapcsolókkal folytatható.
-- **Prompt cache:** a `translate_parallel.py` a system promptot tartalom-hash
+- **Prompt cache:** a `subtr.py translate --provider claude` a system promptot tartalom-hash
   alapján fájlba menti, így a párhuzamos agent-ek és az ismételt futások is
   cache-hit-tel indulhatnak — drasztikus költségcsökkenés.
 
@@ -721,37 +709,37 @@ négy lépés:
 
 A riportban listázott hibákat háromféleképpen javíthatod:
 
-- **Interaktívan** (`apply_review.py`): a script összefésüli a riportokat és
+- **Interaktívan** (`subtr.py apply`): a parancs összefésüli a riportokat és
   találatonként megkérdezi, alkalmazza-e. A legegyszerűbb út, de sok részen
   több száz kérdés.
-- **Döntés-fájllal** (`apply_review_auto.py`): a javaslatokat előre átnézed —
+- **Döntés-fájllal** (`subtr.py apply-auto`): a javaslatokat előre átnézed —
   magad, vagy egy agenttel, aki mindegyiket az angol eredetihez méri —, és a
   jóváhagyott szövegeket egy `decisions.json`-ben adod át. Kérdés nélkül fut le.
   Ez az ajánlott út, ha több részt viszel át egyszerre; a szűrés miért fontos,
-  arról lásd fent a script szakaszát.
+  arról lásd fent a parancs szakaszát.
 - **Manuálisan**: szövegszerkesztőben (VSCode, Notepad++, Subtitle Edit,
   stb.) sorszám szerint megkeresed és javítod.
 
 > **Sorrend:** a review-javításokat a szegmentálás (2. lépés) **előtt** vidd át.
 > A `resegment --split` újraszámozhatja a cue-kat, és onnantól a riportok
-> sorszámai már nem a régi szekciókra mutatnak. Az `apply_review_auto.py` ezt
+> sorszámai már nem a régi szekciókra mutatnak. A `subtr.py apply-auto` ezt
 > észreveszi, ha a döntés-fájlban megadod az `eredeti` mezőt.
 
-### 2. Automatikus szegmentálás — `resegment_srt.py`
+### 2. Automatikus szegmentálás — `subtr.py resegment`
 
-A **sorhossz** (max karakter/sor) technikai rendezését a `resegment_srt.py`
+A **sorhossz** (max karakter/sor) technikai rendezését a `subtr.py resegment`
 determinisztikusan automatizálja — így jóval kevesebb kézi munka marad a
 Subtitle Edit-nek. Csak Python stdlib, nincs telepítendő függőség.
 
 ```powershell
 # QA-riport (csak olvasás): mely cue-k sértik a plafont (CPS / sorhossz / rés)
-python resegment_srt.py report "output\Sorozat - S01E01.hun.srt"
+python subtr.py resegment report "output\Sorozat - S01E01.hun.srt"
 
 # Sorhossz-tisztítás (időzítést NEM változtat) -> új fájl
-python resegment_srt.py reflow "output\Sorozat - S01E01.hun.srt" -o "output\Sorozat - S01E01.hun.reflow.srt"
+python subtr.py resegment reflow "output\Sorozat - S01E01.hun.srt" -o "output\Sorozat - S01E01.hun.reflow.srt"
 
 # Ha kell: a 2 sorba nem férő cue-k idő-arányos bontása (cue-számot változtat)
-python resegment_srt.py reflow "output\Sorozat - S01E01.hun.srt" --split -o "...reflow.srt"
+python subtr.py resegment reflow "output\Sorozat - S01E01.hun.srt" --split -o "...reflow.srt"
 ```
 
 A `reflow` kiegyensúlyozott ≤2 sorra tördel, mondat-/tagmondat-határon; a
@@ -795,6 +783,6 @@ nyelvileg jó lehet, de a néző-élmény nem lesz az.
 - `TRANSLATION.md` — közös fordítási szabályok és sorozat-kontekstus
 - `CLAUDE.md` — Claude Code belépési pont a közös szabályzathoz
 - `lepesek.txt` — gyors parancs-cheatsheet
-- `resegment_srt.md` — a szegmentáló eszköz (`resegment_srt.py`) részletes leírása
+- `resegment_srt.md` — a szegmentáló eszköz (`subtr.py resegment`) részletes leírása
 - `proposals/` — fejlesztési irányok, alternatívák, tervezési dokumentumok
   (lásd: [`proposals/README.md`](proposals/README.md))
