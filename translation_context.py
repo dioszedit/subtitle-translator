@@ -1,24 +1,3 @@
-"""Közös sorozat- és fordítási szabályzat betöltése minden providerhez."""
+"""Kompatibilitási shim — a tényleges logika a subtr.context modulba költözött."""
 
-from pathlib import Path
-
-
-BASE_CONTEXT_FILES = ("TRANSLATION.md", "CLAUDE.md")
-LOCAL_CONTEXT_FILE = "TRANSLATION.local.md"
-
-
-def load_translation_context() -> str:
-    """A verziózott alapot és az opcionális, gitignore-os helyi kontextust tölti be."""
-    base = ""
-    for name in BASE_CONTEXT_FILES:
-        path = Path(name)
-        if path.is_file():
-            base = path.read_text(encoding="utf-8")
-            break
-
-    local_path = Path(LOCAL_CONTEXT_FILE)
-    if local_path.is_file():
-        local = local_path.read_text(encoding="utf-8").strip()
-        if local:
-            return f"{base.rstrip()}\n\n=== HELYI SOROZATKONTEXTUS ===\n{local}\n"
-    return base
+from subtr.context import BASE_CONTEXT_FILES, LOCAL_CONTEXT_FILE, load_translation_context

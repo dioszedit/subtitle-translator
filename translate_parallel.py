@@ -38,8 +38,8 @@ import re
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from glossary_categories import CATEGORIES
-from translation_context import load_translation_context
+from subtr.context import load_translation_context as load_claude_md
+from subtr.glossary import as_prompt_text as load_glossary
 from subtr.srt import count_sections
 from subtr.blocks import get_all_blocks, get_pending_blocks, safe_remove
 
@@ -48,27 +48,6 @@ sys.stderr.reconfigure(encoding='utf-8')
 
 SYS_PROMPT_PREFIX = ".translate_sys_prompt_"
 SYS_PROMPT_MAX_AGE_DAYS = 1  # ennél régebbi sys prompt fájlokat takarítjuk
-
-
-def load_claude_md() -> str:
-    """Kompatibilitási név; a közös TRANSLATION.md-t tölti be."""
-    return load_translation_context()
-
-
-def load_glossary() -> str:
-    if not os.path.isfile("glossary.json"):
-        return ""
-    with open("glossary.json", 'r', encoding='utf-8') as f:
-        data = json.load(f)
-    lines = []
-    for category in CATEGORIES:
-        for entry in data.get(category, []):
-            en = entry.get("en", "")
-            hu = entry.get("hu", "")
-            ctx = entry.get("context", "")
-            if en and hu:
-                lines.append(f'  "{en}" = "{hu}"' + (f" ({ctx})" if ctx else ""))
-    return "\n".join(lines) if lines else ""
 
 
 def build_system_prompt_file(claude_md: str, glossary: str) -> tuple[str, bool]:

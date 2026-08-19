@@ -11,8 +11,8 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from codex_runner import CodexRunError, find_codex, run_codex_json
-from glossary_categories import CATEGORIES
-from translation_context import load_translation_context
+from subtr.context import load_translation_context
+from subtr.glossary import as_prompt_text as load_glossary
 from subtr.srt import count_sections, parse_sections, write_srt
 from subtr.blocks import get_all_blocks, get_pending_blocks, safe_remove
 
@@ -36,19 +36,6 @@ TRANSLATION_SCHEMA = {
     "required": ["translations"],
     "additionalProperties": False,
 }
-
-
-def load_glossary() -> str:
-    if not os.path.isfile("glossary.json"):
-        return ""
-    data = json.loads(open("glossary.json", encoding="utf-8").read())
-    lines = []
-    for category in CATEGORIES:
-        for entry in data.get(category, []):
-            if entry.get("en") and entry.get("hu"):
-                context = f" ({entry['context']})" if entry.get("context") else ""
-                lines.append(f'  "{entry["en"]}" = "{entry["hu"]}"{context}')
-    return "\n".join(lines)
 
 
 def build_instruction(context: str, glossary: str) -> str:

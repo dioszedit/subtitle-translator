@@ -30,7 +30,7 @@ import subprocess
 
 from glossary_categories import CATEGORIES
 from codex_runner import CodexRunError, find_codex, run_codex_json
-from translation_context import load_translation_context
+from subtr.context import load_translation_context as load_claude_md
 
 sys.stdout.reconfigure(encoding='utf-8')
 sys.stderr.reconfigure(encoding='utf-8')
@@ -101,11 +101,6 @@ CATEGORY_LABELS = {
     "special_terms": "Speciális kifejezés",
     "phrases": "Kifejezés",
 }
-
-
-def load_claude_md() -> str:
-    """Közös szabályzat betöltése az angol-only HU javaslatokhoz."""
-    return load_translation_context()
 
 
 def load_glossary(path: str) -> dict:

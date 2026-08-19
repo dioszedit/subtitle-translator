@@ -55,8 +55,8 @@ from pathlib import Path
 sys.stdout.reconfigure(encoding='utf-8')
 sys.stderr.reconfigure(encoding='utf-8')
 
-from glossary_categories import CATEGORIES
-from translation_context import load_translation_context
+from subtr.context import load_translation_context as load_claude_md
+from subtr.glossary import as_prompt_text as load_glossary
 from subtr.srt import parse_entries as parse_srt
 from subtr.srt import parse_by_index as parse_srt_by_index
 
@@ -143,27 +143,6 @@ def chunk_entries(entries, chunk_size):
     """Entries felosztása chunkokra."""
     for i in range(0, len(entries), chunk_size):
         yield entries[i:i + chunk_size]
-
-
-def load_claude_md() -> str:
-    """Kompatibilitási név; a közös TRANSLATION.md-t tölti be."""
-    return load_translation_context()
-
-
-def load_glossary() -> str:
-    if not os.path.isfile("glossary.json"):
-        return ""
-    with open("glossary.json", 'r', encoding='utf-8') as f:
-        data = json.load(f)
-    lines = []
-    for category in CATEGORIES:
-        for entry in data.get(category, []):
-            en = entry.get("en", "")
-            hu = entry.get("hu", "")
-            ctx = entry.get("context", "")
-            if en and hu:
-                lines.append(f'  "{en}" = "{hu}"' + (f" ({ctx})" if ctx else ""))
-    return "\n".join(lines) if lines else ""
 
 
 def build_review_system_prompt(claude_md: str, glossary: str,
