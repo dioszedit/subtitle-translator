@@ -316,10 +316,12 @@ def run_claude(prompt: str, timeout: int) -> list[dict]:
         return []
 
     parsed = extract_json(raw)
-    if parsed is None:
+    if not isinstance(parsed, dict):
+        # None (parse-hiba) VAGY tömb — a válasznak {"relations":[...]}
+        # objektumnak kell lennie; a nyers választ megőrizzük.
         debug = ".register_extract_debug.txt"
         Path(debug).write_text(raw, encoding="utf-8")
-        print(f"HIBA: JSON parse hiba\n  Nyers válasz mentve: {debug}")
+        print(f"HIBA: JSON parse hiba (nem objektum a válasz)\n  Nyers válasz mentve: {debug}")
         return []
     return _validate(parsed.get("relations"))
 
@@ -460,7 +462,8 @@ def main():
     print(f"Meglévő regiszter: {len(existing)} pár "
           f"({'szakasz megvan' if has_section else 'még nincs szakasz'}) — {args.local_file}")
 
-    model = args.model or (GEMINI_MODEL_DEFAULT if args.provider == "gemini" else None)
+    model = config.resolve_model(args.model, args.provider, "register",
+                                 builtin=GEMINI_MODEL_DEFAULT if args.provider == "gemini" else None)
     per_episode = []
     for path in args.srt:
         label = Path(path).stem

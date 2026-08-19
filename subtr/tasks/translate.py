@@ -46,7 +46,7 @@ CLAUDE_SYS_PROMPT_MAX_AGE_DAYS = 1  # ennél régebbi sys prompt fájlokat takar
 
 DESCRIPTION = {
     "claude": "Párhuzamos SRT fordítás Claude Code-dal (multi-process safe)",
-    "gemini": "Párhuzamos SRT fordítás Gemini API-val (translate_parallel.py alternatívája)",
+    "gemini": "Párhuzamos SRT fordítás Gemini API-val",
     "codex": "Párhuzamos SRT fordítás Codex CLI-vel",
 }
 
@@ -451,6 +451,9 @@ def _make_claude_translator(claude_bin, sys_prompt_path, model, timeout, max_tur
 # ────────────────────────────────────────────────────────────────────────────
 
 def main(provider: str):
+    # Windows cp125x konzolon a ✓/⚠/ő és a box-karakterek elszállnának
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
     builtin = MODEL_BUILTIN[provider]
     parser = argparse.ArgumentParser(description=DESCRIPTION[provider])
     parser.add_argument("blocks_dir", help="Blokkok mappája (split_srt.py outputja)")
@@ -482,6 +485,9 @@ def main(provider: str):
 
     if args.agents < 1:
         print(f"HIBA: --agents legalább 1 legyen (kaptam: {args.agents})")
+        sys.exit(1)
+    if getattr(args, "max_retries", 1) < 1:
+        print(f"HIBA: --max-retries legalább 1 legyen (kaptam: {args.max_retries})")
         sys.exit(1)
     if not os.path.isdir(args.blocks_dir):
         print(f"HIBA: Nem találom a mappát: {args.blocks_dir}")
@@ -549,7 +555,7 @@ def main(provider: str):
         for b in pending:
             hun = hun_path(b)
             if os.path.isfile(hun):
-                os.remove(hun)
+                safe_remove(hun)
                 print(f"Korábbi fordítás törölve: {os.path.basename(hun)}")
     else:
         pending = get_pending_blocks(args.blocks_dir)

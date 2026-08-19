@@ -26,7 +26,7 @@ from subtr.providers.base import no_additional
 # Kvótakövetés — gépszintű, API kulcs szerint. Ha a modul hiányzik, a hívás
 # fut tovább: a kvótakövetés kényelmi funkció, nem állíthatja meg a munkát.
 try:
-    import gemini_quota as _gq
+    from subtr import quota as _gq
 except Exception:
     _gq = None
 

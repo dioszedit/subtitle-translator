@@ -579,6 +579,12 @@ def main():
                              f"gemini default: {GEMINI_MODEL_DEFAULT})")
     args = parser.parse_args()
 
+    # Modell-feloldás: CLI --model > SUBTR_<P>_MODEL_GLOSSARY > SUBTR_<P>_MODEL
+    # > beégetett default (Gemini-nél GEMINI_MODEL_DEFAULT, CLI-knél None).
+    args.model = config.resolve_model(
+        args.model, args.provider, "glossary",
+        builtin=GEMINI_MODEL_DEFAULT if args.provider == "gemini" else None)
+
     pre_mode = args.hun_srt is None  # fordítás előtti, angol-only mód
 
     check_paths = [args.eng_srt] if pre_mode else [args.eng_srt, args.hun_srt]

@@ -391,12 +391,16 @@ def _make_codex_executor(codex_bin, model, instruction, timeout, retries):
 # ────────────────────────────────────────────────────────────────────────────
 
 def main(provider: str):
+    # Windows cp125x konzolon a ✓/⚠/ő és a box-karakterek elszállnának
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
     builtin = MODEL_BUILTIN[provider]
     parser = argparse.ArgumentParser(description=DESCRIPTION[provider])
     parser.add_argument("srt_file", help="Az összefűzött hun.srt fájl")
     parser.add_argument("--chunk-size", type=int, default=DEFAULT_CHUNK_SIZE,
                         help=f"Feliratok chunkonként (default: {DEFAULT_CHUNK_SIZE})")
     parser.add_argument("--model", type=str, default=None,
+                        choices=["haiku", "sonnet", "opus"] if provider == "claude" else None,
                         help=config.model_help(provider, "review", builtin))
     if provider == "codex":
         parser.add_argument("--timeout", type=int, default=900,
@@ -423,6 +427,9 @@ def main(provider: str):
         sys.exit(1)
     if args.source and args.no_source:
         print("HIBA: --source és --no-source együtt nem használható.")
+        sys.exit(1)
+    if getattr(args, "max_retries", 1) < 1:
+        print(f"HIBA: --max-retries legalább 1 legyen (kaptam: {args.max_retries})")
         sys.exit(1)
 
     model = config.resolve_model(args.model, provider, "review", builtin=builtin)

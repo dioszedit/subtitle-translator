@@ -7,6 +7,8 @@ Használat:
 
 import os
 import sys
+
+from subtr.blocks import HUN_SUFFIX, get_all_blocks, hun_path
 import glob
 import re
 import argparse
@@ -29,9 +31,8 @@ def main():
     # Összes eredeti blokk; a fordítottakat az eredetiekből származtatjuk,
     # így egy kósza *_HUN.srt (pl. régi splitből) nem tudja elfedni a hiányt,
     # és nem is kerülhet bele az outputba.
-    all_blocks = sorted(glob.glob(os.path.join(args.blocks_dir, "*_block_*.srt")))
-    original = [f for f in all_blocks if not f.endswith("_HUN.srt")]
-    expected = [(f, f[:-len(".srt")] + "_HUN.srt") for f in original]
+    original = get_all_blocks(args.blocks_dir)
+    expected = [(f, hun_path(f)) for f in original]
     translated = [hun for _, hun in expected if os.path.isfile(hun)]
     missing = [os.path.basename(orig) for orig, hun in expected
                if not os.path.isfile(hun)]
@@ -40,7 +41,7 @@ def main():
     done = len(translated)
 
     # Kósza _HUN fájlok, amik egyik eredetihez sem tartoznak (pl. régi split)
-    stray = sorted(set(glob.glob(os.path.join(args.blocks_dir, "*_HUN.srt")))
+    stray = sorted(set(glob.glob(os.path.join(args.blocks_dir, "*" + HUN_SUFFIX)))
                    - set(hun for _, hun in expected))
     if stray:
         print(f"FIGYELEM: {len(stray)} kósza _HUN fájl a mappában (nem kerül az outputba):")
