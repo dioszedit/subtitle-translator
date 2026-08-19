@@ -119,3 +119,26 @@ def extract_json(raw: str):
         except json.JSONDecodeError:
             continue
     return None
+
+
+def write_sys_prompt_file(content: str, prefix: str) -> str:
+    """Sys prompt mentése tartalom-hash alapú névvel — két párhuzamos futás
+    azonos tartalommal ugyanazt a fájlt használja, eltérővel külön fájlt.
+    A régi (más hash-ű) fájlokat kitakarítja, hogy ne halmozódjanak a repo
+    gyökerében."""
+    import glob
+    import hashlib
+
+    h = hashlib.sha256(content.encode("utf-8")).hexdigest()[:12]
+    path = os.path.abspath(f"{prefix}{h}.txt")
+    for stale in glob.glob(f"{prefix}*.txt"):
+        if os.path.abspath(stale) != path:
+            try:
+                os.remove(stale)
+            except OSError:
+                pass
+    if os.path.isfile(path):
+        return path
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(content)
+    return path
