@@ -18,7 +18,7 @@ COMMANDS = {
     "split":      ("subtr.tasks.split",             "1.  SRT szétvágása blokkokra"),
     "glossary":   ("subtr.tasks.glossary_extract",  "1.5 Szójegyzék kinyerése (opcionális, --provider)"),
     "register":   ("subtr.tasks.register_extract",  "1.6 Megszólítási regiszter kinyerése (opcionális, --provider)"),
-    "translate":  ("subtr.tasks.translate",         "2.  Blokkok fordítása (--provider kötelező vagy env)"),
+    "translate":  ("subtr.tasks.translate",         "2.  Blokkok fordítása (--provider, default: claude)"),
     "merge":      ("subtr.tasks.merge",             "3.  Blokkok összefűzése egy SRT-vé"),
     "verify":     ("subtr.tasks.verify",            "4.  Strukturális ellenőrzés"),
     "review":     ("subtr.tasks.review",            "5.  Stilisztikai review (--provider, default: gemini)"),

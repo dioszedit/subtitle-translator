@@ -453,10 +453,9 @@ def main(argv=None):
         description="Párhuzamos SRT blokk-fordítás (Gemini API / Claude Code / Codex CLI)")
     parser.add_argument("blocks_dir", help="Blokkok mappája (a split kimenete)")
     parser.add_argument("--provider", choices=PROVIDERS,
-                        default=config.default_provider(builtin=None),
-                        help="Fordító provider. A fordítás a legdrágább lépés, ezért "
-                             "nincs beégetett default — add meg kapcsolóval, vagy "
-                             "állítsd be: SUBTR_DEFAULT_PROVIDER env")
+                        default=config.default_provider(builtin="claude"),
+                        help="Fordító provider (default: claude, "
+                             "felülírható: SUBTR_DEFAULT_PROVIDER env)")
     parser.add_argument("--agents", type=int, default=None,
                         help="Párhuzamos futások száma (default: gemini/claude 3, codex 1)")
     parser.add_argument("--block", type=str, default=None,
@@ -478,10 +477,6 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     provider = args.provider
-    if not provider:
-        print("HIBA: nincs provider megadva. Használd a --provider gemini|claude|codex")
-        print("      kapcsolót, vagy állítsd be a SUBTR_DEFAULT_PROVIDER env-változót.")
-        sys.exit(1)
     builtin = MODEL_BUILTIN[provider]
 
     # Provider-függő defaultok feloldása

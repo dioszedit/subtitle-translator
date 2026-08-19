@@ -128,7 +128,7 @@ python subtr.py split "input\Sorozat - S01E01.eng.srt"
 # Újra-splitnél (pl. más --block-size) --clean törli a régi blokkokat —
 # enélkül a parancs leáll, hogy a két generáció ne keveredjen a merge-nél
 
-# 2. Fordítás — a --provider választja ki a fordítót (nincs beégetett default)
+# 2. Fordítás — a --provider választja ki a fordítót (default: claude)
 python subtr.py translate "blocks\Sorozat - S01E01.eng" --provider claude --agents 3
 # vagy Gemini API-val (olcsóbb alternatíva, ugyanazokat a blokkokat dolgozza fel)
 # python subtr.py translate "blocks\Sorozat - S01E01.eng" --provider gemini --agents 3

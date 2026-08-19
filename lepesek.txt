@@ -52,8 +52,8 @@ py subtr.py glossary "input\Sorozat - S01E01.eng.srt"
 #     bizonytalanoknál kérdez. A meglévő regisztert nem írja felül csendben:
 #     ütközésnél megkérdez. Mentés előtt TRANSLATION.local.md.bak készül.
 
-# 2. Fordítás — a --provider választja ki a fordítót (nincs beégetett default,
-#    kötelező VAGY a SUBTR_DEFAULT_PROVIDER env dönt)
+# 2. Fordítás — a --provider választja ki a fordítót (default: claude,
+#    felülírható a SUBTR_DEFAULT_PROVIDER env-vel)
 py subtr.py translate "blocks\Sorozat - S01E01.eng" --provider claude --agents 3
 
 # ALTERNATÍVA: fordítás Gemini API-val (olcsóbb, ugyanazt a blocks/ mappát fordítja)
