@@ -1,0 +1,23 @@
+# A napi futáshoz NEM kell telepítés — a scriptek a repo gyökeréből futnak.
+# Ez a fájl a csomagosítás (pip install -e .) és a pytest konfiguráció alapja.
+
+[project]
+name = "subtitle-translator"
+version = "0.1.0"
+description = "SRT feliratfordító pipeline LLM providerekkel"
+requires-python = ">=3.10"
+dependencies = [
+    "google-genai",
+    "python-dotenv",
+    "pydantic",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["subtr"]
