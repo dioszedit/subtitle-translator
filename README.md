@@ -46,8 +46,10 @@ subtitle-translator/
 │       ├── glossary_extract.py  ← Szójegyzék bővítés
 │       └── register_extract.py  ← Regiszter kinyerés
 │
-├── srt-preclean-addon/          ← Opcionális 0. lépés: SDH-forrás előtisztítása
-│                                  (saját README a részletekhez)
+├── addons/                      ← Opcionális segédscriptek (saját READMÉ-kkel)
+│   ├── mdl-init/                ← Új sorozat: TRANSLATION.local.md MyDramaList-linkből
+│   └── srt-preclean/            ← 0. lépés: SDH-forrás előtisztítása
+
 ├── input/                       ← Ide tedd az angol SRT fájlokat
 ├── blocks/                      ← Auto-generált blokk-fájlok
 ├── output/                      ← Kész magyar fájlok + review riportok
@@ -113,9 +115,19 @@ copy .env.example .env
 
 1. A clone-olt mappát használhatod közvetlenül, vagy másolhatod egy új mappába
    sorozatonként (ha külön repóként akarsz több sorozatot vezetni).
-2. Másold a `TRANSLATION.md` „Aktuális sorozat adatai” sablonját egy új,
-   gitignore-os `TRANSLATION.local.md` fájlba, majd ott töltsd ki a sorozat
-   címét, szereplőit és a speciális kifejezéseket.
+2. Hozd létre a gitignore-os `TRANSLATION.local.md` fájlt. Ha a sorozat fent
+   van a MyDramaList-en, ezt megcsinálja helyetted az `mdl-init` add-on
+   (részletek: [`addons/mdl-init/README.md`](addons/mdl-init/README.md)):
+
+   ```powershell
+   pip install -e ".[addons]"
+   py addons\mdl-init\init_local.py https://mydramalist.com/70241-ni-ye-you-jin-tian
+   ```
+
+   Enélkül másold a `TRANSLATION.md` „Aktuális sorozat adatai” sablonját a
+   fájlba kézzel. Mindkét esetben neked kell kitöltened a magyar címet, a
+   *Megszólítási regisztert* és a speciális kifejezéseket — a scraper ezeket
+   `TODO:` sorként hagyja benne.
 3. Tedd az angol SRT fájlt az `input/` mappába.
 
 ## Használat (PowerShell)

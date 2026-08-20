@@ -7,10 +7,15 @@
 #     - backslash (\) helyett forward slash (/) az útvonalakban
 #   Pl.: python3 subtr.py split "input/Sorozat - S01E01.eng.srt"
 
-# 0. (OPCIONÁLIS) SDH-forrás előtisztítása — CSAK ha a felirat hang-/zene-
+# 0/a. ÚJ SOROZATNÁL, EGYSZER: TRANSLATION.local.md létrehozása MyDramaList-linkből
+#      Részletek: addons\mdl-init\README.md   (pip install -e ".[addons]" kell hozzá)
+# py addons\mdl-init\init_local.py https://mydramalist.com/70241-ni-ye-you-jin-tian
+# Utána töltsd ki a TODO sorokat: magyar cím + megszólítási regiszter.
+
+# 0/b. (OPCIONÁLIS) SDH-forrás előtisztítása — CSAK ha a felirat hang-/zene-
 #    jegyzeteket tartalmaz ([music playing], [sighs], NÉV: címkék stb.)
-#    Részletek: srt-preclean-addon\README.md
-# py srt-preclean-addon\preclean_srt.py "input\Sorozat - S01E01.eng.srt"
+#    Részletek: addons\srt-preclean\README.md
+# py addons\srt-preclean\preclean_srt.py "input\Sorozat - S01E01.eng.srt"
 # FONTOS: preclean után a 4. lépés ellenőrzését a .clean.srt ellen futtasd
 # (az addon töröl cue-kat és ÚJRASZÁMOZ, ezért az eredeti .eng.srt-hez
 # képest hamis hibákat jelezne), vagy használd az addon verify_preclean.py-át.

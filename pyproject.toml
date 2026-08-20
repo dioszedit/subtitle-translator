@@ -12,6 +12,14 @@ dependencies = [
     "pydantic",
 ]
 
+[project.optional-dependencies]
+# Az addons/ mappa scriptjeinek függőségei — a fordítási pipeline nem használja
+# őket, ezért nem kötelezők:  pip install -e ".[addons]"
+addons = [
+    "cloudscraper",     # mdl-init: MyDramaList Cloudflare mögött van
+    "beautifulsoup4",   # mdl-init: HTML parse
+]
+
 [project.scripts]
 subtr = "subtr.cli:main"
 
