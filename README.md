@@ -13,6 +13,11 @@ folyamat lefut és használható eredményt ad, de több ponton gyengébben — 
 ahol fontos a karakterek, megszólítások és kulturális kifejezések konzisztens
 kezelése — de a keretrendszer bármilyen videó/film/sorozat-felirathoz használható.
 
+> **AI-asszisztált projekt, MIT licenc.** A kód túlnyomó része Claude Code-dal
+> (részben Codex CLI-vel) készült, emberi irányítás és tesztelés mellett; bárki
+> szabadon használhatja. Részletek: [*Hogyan készült*](#hogyan-készült--ai-asszisztált-fejlesztés)
+> és [*Licenc*](#licenc).
+
 ## Mappaszerkezet
 
 ```
@@ -799,3 +804,46 @@ nyelvileg jó lehet, de a néző-élmény nem lesz az.
 - `resegment_srt.md` — a szegmentáló eszköz (`subtr.py resegment`) részletes leírása
 - `proposals/` — fejlesztési irányok, alternatívák, tervezési dokumentumok
   (lásd: [`proposals/README.md`](proposals/README.md))
+- `addons/` — opcionális segédscriptek (lásd: [`addons/README.md`](addons/README.md))
+- `LICENSE` — MIT licenc
+
+## Hogyan készült — AI-asszisztált fejlesztés
+
+**Ez a projekt kódjának túlnyomó része AI-asszisztensekkel készült**, emberi
+irányítás, tesztelés és jóváhagyás mellett. Ezt fontosnak tartom kiírni, mert
+befolyásolja, hogyan érdemes a kódhoz viszonyulni.
+
+- **[Claude Code](https://claude.com/claude-code)** — a fejlesztés zöme: a
+  `subtr/` csomag, a CLI, a promptok, a tesztek és ez a dokumentáció is.
+- **Codex CLI** — főleg a Codex-providerhez (`subtr/providers/codex_cli.py`)
+  kapcsolódó részek, illetve egy-egy második vélemény a review-körökben.
+
+Az AI-val írt commitok `Co-Authored-By` sorral vannak megjelölve, így a
+`git log`-ból utólag is látszik, mi hogyan készült.
+
+Amit ez a gyakorlatban jelent:
+
+- **A kód működik, de nem „iparilag auditált".** Van teszt-lefedettség
+  (`pytest`), a pipeline több sorozaton végigfutott élesben — de ez egy hobbi
+  projekt, nem egy review-boardon átment termék. Ha éles környezetben
+  használnád, olvasd át, amit futtatsz.
+- **Az API-hívások pénzbe kerülnek.** A fordítás és a review a te kulcsoddal,
+  a te kvótádból fut. A `subtr.py quota` parancs segít nyomon követni.
+- **A fordítás maga is LLM-kimenet**, tehát hibázhat. A README *Utómunka* és
+  *Tippek* szakaszai pont arról szólnak, hogy ezt hogyan kapd el — a kézi
+  lektorálási kör nem opcionális dísz, hanem a folyamat része.
+
+## Licenc
+
+[MIT](LICENSE) — Copyright (c) 2026 Diószegi Edit (dioszedit).
+
+Röviden: **bárki szabadon használhatja, módosíthatja és továbbadhatja**, akár
+kereskedelmi célra is; az egyetlen feltétel, hogy a szerzői jogi megjegyzés és
+a licenc szövege maradjon meg a másolatokban. Garancia nincs — a szoftver
+„ahogy van" állapotban használható.
+
+Ez a licenc **a keretrendszer kódjára** vonatkozik. Amit a segítségével
+fordítasz — feliratfájlok, sorozat-adatok, glossary-tartalom — nem tartozik
+ide: azok jogi helyzetéért (szerzői jog, terjesztés) a felhasználó felel. A
+`.gitignore` szándékosan kizárja az `input/`, `output/` és `blocks/` mappák
+tartalmát, hogy ilyesmi ne kerüljön véletlenül a repóba.

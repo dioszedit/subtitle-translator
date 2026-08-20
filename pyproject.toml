@@ -5,7 +5,11 @@
 name = "subtitle-translator"
 version = "2.0.0"
 description = "SRT feliratfordító pipeline LLM providerekkel"
+readme = "README.md"
 requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Diószegi Edit" }]
 dependencies = [
     "google-genai",
     "python-dotenv",
@@ -27,7 +31,7 @@ subtr = "subtr.cli:main"
 testpaths = ["tests"]
 
 [build-system]
-requires = ["setuptools>=61"]
+requires = ["setuptools>=77"]   # a PEP 639-es license = "MIT" mezőhöz
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
