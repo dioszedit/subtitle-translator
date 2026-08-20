@@ -96,15 +96,22 @@ def extract_synopsis(soup: BeautifulSoup) -> str:
     for el in synopsis_div.select("ul.mdl-synopsis-languages, a"):
         el.decompose()
 
-    # Get text from the first/outermost span (it contains the full synopsis)
+    # Get text from the first/outermost span (it contains the full synopsis).
+    # strip=True NEM használható: a MyDramaList a "read more" határán belső
+    # <span>-t nyit, és a szegmensenkénti strip elnyelné a határon álló
+    # szóközt ("...her direct superiorat the office"). Ezért a nyers
+    # szöveget kérjük, és csak a sorokon belüli szóköz-sorozatokat vonjuk
+    # össze — a bekezdéshatárokat (\n\n) megtartva.
     span = synopsis_div.select_one("span")
-    if span:
-        text = span.get_text(strip=True)
-    else:
-        text = synopsis_div.get_text(strip=True)
+    text = (span or synopsis_div).get_text()
 
-    text = re.sub(r"Edit\s*Translation\s*", "", text).strip()
-    return text
+    text = re.sub(r"Edit\s*Translation\s*", "", text)
+    text = re.sub(r"[ \t]+", " ", text)
+    # Bekezdéshatár CSAK az üres sor. A mondat közepén álló egyetlen újsor a
+    # HTML forrás tördeléséből jön, nem a szövegből — az szóköz.
+    paragraphs = re.split(r"\n\s*\n", text)
+    paragraphs = [" ".join(p.split()) for p in paragraphs]
+    return "\n\n".join(p for p in paragraphs if p).strip()
 
 
 def extract_cast(soup: BeautifulSoup) -> list[tuple[str, str, str]]:

@@ -15,6 +15,9 @@ _spec = importlib.util.spec_from_file_location("mdl_init_local", ADDON_DIR / "in
 init_local = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(init_local)
 
+import mdl_scrape  # noqa: E402
+from bs4 import BeautifulSoup  # noqa: E402
+
 
 SAMPLE = {
     "title": "My Boss (2024)",
@@ -86,6 +89,23 @@ def test_regiszter_nem_talal_ki_viszonyt():
     regiszter = doc.split("Megszólítási regiszter")[1]
     assert "TODO: Qian Heng → Cheng Yao: MAGÁZ | TEGEZ" in regiszter
     assert "alapértelmezés idegenekkel: MAGÁZ" in regiszter
+
+
+def test_szinopszis_read_more_hataran_nem_vesz_el_a_szokoz():
+    """A MyDramaList a "read more" határán <span>-t nyit — a szegmensenkénti
+    strip elnyelné a határon álló szóközt ("...superiorat the office")."""
+    html = """
+    <div class="show-synopsis">
+      <span>Első bekezdés vége itt.
+
+Qian Heng turns out to be her direct superior<span class="read-more-hidden"> at
+the office, and he is hard to please.</span></span>
+    </div>
+    """
+    text = mdl_scrape.extract_synopsis(BeautifulSoup(html, "html.parser"))
+    assert "direct superior at the office" in text
+    assert "superiorat" not in text
+    assert "\n\n" in text, "a bekezdéshatárnak meg kell maradnia"
 
 
 def test_ures_cast_eseten_todo():
