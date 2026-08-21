@@ -27,6 +27,7 @@ def run_codex_json(prompt: str, schema: dict, *, timeout: int,
 
         cmd = [
             codex_bin, "exec", "--ephemeral", "--sandbox", "read-only",
+            "--skip-git-repo-check",
             "--output-schema", str(schema_path),
             "--output-last-message", str(response_path),
         ]
