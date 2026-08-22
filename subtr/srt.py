@@ -99,14 +99,20 @@ def write_srt(filepath: str, sections: list[dict]):
         f.write("\n\n".join(out) + "\n")
 
 
+def count_sections_text(content: str) -> int:
+    """Mint count_sections(), csak már beolvasott szövegen — így a javítási
+    kísérlet eredményét fájlba írás ELŐTT is ellenőrizhetjük."""
+    lines = content.split("\n")
+    return sum(1 for i, line in enumerate(lines)
+               if re.match(r"^\d+$", line.strip())
+               and i + 1 < len(lines) and "-->" in lines[i + 1])
+
+
 def count_sections(filepath: str) -> int:
     """Strukturális számlálás: csak az a csupa-számjegy sor számít szekciónak,
     amit időbélyeg-sor követ. Így a csak számot tartalmazó felirat-SZÖVEG
     (pl. visszaszámlálás: "3") nem torzítja az ellenőrzést."""
     try:
-        lines = read_text(filepath).split("\n")
-        return sum(1 for i, line in enumerate(lines)
-                   if re.match(r"^\d+$", line.strip())
-                   and i + 1 < len(lines) and "-->" in lines[i + 1])
+        return count_sections_text(read_text(filepath))
     except Exception:
         return 0

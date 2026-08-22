@@ -121,6 +121,58 @@ def extract_json(raw: str):
     return None
 
 
+READ_PREFIX_RE = re.compile(r"^(\d+)\t(.*)$")
+
+
+def strip_read_line_numbers(content: str) -> str | None:
+    """A Read tool sorszám-prefixeinek eltávolítása az agent által ÍRT fájlból.
+
+    A Claude Code Read toolja `sorszám<TAB>tartalom` alakban mutatja a fájlt
+    (mint a `cat -n`). Az agent időnként ezt a megjelenítési formát másolja
+    tovább a Write-ba, így a kimeneti SRT minden sora sorszámozott lesz:
+
+        1\t1
+        2\t00:00:12,530 --> 00:00:20,580
+        3\t♪Az őskáoszból a csillagos égig♪
+        4                     <- az üres sor csak a sorszámot kapja
+        5\t2
+
+    A fordítás ilyenkor jó, csak a szerializálás romlott el — ez a függvény
+    visszaállítja az eredeti szöveget. Többsoros felirat folytatássora nem kap
+    sorszámot, azt változatlanul átvesszük.
+
+    Visszatérés: a megtisztított szöveg, vagy None, ha a tartalom nem ilyen
+    alakú (nincs egyetlen `szám<TAB>` prefixű sor sem) — a hívó ilyenkor a
+    szokásos hibaágon megy tovább.
+    """
+    lines = content.split("\n")
+    trailing_newline = bool(lines) and lines[-1] == ""
+    if trailing_newline:
+        lines = lines[:-1]
+
+    out = []
+    expected = 1
+    seen_prefix = False
+    for line in lines:
+        m = READ_PREFIX_RE.match(line)
+        if m and int(m.group(1)) == expected:
+            out.append(m.group(2))
+            expected += 1
+            seen_prefix = True
+        elif seen_prefix and line.isdigit() and int(line) == expected:
+            # csak a sorszámot tartalmazó sor = eredetileg üres sor. Ezt CSAK
+            # akkor értelmezzük így, ha már láttunk valódi prefixet — különben
+            # egy ép SRT első sorát ("1") is kitörölnénk.
+            out.append("")
+            expected += 1
+        else:
+            out.append(line)
+
+    if not seen_prefix:
+        return None
+    return "\n".join(out) + ("\n" if trailing_newline else "")
+
+
 def write_sys_prompt_file(content: str, prefix: str) -> str:
     """Sys prompt mentése tartalom-hash alapú névvel — két párhuzamos futás
     azonos tartalommal ugyanazt a fájlt használja, eltérővel külön fájlt.

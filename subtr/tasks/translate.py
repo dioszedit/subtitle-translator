@@ -36,7 +36,7 @@ from subtr.glossary import as_prompt_text
 from subtr.providers import claude_cli
 from subtr.providers import codex_cli
 from subtr.providers import gemini as gemini_provider
-from subtr.srt import count_sections, parse_sections, write_srt
+from subtr.srt import count_sections, count_sections_text, parse_sections, read_text, write_srt
 
 TEMPERATURE = 0.3
 MAX_RETRIES = 4
@@ -165,6 +165,10 @@ beszélt magyar nyelvre. NEM tükörfordítasz.
 - Karakterneveket NE fordítsd le.
 - Az output PONTOSAN ugyanannyi szekciót tartalmazzon, mint az input.
 - Csak a kért output fájlt írd ki — semmi extra magyarázat, semmi visszajelzés.
+- A Read tool `sorszám<TAB>tartalom` alakban MUTATJA a fájlt (mint a `cat -n`).
+  Ez csak megjelenítés, NEM a fájl tartalma! A kiírt fájlba SOHA ne kerüljön
+  sorszám-prefix és tabulátor a sorok elejére — az első sor pontosan az SRT
+  szekciószám legyen (`1`), nem `1<TAB>1`.
 - Tegezés/magázás: kövesd a sorozatkontextus Megszólítási regiszterét; ha nincs
   rá adat és a forrás jeleiből sem egyértelmű, fogalmazz úgy, hogy ne kelljen
   választani. Ne találj ki viszonyt.
@@ -423,6 +427,18 @@ def _make_claude_translator(claude_bin, sys_prompt_path, model, timeout, max_tur
         if os.path.isfile(output_path) and os.path.getsize(output_path) > 0:
             in_count = count_sections(block_path)
             out_count = count_sections(output_path)
+            # Ismert agent-hiba: a Read tool `sorszám<TAB>tartalom` megjelenítési
+            # formája átszivárog a kiírt fájlba, így egyetlen szekciófej sem
+            # ismerhető fel (out_count == 0), pedig a fordítás maga jó. A prefix
+            # eltávolítható; az alábbi szigorú sorszám/időbélyeg-ellenőrzés
+            # dönti el, hogy a helyreállított fájl valóban ép-e.
+            if out_count == 0:
+                repaired = claude_cli.strip_read_line_numbers(read_text(output_path))
+                if repaired is not None and count_sections_text(repaired) == in_count:
+                    with open(output_path, "w", encoding="utf-8") as f:
+                        f.write(repaired)
+                    out_count = in_count
+                    result["repaired"] = True
             # A count_sections strukturális (szám + időbélyeg-sor pár), ezért nem
             # veszi észre, ha az agent SAJÁT számozást szúr be az igazi elé (az
             # eredeti sorszám a 2. sorba csúszik, és a scanner azt találja meg).
@@ -448,6 +464,8 @@ def _make_claude_translator(claude_bin, sys_prompt_path, model, timeout, max_tur
                     return result
                 result["status"] = "ok"
                 result["message"] = f"{out_count} szekció"
+                if result.get("repaired"):
+                    result["message"] += " (Read-sorszámprefix eltávolítva)"
             else:
                 # A hibás outputot töröljük, különben a resume késznek látná,
                 # és a szekció-eltérés csendben végleges állapottá válna.
