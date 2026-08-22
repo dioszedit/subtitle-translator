@@ -100,12 +100,23 @@ következik automatikusan a tegezés.
 
 ### Címkártya
 
-Sorozatcím címkártyán mindig két sorban szerepeljen:
+A sorozatcím címkártyáján **két külön szögletes zárójel** áll, két sorban: fölül a
+magyar cím, alatta az eredeti (forrásfelirat szerinti) cím változatlanul. Az eredeti
+címet soha ne hagyd el, és ne fordítsd le.
 
-```
-[Magyar cím]
-[Original Title]
-```
+A zárójel itt a kártya jelölése, nem helykitöltő — mindkét sor a saját zárójelét kapja.
+Ha a forrásban a kártya egyetlen sor, a magyar akkor is kétsoros lesz:
+
+Példa (a magyar cím a `Hungarian title` mezőből jön, az eredeti a forráskártyáról):
+
+| Forráskártya | Helyes magyar | Hibás |
+|---|---|---|
+| `[Spring Breeze]` | `[Tavaszi szél]`<br>`[Spring Breeze]` | `[Tavaszi szél`<br>`Spring Breeze]` — egyetlen zárójelpár |
+| `[Spring Breeze]` | ugyanaz | `[Tavaszi szél]` — hiányzik az eredeti cím |
+
+Ez csak a **sorozatcím** kártyájára vonatkozik. Minden más szögletes zárójeles kártya
+(helyszín, névtábla, fejezetcím, felirat a képen) marad egy zárójelpár, és a 4. szabály
+szerint lefordítandó: `[Jade Peak]` → `[Jáde-csúcs]`, nem kétsoros.
 
 ### Gyakori hibák
 
