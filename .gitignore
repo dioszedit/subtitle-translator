@@ -15,6 +15,9 @@ dist/
 # Claude Code local settings (user-specifikus permissions)
 .claude/settings.local.json
 
+# Futási napló (translate) — projekt-specifikus, nem verziózzuk
+.translate.log*
+
 # Auto-generated system prompt files
 .translate_sys_prompt_*.txt
 .review_claude_sys_prompt_*.txt

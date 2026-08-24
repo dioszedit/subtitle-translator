@@ -25,6 +25,7 @@ import hashlib
 import os
 import subprocess
 import sys
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -44,6 +45,90 @@ MODEL_BUILTIN = {"gemini": "gemini-3.6-flash", "claude": "sonnet", "codex": None
 
 CLAUDE_SYS_PROMPT_PREFIX = ".translate_sys_prompt_"
 CLAUDE_SYS_PROMPT_MAX_AGE_DAYS = 1  # ennél régebbi sys prompt fájlokat takarítjuk
+
+# Futási napló. A konzol-kimenet elszáll a scrollbackkel, a hibák oka viszont
+# (megtagadás, timeout, szekció-eltérés) csak utólag derül ki — ezért minden
+# blokk-eredmény ide is bekerül, a `detail` mezővel együtt, ami a konzolra
+# hosszú lenne. A fájl a projekt gyökerében él (mint a sys prompt fájlok).
+TRANSLATE_LOG = ".translate.log"
+TRANSLATE_LOG_MAX_BYTES = 2 * 1024 * 1024  # e fölött .1-re forgatjuk
+LOG_DETAIL_MAX_CHARS = 4000  # a teljes agent-válasz nyers hossza korlátozva
+
+_log_lock = threading.Lock()
+
+
+def log_path() -> str:
+    return os.path.abspath(TRANSLATE_LOG)
+
+
+def rotate_log():
+    """Túl nagy napló forgatása — best-effort, hiba esetén némán tovább."""
+    try:
+        path = log_path()
+        if os.path.isfile(path) and os.path.getsize(path) > TRANSLATE_LOG_MAX_BYTES:
+            os.replace(path, path + ".1")
+    except Exception:
+        pass
+
+
+def log(text: str, detail: str = ""):
+    """Egy bejegyzés a futási naplóba (időbélyeggel). Sosem dob kivételt:
+    a naplózás nem buktathatja el a fordítást."""
+    try:
+        stamp = time.strftime("%Y-%m-%d %H:%M:%S")
+        lines = [f"{stamp} {text}"]
+        if detail:
+            snippet = detail.strip()[:LOG_DETAIL_MAX_CHARS]
+            lines += [f"    | {l}" for l in snippet.splitlines() if l.strip()]
+        with _log_lock:
+            with open(log_path(), "a", encoding="utf-8") as f:
+                f.write("\n".join(lines) + "\n")
+    except Exception:
+        pass
+
+# Részleges megtagadás nyoma: az agent szerkezetileg ÉP fájlt ír (jó szekciószám,
+# jó sorszám/időbélyeg), de egyes cue-k tartalmát placeholderre cseréli. A
+# szerkezeti ellenőrzés ezt nem fogja meg, ezért külön nézzük — enélkül a hiányos
+# fordítás "ok" státusszal menne tovább a merge-be.
+PLACEHOLDER_MARKERS = ("[DAL]", "[SONG]", "[LYRICS]", "[NEM FORDITHATO]",
+                       "[NEM FORDÍTHATÓ]", "[NOT TRANSLATED]", "[UNTRANSLATED]",
+                       "[TODO]", "[...]")
+
+
+def find_placeholder_sections(output_path: str) -> list[str]:
+    """Placeholder-re cserélt vagy üres szövegű cue-k sorszámai."""
+    try:
+        sections = parse_sections(output_path)
+    except Exception:
+        return []
+    hits = []
+    for section in sections:
+        text = (section.get("text") or "").strip()
+        upper = text.upper()
+        if not text or any(marker in upper for marker in PLACEHOLDER_MARKERS):
+            hits.append(section["num"])
+    return hits
+
+
+def placeholder_warning(output_path: str) -> str | None:
+    """Warning-üzenet, ha az output placeholder/üres cue-kat tartalmaz (különben None)."""
+    hits = find_placeholder_sections(output_path)
+    if not hits:
+        return None
+    preview = ", ".join(str(n) for n in hits[:5])
+    if len(hits) > 5:
+        preview += ", ..."
+    return (f"Placeholder/üres cue: {len(hits)} db ({preview}) — részleges "
+            f"megtagadás gyanúja, output törölve, újrafutáskor újrafordítjuk")
+
+
+def placeholder_detail(output_path: str) -> str:
+    """A naplóba: az ÖSSZES érintett cue sorszáma (a message csak 5-öt mutat)."""
+    hits = find_placeholder_sections(output_path)
+    if not hits:
+        return ""
+    return "érintett cue-k: " + ", ".join(str(n) for n in hits)
+
 
 # Codex strict séma
 CODEX_TRANSLATION_SCHEMA = {
@@ -309,6 +394,13 @@ def _make_gemini_translator(client, model, system_instruction, max_retries):
 
         out_count = count_sections(output_path)
         if in_count == out_count:
+            stub = placeholder_warning(output_path)
+            if stub:
+                result["status"] = "warning"
+                result["message"] = stub
+                result["detail"] = placeholder_detail(output_path)
+                safe_remove(output_path)
+                return result
             result["status"] = "ok"
             result["message"] = f"{out_count} szekció"
         else:
@@ -369,6 +461,12 @@ def _make_codex_translator(codex_bin, model, instruction, timeout, retries):
             safe_remove(output_path)
             return {"block": name, "status": "warning",
                     "message": "Szekciószám eltérés — output törölve"}
+        stub = placeholder_warning(output_path)
+        if stub:
+            detail = placeholder_detail(output_path)
+            safe_remove(output_path)
+            return {"block": name, "status": "warning", "message": stub,
+                    "detail": detail}
         return {"block": name, "status": "ok", "message": f"{len(sections)} szekció"}
     return translate_block
 
@@ -394,6 +492,7 @@ def _make_claude_translator(claude_bin, sys_prompt_path, model, timeout, max_tur
             "--max-turns", str(max_turns),
         ]
 
+        stdout = stderr = ""
         try:
             proc = subprocess.Popen(
                 cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -412,6 +511,7 @@ def _make_claude_translator(claude_bin, sys_prompt_path, model, timeout, max_tur
                 combined = ((stderr or "") + "\n" + (stdout or "")).strip().splitlines()
                 tail = [l for l in combined if l.strip()][-3:]
                 result["message"] = f"Claude Code hiba (exit {proc.returncode}): {' | '.join(tail)}"
+                result["detail"] = ((stderr or "") + "\n" + (stdout or "")).strip()
                 safe_remove(output_path)
                 return result
         except FileNotFoundError:
@@ -462,6 +562,14 @@ def _make_claude_translator(claude_bin, sys_prompt_path, model, timeout, max_tur
                                          "újrafutáskor újrafordítjuk")
                     safe_remove(output_path)
                     return result
+                stub = placeholder_warning(output_path)
+                if stub:
+                    result["status"] = "warning"
+                    result["message"] = stub
+                    result["detail"] = (placeholder_detail(output_path)
+                                        + "\n--- agent válasza ---\n" + (stdout or ""))
+                    safe_remove(output_path)
+                    return result
                 result["status"] = "ok"
                 result["message"] = f"{out_count} szekció"
                 if result.get("repaired"):
@@ -475,8 +583,19 @@ def _make_claude_translator(claude_bin, sys_prompt_path, model, timeout, max_tur
                                      f"újrafutáskor újrafordítjuk")
                 safe_remove(output_path)
         else:
+            # Az agent 0-s exit kóddal is kiléphet anélkül, hogy fájlt írna
+            # (pl. ha megtagadja a feladatot). A stdout ilyenkor az EGYETLEN
+            # nyom az okról — enélkül a "hiányzó output" félrevezető.
             result["status"] = "fail"
-            result["message"] = "Üres vagy hiányzó output"
+            reply = [l for l in (stdout or "").strip().splitlines() if l.strip()]
+            if reply:
+                tail = " | ".join(reply[-3:])
+                if len(tail) > 500:
+                    tail = tail[:500] + "..."
+                result["message"] = f"Üres vagy hiányzó output — az agent válasza: {tail}"
+                result["detail"] = stdout or ""
+            else:
+                result["message"] = "Üres vagy hiányzó output (az agent nem válaszolt)"
             safe_remove(output_path)
 
         return result
@@ -668,6 +787,11 @@ def main(argv=None):
         print(f"  - {os.path.basename(p)}")
     print()
 
+    rotate_log()
+    log(f"=== RUN START — provider={provider} model={model or 'default'} "
+        f"agents={args.agents} blocks_dir={os.path.abspath(args.blocks_dir)} "
+        f"pending={len(pending)}/{total}")
+
     if provider == "gemini":
         translator = _make_gemini_translator(client, model, instruction, args.max_retries)
     elif provider == "claude":
@@ -689,6 +813,8 @@ def main(argv=None):
             results.append(result)
             status_icon = {"ok": "✓", "warning": "⚠", "fail": "✗"}.get(result["status"], "?")
             print(f"  [{status_icon}] {result['block']} — {result['message']}")
+            log(f"[{result['status'].upper()}] {result['block']} — {result['message']}",
+                detail=result.get("detail", ""))
 
     ok_count = sum(1 for r in results if r["status"] == "ok")
     warn_count = sum(1 for r in results if r["status"] == "warning")
@@ -705,7 +831,10 @@ def main(argv=None):
         print(f"  Sikertelen: {fail_count}")
     if warn_count or fail_count:
         print(f"\n  A sikertelen/eltérő blokkok újrafordításához futtasd újra ezt a scriptet.")
+        print(f"  Részletes indoklás (agent-válasz is): {TRANSLATE_LOG}")
     print("=" * 50)
+
+    log(f"=== RUN END — ok={ok_count} warning={warn_count} fail={fail_count}")
 
     # A codex-út kontraktusa: hibás blokk esetén nem-nulla exit kód
     if provider == "codex" and (warn_count or fail_count):
