@@ -8,6 +8,9 @@ Mit csinál?
   megírja a projekt gyökerében a `TRANSLATION.local.md` fájlt — abban a
   formában, amit a `TRANSLATION.md` "Aktuális sorozat adatai" szakasza vár.
 
+  Ezen felül felveszi a sorozat címeit a `glossary.json`-ba, hogy a fordító
+  később ne próbálkozzon a lefordításukkal (`--no-glossary` kikapcsolja).
+
   Amit a script NEM tud kitölteni, azt `TODO:` jelöléssel hagyja benne:
     - a magyar cím (LLM-mel vagy kézzel fordítandó, vagy add meg: --hu-title)
     - a megszólítási regiszter (nézés/olvasás alapján, kézzel)
@@ -27,6 +30,7 @@ Függőségek: cloudscraper, beautifulsoup4  →  pip install -e ".[addons]"
 """
 
 import argparse
+import json
 import re
 import shutil
 import sys
@@ -40,10 +44,132 @@ from mdl_scrape import scrape  # noqa: E402
 # A repo gyökere: addons/mdl-init/ két szinttel lejjebb van
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_OUT = REPO_ROOT / "TRANSLATION.local.md"
+DEFAULT_GLOSSARY = REPO_ROOT / "glossary.json"
+
+# A glossary.json kategóriái — a subtr csomagból, hogy egy helyen legyenek.
+# Az add-on önállóan is futtatható, ezért van fallback.
+try:
+    sys.path.insert(0, str(REPO_ROOT))
+    from subtr.glossary import CATEGORIES  # noqa: E402
+except ImportError:  # pragma: no cover
+    CATEGORIES = ["honorifics", "place_names", "character_names",
+                  "special_terms", "phrases"]
 
 # A szinopszis végén álló forrás-/adaptációs lábjegyzetek — a fordítási
 # kontextushoz nem adnak semmit, viszont zajt visznek a promptba.
 SOURCE_NOTE_RE = re.compile(r"^\s*(\(Source:.*?\)|~~.*)\s*$", re.IGNORECASE)
+
+
+# ── Glossary-magok ──────────────────────────────────────────────────────────
+#
+# Miért ide: a `glossary.json` a fordítónak KÖTELEZŐ, ezért a legbiztosabb hely
+# annak rögzítésére, hogy egy nevet/címet nem szabad lefordítani. Enélkül a
+# fordító epizódonként másképp dönt — a The Early Spring (2026)-nál a négy rész
+# adaptációs kártyáján négyféle cím szerepelt, kettőben lefordítva.
+
+TITLE_CONTEXT = (
+    "a SOROZAT eredeti címe — párbeszédben és képernyőfeliraton NEM fordítjuk. "
+    "KIVÉTEL a sorozatcím-kártyája: ott a TRANSLATION.md „Címkártya” szabálya "
+    "érvényes (fölül a magyar cím, alatta változatlanul az eredeti)."
+)
+SOURCE_WORK_CONTEXT = (
+    "a FORRÁSMŰ címe, amiből a sorozat készült — NEM fordítjuk. Az adaptációs "
+    "kártyán („Adapted from…”) is ez az alak szerepeljen, minden epizódban "
+    "azonosan. A sorozat magyar címe ettől FÜGGETLEN."
+)
+
+# Az MDL-szinopszis végén álló adaptációs lábjegyzet:
+#   ~~ Adapted from the web novel "Zao Chun Qing Lang" (早春晴朗) by Gu Niang Bie Ku
+ADAPTED_RE = re.compile(
+    r"adapted from(?: the)?[^\"“”]*[\"“”](?P<work>[^\"“”]+)[\"“”]"
+    r"(?:\s*\((?P<native>[^)]+)\))?"
+    r"(?:\s*by\s+(?P<author>[^(.]+?)\s*(?:\(|\.|$))?",
+    re.IGNORECASE,
+)
+
+
+def parse_adapted_from(synopsis: str) -> dict:
+    """A szinopszis adaptációs lábjegyzetéből a forrásmű címe és szerzője.
+
+    A `clean_synopsis` ezt a sort eldobja (jogosan: a fordítási döntésekhez nem
+    ad semmit), de a CÍME igenis kell — az adaptációs kártyán megjelenik.
+    """
+    m = ADAPTED_RE.search(synopsis or "")
+    if not m:
+        return {}
+    out = {"work": (m.group("work") or "").strip()}
+    for key in ("native", "author"):
+        val = (m.group(key) or "").strip()
+        if val:
+            out[key] = val
+    return out
+
+
+def build_glossary_seed(data: dict, hu_title: str) -> list[dict]:
+    """A glossary.json-ba felvehető bejegyzések: sorozatcímek + forrásmű címe.
+
+    Szereplőneveket SZÁNDÉKOSAN nem vesz fel: a MyDramaList írásmódja gyakran
+    eltér a feliratétól („Shang Zhi Tao” vs. a feliratbeli „Shang Zhitao”), és
+    egy kötelező szójegyzékbe rossz alakot tenni rosszabb, mint nem tenni bele
+    semmit. A neveket a `subtr.py glossary` szedi ki magából a feliratból.
+    """
+    hu_note = ""
+    if hu_title and not hu_title.startswith("TODO"):
+        hu_note = f" A sorozat magyar címe: „{hu_title}”."
+
+    seen, out = set(), []
+
+    def add(en, context):
+        key = (en or "").strip()
+        if not key or key == "N/A" or key.lower() in seen:
+            return
+        seen.add(key.lower())
+        out.append({"en": key, "hu": key,
+                    "category": "special_terms", "context": context})
+
+    add(data.get("title"), TITLE_CONTEXT + hu_note)
+    add(data.get("native_title"), TITLE_CONTEXT + hu_note)
+
+    src = parse_adapted_from(data.get("synopsis", ""))
+    if src.get("work"):
+        note = SOURCE_WORK_CONTEXT
+        if src.get("author"):
+            note += f" Szerző: {src['author']}."
+        add(src["work"], note)
+        add(src.get("native"), note)
+    return out
+
+
+def write_glossary_seed(entries: list[dict], path: Path) -> list[dict]:
+    """A magok beírása a glossary.json-ba. Meglévő „en” kulcsot NEM ír felül.
+
+    Visszaadja a ténylegesen hozzáadott bejegyzéseket.
+    """
+    if path.exists() and path.read_text(encoding="utf-8").strip():
+        data = json.loads(path.read_text(encoding="utf-8"))
+    else:
+        data = {"meta": {"description": "Fordítási szójegyzék — kézzel validált kifejezések",
+                         "series": ""},
+                **{cat: [] for cat in CATEGORIES}}
+
+    existing = {e.get("en", "").lower()
+                for cat in CATEGORIES for e in data.get(cat, [])}
+    added = []
+    for entry in entries:
+        if entry["en"].lower() in existing:
+            continue
+        data.setdefault(entry["category"], []).append(
+            {"en": entry["en"], "hu": entry["hu"], "context": entry["context"]})
+        existing.add(entry["en"].lower())
+        added.append(entry)
+
+    if not added:
+        return []
+    if path.exists():
+        shutil.copy2(path, path.with_suffix(path.suffix + ".bak"))
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n",
+                    encoding="utf-8")
+    return added
 
 
 def clean_synopsis(text: str) -> str:
@@ -137,6 +263,10 @@ def main():
     parser.add_argument("--stdout", action="store_true", help="Csak kiírja, nem ír fájlt")
     parser.add_argument("--max-cast", type=int, default=12, help="Legfeljebb ennyi szereplő (alap: 12)")
     parser.add_argument("--include-guests", action="store_true", help="Vendégszereplők is kerüljenek bele")
+    parser.add_argument("--glossary", type=Path, default=DEFAULT_GLOSSARY,
+                        help=f"Szójegyzék útvonala (alap: {DEFAULT_GLOSSARY.name})")
+    parser.add_argument("--no-glossary", action="store_true",
+                        help="Ne vegye fel a sorozat- és forrásmű-címeket a szójegyzékbe")
     args = parser.parse_args()
 
     if "mydramalist.com" not in args.url:
@@ -163,9 +293,15 @@ def main():
         args.include_guests,
     )
 
+    seed = build_glossary_seed(data, args.hu_title)
+
     if args.stdout:
         print()
         print(doc)
+        if seed:
+            print("\n# A szójegyzékbe kerülne (--stdout miatt most nem):")
+            for e in seed:
+                print(f'#   "{e["en"]}" = "{e["hu"]}"')
         return
 
     if args.out.exists():
@@ -175,6 +311,16 @@ def main():
 
     args.out.write_text(doc, encoding="utf-8")
     print(f"Kész: {args.out}")
+
+    if not args.no_glossary:
+        added = write_glossary_seed(seed, args.glossary)
+        if added:
+            print(f"\nSzójegyzék bővítve ({args.glossary.name}) — {len(added)} cím,")
+            print("hogy a fordító ne próbálkozzon a lefordításukkal:")
+            for e in added:
+                print(f'  "{e["en"]}"')
+        elif seed:
+            print(f"\nSzójegyzék: a címek már benne vannak ({args.glossary.name}).")
 
     todos = [
         ln for ln in doc.splitlines()

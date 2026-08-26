@@ -112,3 +112,118 @@ def test_ures_cast_eseten_todo():
     adat = dict(SAMPLE, cast=[])
     doc = init_local.build_document(adat, "x", "u", 12, False)
     assert "TODO: szereplők" in doc
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# Glossary-magok: a sorozat- és forrásmű-címek felvétele
+# ────────────────────────────────────────────────────────────────────────────
+
+ADAPTED_NOTE = (
+    'Egy sima szinopszis. (Source: MyDramaList) ~~ Adapted from the web novel '
+    '"Zao Chun Qing Lang" (早春晴朗) by Gu Niang Bie Ku (姑娘别哭).'
+)
+
+
+@pytest.mark.parametrize("text,expected", [
+    (ADAPTED_NOTE, {"work": "Zao Chun Qing Lang", "native": "早春晴朗",
+                    "author": "Gu Niang Bie Ku"}),
+    ('~~ Adapted from the novel "Spring Breeze" by Someone.',
+     {"work": "Spring Breeze", "author": "Someone"}),
+    ('~~ Adapted from the web novel "No Author Here".', {"work": "No Author Here"}),
+    ("Semmi adaptációs lábjegyzet.", {}),
+    ("", {}),
+])
+def test_adaptacios_labjegyzet_kiolvasasa(text, expected):
+    assert init_local.parse_adapted_from(text) == expected
+
+
+def _seed(title="The Early Spring", native="早春晴朗", synopsis=ADAPTED_NOTE,
+          hu="Derűs kora tavasz"):
+    return init_local.build_glossary_seed(
+        {"title": title, "native_title": native, "synopsis": synopsis}, hu)
+
+
+def test_seed_felveszi_a_sorozat_es_forrasmu_cimet():
+    ens = [e["en"] for e in _seed()]
+    assert ens == ["The Early Spring", "早春晴朗", "Zao Chun Qing Lang"]
+    # a forrásmű natív címe itt AZONOS a sorozatéval — ne kerüljön be kétszer
+    assert len(ens) == len(set(ens))
+
+
+def test_seed_en_es_hu_azonos_es_special_term():
+    for e in _seed():
+        assert e["en"] == e["hu"], "a címet nem fordítjuk"
+        assert e["category"] == "special_terms"
+
+
+def test_seed_context_kimondja_a_cimkartya_kivetelt():
+    """A glossary a fordítónak KÖTELEZŐ, ezért ha csak annyi állna benne, hogy
+    a címet nem fordítjuk, a modell a sorozatcím-kártyáról is lehagyná a magyar
+    címet. A context ezért nevezi meg a kivételt."""
+    series = _seed()[0]
+    assert "Címkártya" in series["context"]
+    assert "Derűs kora tavasz" in series["context"]
+
+
+def test_seed_todo_magyar_cimet_nem_hivatkozza():
+    assert "TODO" not in _seed(hu="TODO: magyar cím")[0]["context"]
+    assert "TODO" not in _seed(hu="")[0]["context"]
+
+
+def test_seed_kihagyja_az_na_es_ures_cimeket():
+    assert [e["en"] for e in _seed(native="N/A", synopsis="")] == ["The Early Spring"]
+    assert [e["en"] for e in _seed(native="", synopsis="")] == ["The Early Spring"]
+
+
+def test_seed_nem_vesz_fel_szereploneveket():
+    """A MyDramaList írásmódja gyakran eltér a feliratétól (»Shang Zhi Tao« vs.
+    »Shang Zhitao«) — rossz alak egy kötelező szójegyzékben rosszabb a hiánynál."""
+    entries = init_local.build_glossary_seed(
+        {"title": "X", "native_title": "", "synopsis": "",
+         "cast": [("Sun Qian", "Shang Zhi Tao", "Main Role")]}, "")
+    assert all("Shang" not in e["en"] for e in entries)
+
+
+def test_write_seed_uj_fajlt_hoz_letre_sema_szerint(tmp_path):
+    p = tmp_path / "glossary.json"
+    added = init_local.write_glossary_seed(_seed(), p)
+    assert [e["en"] for e in added] == ["The Early Spring", "早春晴朗", "Zao Chun Qing Lang"]
+    import json
+    data = json.loads(p.read_text(encoding="utf-8"))
+    assert "meta" in data
+    for cat in init_local.CATEGORIES:
+        assert cat in data
+    assert len(data["special_terms"]) == 3
+
+
+def test_write_seed_idempotens_es_nem_ir_felul(tmp_path):
+    p = tmp_path / "glossary.json"
+    init_local.write_glossary_seed(_seed(), p)
+    assert init_local.write_glossary_seed(_seed(), p) == []
+
+
+def test_write_seed_megorzi_a_meglevo_bejegyzeseket_es_bak_ot_ir(tmp_path):
+    import json
+    p = tmp_path / "glossary.json"
+    p.write_text(json.dumps({
+        "meta": {"series": "X"},
+        "special_terms": [{"en": "The Early Spring", "hu": "KÉZI ALAK", "context": "ne írd felül"}],
+        "character_names": [{"en": "Luke", "hu": "Luke", "context": ""}],
+    }, ensure_ascii=False), encoding="utf-8")
+
+    added = init_local.write_glossary_seed(_seed(), p)
+    assert "The Early Spring" not in [e["en"] for e in added], "meglévő en-t nem írunk felül"
+
+    data = json.loads(p.read_text(encoding="utf-8"))
+    kept = [e for e in data["special_terms"] if e["en"] == "The Early Spring"]
+    assert kept[0]["hu"] == "KÉZI ALAK"
+    assert len(data["character_names"]) == 1
+    assert (tmp_path / "glossary.json.bak").exists()
+
+
+def test_write_seed_nem_ir_bak_ot_ha_nincs_uj(tmp_path):
+    p = tmp_path / "glossary.json"
+    init_local.write_glossary_seed(_seed(), p)
+    (tmp_path / "glossary.json.bak").unlink(missing_ok=True)
+    init_local.write_glossary_seed(_seed(), p)
+    assert not (tmp_path / "glossary.json.bak").exists()

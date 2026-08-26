@@ -5,6 +5,10 @@ Egy **új sorozat** fordításának legelső lépése: a
 adatait, és megírja belőlük a `TRANSLATION.local.md` fájlt — abban a
 formában, amit a `TRANSLATION.md` „Aktuális sorozat adatai” szakasza vár.
 
+Ezen felül felveszi a **sorozat és a forrásmű címeit** a `glossary.json`-ba,
+hogy a fordító később ne próbálkozzon a lefordításukkal
+(lásd [A címek a szójegyzékben](#a-címek-a-szójegyzékben)).
+
 Sorozatonként egyszer kell futtatni, nem epizódonként.
 
 ## Telepítés
@@ -44,6 +48,41 @@ Még kitöltendő (4 sor):
 | `--out ÚTVONAL` | Más kimeneti fájl (alapból a repo gyökerében `TRANSLATION.local.md`) |
 | `--max-cast N` | Legfeljebb N szereplő (alapból **12**), főszereplők előre |
 | `--include-guests` | A vendégszereplők (Guest Role) is kerüljenek bele |
+| `--glossary ÚTVONAL` | Másik szójegyzék-fájl (alapból a repo gyökerében `glossary.json`) |
+| `--no-glossary` | Ne vegye fel a címeket a szójegyzékbe |
+
+## A címek a szójegyzékben
+
+A `glossary.json` a fordítónak **kötelező**, ezért ez a legbiztosabb hely annak
+rögzítésére, hogy egy címet nem szabad lefordítani. Enélkül a fordító
+epizódonként külön dönt — a *The Early Spring (2026)*-nál a négy rész
+adaptációs kártyáján négyféle cím szerepelt, kettőben lefordítva.
+
+A script három forrásból vesz fel bejegyzést (mind `special_terms`, `en` = `hu`):
+
+| Honnan | Példa |
+|---|---|
+| a sorozat angol/latin betűs címe | `The Early Spring` |
+| a sorozat natív címe | `早春晴朗` |
+| a **forrásmű** címe a szinopszis adaptációs lábjegyzetéből | `Zao Chun Qing Lang` |
+
+A harmadik azért fontos, mert a `clean_synopsis` ezt a lábjegyzetet eldobja
+(`~~ Adapted from the web novel "…" by …`) — a fordítási döntésekhez tényleg
+nem ad semmit, viszont a **cím** megjelenik az epizódnyitó adaptációs kártyán.
+
+A sorozatcím bejegyzésének `context`-je külön kimondja a **címkártya-kivételt**:
+enélkül a modell a sorozatcím-kártyáról is lehagyná a magyar címet, holott ott a
+`TRANSLATION.md` *Címkártya* szabálya érvényes (fölül a magyar cím, alatta az
+eredeti). Ha a magyar cím a `--hu-title`-lel meg van adva, az is bekerül a
+`context`-be.
+
+**Szereplőneveket szándékosan NEM vesz fel.** A MyDramaList írásmódja gyakran
+eltér a feliratétól (`Shang Zhi Tao` vs. a feliratbeli `Shang Zhitao`), és egy
+kötelező szójegyzékbe rossz alakot tenni rosszabb, mint nem tenni bele semmit.
+A neveket a `subtr.py glossary` szedi ki magából a feliratból.
+
+Meglévő `en` kulcsot **soha nem ír felül**, és ha nincs mit hozzáadni, a fájlhoz
+sem nyúl. Íráskor `.bak` mentés készül.
 
 Meglévő fájlt `--force` nélkül **nem** ír felül: a `TRANSLATION.local.md`
 kézzel hangolt tartalom (regiszter, special terms), amit könnyű elveszíteni.

@@ -133,6 +133,11 @@ copy .env.example .env
    fájlba kézzel. Mindkét esetben neked kell kitöltened a magyar címet, a
    *Megszólítási regisztert* és a speciális kifejezéseket — a scraper ezeket
    `TODO:` sorként hagyja benne.
+
+   Az add-on a `glossary.json`-ba is felveszi a **sorozat és a forrásmű címét**,
+   hogy a fordító ne próbálkozzon a lefordításukkal. Szereplőneveket
+   szándékosan nem — azokat a 1.5 lépés (`subtr.py glossary`) szedi ki magából
+   a feliratból, a tényleges írásmódjukkal.
 3. Tedd a forrásnyelvi SRT fájlt az `input/` mappába, `.eng.srt` végződéssel
    (vagy más nyelvnél a megfelelő kóddal — lásd [Forrásnyelv](#forrásnyelv)).
 

@@ -11,6 +11,11 @@
 #      Részletek: addons\mdl-init\README.md   (pip install -e ".[addons]" kell hozzá)
 # py addons\mdl-init\init_local.py https://mydramalist.com/70241-ni-ye-you-jin-tian
 # Utána töltsd ki a TODO sorokat: magyar cím + megszólítási regiszter.
+#      A glossary.json-ba automatikusan bekerül a sorozat címe (angol + natív) és
+#      a forrásmű címe az adaptációs lábjegyzetből — így a fordító nem próbálja
+#      lefordítani őket. Kikapcsolás: --no-glossary
+#      Szereplőneveket NEM vesz fel (a MDL írásmódja eltérhet a feliratétól);
+#      azokat az 1.5 lépés szedi ki magából a feliratból.
 
 # 0/b. (OPCIONÁLIS) SDH-forrás előtisztítása — CSAK ha a felirat hang-/zene-
 #    jegyzeteket tartalmaz ([music playing], [sighs], NÉV: címkék stb.)
