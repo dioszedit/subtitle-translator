@@ -117,24 +117,27 @@ def check_source_alignment(entries, src_map):
     return None
 
 
-def find_source_srt(hun_path: Path):
+def find_source_srt(hun_path: Path, src_lang: str = None):
     """A forrásnyelvi SRT automatikus megkeresése a .hun.srt névből.
 
-    A névcsere .eng.srt-t keres — ez az angol forrás konvenciója. Más
-    forrásnyelvnél ezért nem talál semmit, és a hívónak kézzel kell
-    megadnia a fájlt a --source kapcsolóval.
+    A `.hun.` tagot cseréli a forrásnyelv kódjára (`.eng.`, `.ger.` …).
+    Ha a megadott nyelvvel nincs találat — vagy nem is kaptunk nyelvet —,
+    végigpróbálja az összes ismert nyelvkódot, mert a magyar fájl neve nem
+    árulja el, milyen nyelvből készült. Több találatnál az elsőt adja vissza;
+    ilyenkor a hívó a --source kapcsolóval dönthet.
     """
     if ".hun." not in hun_path.name:
         return None
-    src_name = hun_path.name.replace(".hun.", ".eng.")
-    candidates = [
-        Path("input") / src_name,
-        hun_path.parent / src_name,
-        hun_path.parent.parent / "input" / src_name,
-    ]
-    for cand in candidates:
-        if cand.is_file():
-            return cand
+
+    ordered = [c for c in (src_lang,) if c] + [
+        c for c in config.SOURCE_LANGS if c != src_lang]
+    for code in ordered:
+        src_name = hun_path.name.replace(".hun.", f".{code}.")
+        for cand in (Path("input") / src_name,
+                     hun_path.parent / src_name,
+                     hun_path.parent.parent / "input" / src_name):
+            if cand.is_file():
+                return cand
     return None
 
 
@@ -168,26 +171,34 @@ def chunk_entries(entries, chunk_size):
 
 def build_system_instruction(claude_md: str, glossary: str,
                              has_source: bool = False,
-                             json_output: bool = True) -> str:
+                             json_output: bool = True,
+                             src_lang: str = config.DEFAULT_SOURCE_LANG) -> str:
     """A lektor-prompt. json_output=True a strukturált (Gemini/Codex) ág:
     tartalmazza a === KIMENET === blokkot, és a [FORRÁS]-mondat a "eredeti"
     MEZŐRŐL beszél; json_output=False (Claude CLI) a szöveges ág: a kimeneti
     formátumot a per-chunk prompt írja le, a mondat az idézett szövegről szól."""
-    parts = ["""=== SZEREP ===
-Magyar fordítás lektor vagy. Angolból magyarra fordított SRT feliratokat
-nézel át, és STÍLUS / NYELVTANI hibákat keresel.
+    src = config.source_lang_name(src_lang)
+    marker = config.source_lang_formality(src_lang)
+    # Ahol a forrásnyelv grammatikailag jelöli a formalitást, ott a lektornak
+    # megmondjuk, MIT keressen — így a (b) feltétel nem "érzés", hanem idézhető.
+    formality_hint = ("" if not marker else
+                      f"\n       {config.the_source_lang(src_lang)} forrásban ez konkrétan: {marker};")
+    parts = [f"""=== SZEREP ===
+Magyar fordítás lektor vagy. {src.capitalize()} nyelvű forrásból magyarra
+fordított SRT feliratokat nézel át, és STÍLUS / NYELVTANI hibákat keresel.
 
 === AMIT KERESEL ===
 1. Tükörfordítások (pl. "framed me" → "kereteztek be" helyett "tőrbe csaltak")
 2. Helytelen igeragozás (pl. ikes igék, "tetszesz" helyett "tetszel")
 3. Nemhez kötött kifejezések hibái (pl. "férjhez megy" férfiról; alapból
    semleges forma kell, csak ha BIZTOSAN ismert a beszélő/alany neme)
-4. Természetellenes, angolos magyar nyelvezet
+4. Természetellenes magyar nyelvezet — a forrásnyelv mondatszerkezetét
+   másoló, magyarul idegenül hangzó megoldások
 5. Rossz szórend, helytelen határozott/határozatlan ragozás
 6. Tegezés/magázás AKKOR ÉS CSAK AKKOR, ha valamelyik feltétel teljesül:
    (a) a sorozatkontextus Megszólítási regisztere mást ír elő a szereplőpárra,
    (b) a [FORRÁS] sor explicit formalitás-jelet tartalmaz (megszólítási forma,
-       rang/titulus, udvariassági fordulat), amivel a magyar forma ütközik,
+       rang/titulus, udvariassági fordulat), amivel a magyar forma ütközik,{formality_hint}
    (c) a blokkon belül ugyanaz a szereplőpár váltogatja a formát ÉS a beszélő a
        szövegből azonosítható (elhangzó név, megszólítás, beszélőcímke vagy
        [FORRÁS]-jel alapján).
@@ -415,6 +426,7 @@ def main(argv=None):
                         help="Eddig a chunkig (bezárólag, 1-alapú). Default: utolsó")
     parser.add_argument("--suffix", type=str, default="",
                         help="Riport fájl utótag, pl. '_part2' → _REVIEW_...:_part2.txt")
+    config.add_source_lang_argument(parser)
     parser.add_argument("--source", "--english", type=str, default=None,
                         help="Forrásnyelvi SRT (default: automatikus keresés "
                              "a .hun.srt névből az input/ mappában, .eng.srt-t "
@@ -494,14 +506,21 @@ def main(argv=None):
     entries = parse_entries(srt_path)
     print(f"Beolvasva: {len(entries)} felirat szekció")
 
-    # Forrásnyelvi SRT párosítása (kevesebb téves találat)
+    # Forrásnyelvi SRT párosítása (kevesebb téves találat).
+    # A .hun.srt neve nem árulja el a forrásnyelvet, ezért kétlépcsős a
+    # feloldás: előbb a kapcsoló/env/--source útvonal alapján, majd — ha a
+    # kapcsoló nem szólt bele — a ténylegesen megtalált forrásfájl nevéből.
+    src_lang = config.resolve_source_lang(args.source_lang, args.source)
     has_source = False
     if not args.no_source:
-        src_path = Path(args.source) if args.source else find_source_srt(srt_path)
+        src_path = (Path(args.source) if args.source
+                    else find_source_srt(srt_path, src_lang))
         if args.source and not src_path.is_file():
             print(f"HIBA: forrás SRT nem található: {src_path}")
             sys.exit(1)
         if src_path:
+            if not args.source_lang:
+                src_lang = config.resolve_source_lang(None, src_path)
             src_map = parse_by_index(src_path)
             problem = check_source_alignment(entries, src_map)
             if problem and not args.source:
@@ -515,9 +534,10 @@ def main(argv=None):
                 entries, matched = attach_source(entries, src_map)
                 has_source = matched > 0
                 print(f"Forrás: {src_path} ({matched}/{len(entries)} szekció párosítva)")
+                print(f"Forrásnyelv: {config.source_lang_name(src_lang)} ({src_lang})")
         else:
             print("Forrás: nem található (review csak a magyar alapján).")
-            print("  Nem angol forrásnál add meg kézzel: --source \"input/....srt\"")
+            print("  Add meg kézzel: --source \"input/....srt\"")
 
     chunks = list(chunk_entries(entries, args.chunk_size))
     total_chunks = len(chunks)
@@ -528,7 +548,8 @@ def main(argv=None):
     claude_md = load_translation_context()
     glossary = as_prompt_text()
     instruction = build_system_instruction(claude_md, glossary, has_source,
-                                           json_output=(provider != "claude"))
+                                           json_output=(provider != "claude"),
+                                           src_lang=src_lang)
     print(f"System instruction: {len(instruction)} char "
           f"(CLAUDE.md: {len(claude_md)} char, glossary: {len(glossary)} char)")
 

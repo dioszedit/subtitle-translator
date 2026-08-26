@@ -20,16 +20,28 @@
 # (az addon töröl cue-kat és ÚJRASZÁMOZ, ezért az eredeti .eng.srt-hez
 # képest hamis hibákat jelezne), vagy használd az addon verify_preclean.py-át.
 
+# 0/c. FORRÁSNYELV — alapból ANGOL. Ha egy epizódhoz nincs használható angol
+#      sáv (pl. a kiadó rosszat muxolt be), másik nyelvből is fordíthatsz.
+#      NINCS teendő, ha a fájlnév viseli a nyelvkódot:
+#         input\Sorozat - S01E02.ger.srt   →  a split, translate, review,
+#         glossary és register mind felismeri belőle, hogy német a forrás.
+#      Kézi felülbírálás bárhol: --source-lang ger   (env: SUBTR_SOURCE_LANG)
+#      Kódok: ara chi eng fre ger hin ind ita jpn kor may pol por rus spa tha tur vie
+#      MIÉRT SZÁMÍT: az angol `you` nem jelöli a formalitást, a legtöbb más nyelv
+#      igen (német Sie/du, kínai 您/你). Ahol jelöli, ott a tegezés/magázás nem
+#      találgatás, hanem leolvasás — a promptok automatikusan átállnak erre.
+#      Részletek: README.md → Forrásnyelv
+
 # 1. SRT szétvágás (ezt TE futtatod, nem kell hozzá Claude)
 py subtr.py split "input\Sorozat - S01E01.eng.srt"
 # Újra-splitnél (pl. más --block-size) a régi blokkok törléséhez: --clean
 # (enélkül leáll, hogy a régi + új blokkok ne keveredjenek a merge-nél)
 
 # 1.5 (OPCIONÁLIS, AJÁNLOTT) Glossary feltöltése MÉG A FORDÍTÁS ELŐTT
-#     Csak az angol forrásból kinyeri a neveket / megszólításokat / helyszíneket,
+#     Csak a forrásfeliratból kinyeri a neveket / megszólításokat / helyszíneket,
 #     az agent JAVASLATOT tesz a magyar fordításra (a TRANSLATION.md szabályai alapján),
 #     te jóváhagyod (y/n/e/q). Így a párhuzamos fordítás már EGYSÉGES nevekkel indul.
-#     (Csak az angol fájlt add meg — a magyar argumentum elhagyása kapcsolja be ezt a módot.)
+#     (Csak a forrásfájlt add meg — a magyar argumentum elhagyása kapcsolja be ezt a módot.)
 py subtr.py glossary "input\Sorozat - S01E01.eng.srt"
 # Másik providerrel (default: claude):
 # py subtr.py glossary "input\Sorozat - S01E01.eng.srt" --provider codex
@@ -43,8 +55,10 @@ py subtr.py glossary "input\Sorozat - S01E01.eng.srt"
 #     Egy elavult sor rosszabb, mint a hiányzó — a hiányzónál a fordító kikerüli a döntést.
 #     A szabályokat lásd: TRANSLATION.md → "Tegezés/magázás"
 #
-#     OPCIONÁLIS SEGÉDLET: a regisztert egy modell is felvázolhatja az angol
-#     forrásból — a javaslatot te hagyod jóvá, a fájl kézzel bármikor javítható.
+#     OPCIONÁLIS SEGÉDLET: a regisztert egy modell is felvázolhatja a
+#     forrásfeliratból — a javaslatot te hagyod jóvá, a fájl kézzel bármikor javítható.
+#     Nem angol forrásnál ez PONTOSABB: a német Sie/du, kínai 您/你 stb. közvetlen
+#     bizonyíték, nem következtetés.
 # py subtr.py register "input\Sorozat - S01E01.eng.srt"
 #     Több rész pontosabb (a részek közti eltérés VÁLTÁS-jelöltként jön fel):
 # py subtr.py register "input\S01E01.eng.srt" "input\S01E02.eng.srt"

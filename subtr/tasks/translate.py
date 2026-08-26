@@ -167,11 +167,43 @@ except ImportError:
 # Promptok — providerenként, bájtra a refaktor előtti szöveggel
 # ────────────────────────────────────────────────────────────────────────────
 
-def build_system_instruction(claude_md: str, glossary: str) -> str:
+def formality_rule(src_lang: str, bullet: str = "- ") -> str:
+    """A tegezés/magázás szabály szövege — a forrásnyelvtől függ.
+
+    Az angol `you` nem jelöli a formalitást, ezért ott a szabály a döntés
+    kikerülésére biztat. A legtöbb más forrásnyelv viszont grammatikailag
+    jelöli (Sie/du, 您/你, keigo…) — ott a forrás KÖZVETLEN bizonyíték, és
+    kár lenne kikerülni a döntést, amit a felirat már meghozott.
+
+    A `bullet` a felsorolásokba szánt "- " prefix; üres stringgel önálló
+    bekezdésként (Codex-ág) formáz, behúzás nélkül.
+    """
+    marker = config.source_lang_formality(src_lang)
+    if not marker:
+        lines = [
+            "Tegezés/magázás: kövesd a sorozatkontextus Megszólítási regiszterét; ha nincs",
+            "rá adat és a forrás jeleiből sem egyértelmű, fogalmazz úgy, hogy ne kelljen",
+            "választani. Ne találj ki viszonyt.",
+        ]
+    else:
+        name = config.the_source_lang(src_lang)
+        lines = [
+            "Tegezés/magázás: a sorozatkontextus Megszólítási regisztere az elsődleges.",
+            f"Ahol az nem rendelkezik, {name} forrás MAGA JELÖLI a formalitást",
+            f"({marker}) — ezt kövesd, ez közvetlen bizonyíték, nem találgatás.",
+            "Csak ott kerüld ki a döntést, ahol sem a regiszter, sem a forrás nem dönt.",
+        ]
+    indent = " " * len(bullet)
+    return "\n".join([bullet + lines[0]] + [indent + ln for ln in lines[1:]])
+
+
+def build_system_instruction(claude_md: str, glossary: str,
+                             src_lang: str = config.DEFAULT_SOURCE_LANG) -> str:
     """Gemini system instruction."""
-    parts = ["""=== SZEREP ===
-Profi felirat-fordító vagy. Angol SRT feliratokat fordítasz természetes,
-beszélt magyar nyelvre. NEM tükörfordítasz.
+    src = config.source_lang_name(src_lang)
+    parts = [f"""=== SZEREP ===
+Profi felirat-fordító vagy. {src.capitalize()} nyelvű SRT feliratokat fordítasz
+természetes, beszélt magyar nyelvre. NEM tükörfordítasz.
 
 === KEMÉNY SZABÁLYOK ===
 - HTML tagek (<i>, </i>, <b>, </b>), kötőjeles párbeszéd (-), [szögletes
@@ -179,9 +211,7 @@ beszélt magyar nyelvre. NEM tükörfordítasz.
 - Karakterneveket NE fordítsd le (a szójegyzékben szerepelnek a helyes
   írásmódok).
 - Az "episode" magyarul mindig "rész", NEM "epizód".
-- Tegezés/magázás: kövesd a sorozatkontextus Megszólítási regiszterét; ha nincs
-  rá adat és a forrás jeleiből sem egyértelmű, fogalmazz úgy, hogy ne kelljen
-  választani. Ne találj ki viszonyt.
+{formality_rule(src_lang)}
 - Minden átadott szekcióhoz pontosan egy fordítás tartozzon — sem több, sem kevesebb.
 
 === KIMENET ===
@@ -204,25 +234,29 @@ sorszámokat). Ne hagyj ki és ne adj hozzá szekciókat."""]
     return "\n\n".join(parts)
 
 
-def build_block_prompt(sections: list[dict]) -> str:
+def build_block_prompt(sections: list[dict],
+                       src_lang: str = config.DEFAULT_SOURCE_LANG) -> str:
     """Gemini per-blokk prompt: a szekciók szövegei #N prefixszel listázva."""
+    src = config.source_lang_name(src_lang)
     items = []
     for s in sections:
         items.append(f"#{s['num']}\n{s['text']}")
     return (
-        "Fordítsd le az alábbi SRT szekciók szövegét angolról magyarra. "
+        f"Fordítsd le az alábbi SRT szekciók szövegét {src} nyelvről magyarra. "
         "Tartsd meg a sorszámokat (#N prefix), és minden szekcióra adj "
         "fordítást a system promptban leírt JSON séma szerint.\n\n"
         + "\n\n".join(items)
     )
 
 
-def build_codex_instruction(context: str, glossary: str) -> str:
-    parts = ["""Profi felirat-fordító vagy. Angol SRT feliratszövegeket fordítasz természetes, beszélt magyarra.
+def build_codex_instruction(context: str, glossary: str,
+                            src_lang: str = config.DEFAULT_SOURCE_LANG) -> str:
+    src = config.source_lang_name(src_lang)
+    parts = [f"""Profi felirat-fordító vagy. {src.capitalize()} nyelvű SRT feliratszövegeket fordítasz természetes, beszélt magyarra.
 
 KÖTELEZŐ: minden kapott sorszámhoz pontosan egy fordítást adj. A text csak a magyar feliratszöveg legyen; a HTML tageket, kötőjeles párbeszédet, szögletes megjegyzéseket és ♫ jelet őrizd meg. Ne adj magyarázatot.
 
-Tegezés/magázás: kövesd a sorozatkontextus Megszólítási regiszterét; ha nincs rá adat és a forrás jeleiből sem egyértelmű, fogalmazz úgy, hogy ne kelljen választani. Ne találj ki viszonyt."""]
+{formality_rule(src_lang, bullet="")}"""]
     if context.strip():
         parts.append("=== SOROZAT KONTEXTUS ÉS SZABÁLYOK ===\n" + context.strip())
     if glossary.strip():
@@ -235,12 +269,14 @@ def build_codex_prompt(instruction: str, sections: list[dict]) -> str:
     return f"{instruction}\n\n=== FELADAT ===\nFordítsd le az alábbi szekciókat.\n\n{entries}"
 
 
-def build_claude_system_prompt(claude_md: str, glossary: str) -> str:
+def build_claude_system_prompt(claude_md: str, glossary: str,
+                               src_lang: str = config.DEFAULT_SOURCE_LANG) -> str:
     """Claude Code system prompt — az agent fájlt olvas/ír, nem szöveget ad vissza."""
+    src = config.source_lang_name(src_lang)
     parts = []
-    parts.append("""=== SZEREP ===
-Profi felirat-fordító vagy. Angol SRT feliratokat fordítasz természetes,
-beszélt magyar nyelvre. NEM tükörfordítasz.
+    parts.append(f"""=== SZEREP ===
+Profi felirat-fordító vagy. {src.capitalize()} nyelvű SRT feliratokat fordítasz
+természetes, beszélt magyar nyelvre. NEM tükörfordítasz.
 
 === KEMÉNY SZABÁLYOK ===
 - A sorszámokat és időbélyegeket PONTOSAN másold át, NE generáld fejből!
@@ -254,9 +290,7 @@ beszélt magyar nyelvre. NEM tükörfordítasz.
   Ez csak megjelenítés, NEM a fájl tartalma! A kiírt fájlba SOHA ne kerüljön
   sorszám-prefix és tabulátor a sorok elejére — az első sor pontosan az SRT
   szekciószám legyen (`1`), nem `1<TAB>1`.
-- Tegezés/magázás: kövesd a sorozatkontextus Megszólítási regiszterét; ha nincs
-  rá adat és a forrás jeleiből sem egyértelmű, fogalmazz úgy, hogy ne kelljen
-  választani. Ne találj ki viszonyt.
+{formality_rule(src_lang)}
 
 === FOLYAMAT ===
 1. Olvasd be a megadott input SRT fájlt.
@@ -321,7 +355,8 @@ def cleanup_stale_sys_prompts(max_age_days: int = CLAUDE_SYS_PROMPT_MAX_AGE_DAYS
 # Blokk-fordítók providerenként: (block_path) -> result dict
 # ────────────────────────────────────────────────────────────────────────────
 
-def _make_gemini_translator(client, model, system_instruction, max_retries):
+def _make_gemini_translator(client, model, system_instruction, max_retries,
+                            src_lang=config.DEFAULT_SOURCE_LANG):
     def translate_block(block_path: str) -> dict:
         output_path = hun_path(block_path)
         block_name = os.path.basename(block_path)
@@ -341,7 +376,7 @@ def _make_gemini_translator(client, model, system_instruction, max_retries):
 
         in_count = len(sections)
         parsed, err_msg = gemini_provider.call_json(
-            client, model, build_block_prompt(sections),
+            client, model, build_block_prompt(sections, src_lang),
             schema=TranslationOutput, system=system_instruction,
             temperature=TEMPERATURE, max_retries=max_retries)
         if err_msg:
@@ -621,6 +656,7 @@ def main(argv=None):
                         help="Párhuzamos futások száma (default: gemini/claude 3, codex 1)")
     parser.add_argument("--block", type=str, default=None,
                         help="Csak egy konkrét blokk fordítása (pl. 003 vagy 3 — auto zero-pad)")
+    config.add_source_lang_argument(parser)
     parser.add_argument("--model", type=str, default=None,
                         help="Modell-azonosító. Feloldás: --model > "
                              "SUBTR_<PROVIDER>_MODEL_TRANSLATE > SUBTR_<PROVIDER>_MODEL > "
@@ -657,6 +693,8 @@ def main(argv=None):
     if provider == "claude" and args.model and args.model not in ("haiku", "sonnet", "opus"):
         print(f"HIBA: a claude providernél a --model haiku|sonnet|opus lehet (kaptam: {args.model})")
         sys.exit(1)
+    src_lang = config.resolve_source_lang(args.source_lang, args.blocks_dir)
+
     if not os.path.isdir(args.blocks_dir):
         print(f"HIBA: Nem találom a mappát: {args.blocks_dir}")
         sys.exit(1)
@@ -737,13 +775,13 @@ def main(argv=None):
 
     extra_status = []
     if provider == "gemini":
-        instruction = build_system_instruction(claude_md, glossary)
+        instruction = build_system_instruction(claude_md, glossary, src_lang)
         extra_status.append(("Max retry", args.max_retries))
         extra_status.append(("System instr",
                              f"{len(instruction)} char (CLAUDE.md: {len(claude_md)}, "
                              f"glossary: {len(glossary)})"))
     elif provider == "claude":
-        sys_prompt_content = build_claude_system_prompt(claude_md, glossary)
+        sys_prompt_content = build_claude_system_prompt(claude_md, glossary, src_lang)
         sys_prompt_path, newly_created = write_claude_sys_prompt_file(sys_prompt_content)
         extra_status.append(("Max turns", args.max_turns))
         extra_status.append(("Timeout", f"{args.timeout // 60} perc / blokk"))
@@ -752,7 +790,7 @@ def main(argv=None):
                              f"({'új fájl' if newly_created else 'meglévő — másik process is használhatja'})"))
         extra_status.append(("   fájl", os.path.basename(sys_prompt_path)))
     else:
-        instruction = build_codex_instruction(claude_md, glossary)
+        instruction = build_codex_instruction(claude_md, glossary, src_lang)
         extra_status.append(("Timeout", f"{args.timeout // 60} perc / blokk"))
         extra_status.append(("Max retry", args.max_retries))
 
@@ -764,6 +802,8 @@ def main(argv=None):
     print(f"  Fordítandó:     {len(pending)}")
     print(f"  Agent-ek:       {args.agents}")
     print(f"  Modell:         {model or 'provider-alapértelmezés'}")
+    print(f"  Forrásnyelv:    {config.source_lang_name(src_lang)} ({src_lang})"
+          + ("" if args.source_lang else "  [a mappanévből]"))
     for label, value in extra_status:
         print(f"  {label}:{' ' * max(1, 15 - len(label))}{value}")
     if not claude_md:
@@ -789,11 +829,13 @@ def main(argv=None):
 
     rotate_log()
     log(f"=== RUN START — provider={provider} model={model or 'default'} "
+        f"src_lang={src_lang} "
         f"agents={args.agents} blocks_dir={os.path.abspath(args.blocks_dir)} "
         f"pending={len(pending)}/{total}")
 
     if provider == "gemini":
-        translator = _make_gemini_translator(client, model, instruction, args.max_retries)
+        translator = _make_gemini_translator(client, model, instruction,
+                                             args.max_retries, src_lang)
     elif provider == "claude":
         translator = _make_claude_translator(claude_bin, sys_prompt_path, model,
                                              args.timeout, args.max_turns)

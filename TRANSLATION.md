@@ -41,24 +41,35 @@ A regisztert kézzel írod. Ha első változatot szeretnél a forrásfeliratból
 
 ## Kötelező fordítási szabályok
 
-1. Csak a szöveget fordítsd angolról természetes, beszélt magyarra; ne tükörfordíts.
+1. Csak a szöveget fordítsd a forrásnyelvről természetes, beszélt magyarra; ne tükörfordíts.
 2. A sorszám és időbélyeg 1:1 maradjon. A Python pipeline ezt szerkezetileg védi.
 3. Őrizd meg a HTML tageket (`<i>`, `</i>`, `<b>`, `</b>`), a kötőjeles párbeszédet, a `♫` jelet és a sortöréseket, amikor a szöveg megkívánja.
 4. A szögletes zárójeles megjegyzéseket fordítsd le. Karakternevet ne fordíts le.
-5. Az angol "episode" mindig „rész”: „1. rész”, „a következő rész”, sosem „epizód”.
+5. Az „episode” (és megfelelői) mindig „rész”: „1. rész”, „a következő rész”, sosem „epizód”.
 6. A tegezés/magázás a *Megszólítási regiszterből*, ennek hiányában a jelenet kontextusából következzen; kétes esetben ne találj ki biztos viszonyt. Részletes eljárás: *Tegezés/magázás* szakasz.
 7. A `glossary.json` jóváhagyott fordításai kötelezőek.
 
 ### Tegezés/magázás
 
-A forrásnyelv (angol) nem jelöli a formalitást, a magyar viszont megköveteli a döntést.
-Ezért a sorrend kötött — ne ugorj lépést:
+A magyar megköveteli a tegezés/magázás döntést. Hogy mennyire nehéz, az a
+**forrásnyelvtől** függ:
+
+- **Angol forrásnál** a `you` nem jelöli a formalitást — a döntés közvetett jelekből
+  következtetés, és sokszor jobb kikerülni.
+- **A legtöbb más forrásnyelvnél** viszont a felirat MAGA JELÖLI: német `Sie`/`du`,
+  kínai `您`/`你`, olasz `Lei`/`tu`, japán keigo, koreai beszédszintek. Ilyenkor a 2.
+  lépés nem következtetés, hanem **leolvasás** — és erősebb, mint bármelyik közvetett jel.
+  (A pipeline ezt automatikusan tudja: lásd `README.md` → *Forrásnyelv*.)
+
+A sorrend kötött — ne ugorj lépést:
 
 1. **Regiszter először.** Ha a szereplőpár szerepel a *Megszólítási regiszterben*, az
    kötelező — akkor is, ha az adott sor önmagában mást sugallna.
 2. **Formalitás-jelek a forrásban.** Regiszter hiányában a forrásszöveg explicit
-   formalitás-jeleiből indulj ki: megszólítási forma, rang/titulus, udvariassági
-   fordulatok, névhasználat. A konkrét jeleket lásd a következő két alszakaszban.
+   formalitás-jeleiből indulj ki. Ha a forrásnyelv grammatikailag jelöli a formalitást
+   (`Sie`/`du`, `您`/`你`, keigo…), az a **döntő** bizonyíték — ne mérlegelj mást.
+   Egyébként: megszólítási forma, rang/titulus, udvariassági fordulatok, névhasználat.
+   A konkrét jeleket lásd a következő két alszakaszban.
 3. **Kétes eset → kerüld ki a döntést.** A magyar sokszor megengedi, hogy a mondat ne
    döntsön: főnévi igenév („Bejöhetek?” → „Szabad?”), többes szám első személy
    („Indulunk?”), személytelen szerkezet, felkiáltás, megszólítás nélküli mondat.
@@ -71,8 +82,10 @@ Ezért a sorrend kötött — ne ugorj lépést:
 
 #### Formalitás-jelek angol forrásban
 
-> Ez az alszakasz a forrásnyelvhez kötött. Más forrásnyelvnél cseréld a saját nyelved
-> tipikus jeleire — ugyanúgy, ahogy a *Gyakori hibák* angol mintáit.
+> Ez az alszakasz a forrásnyelvhez kötött, és azért az angolról szól, mert ott a
+> legnehezebb a dolog: nincs grammatikai jel, csak közvetett. Ha a forrás német,
+> kínai, olasz, japán vagy koreai, az alábbiakra alig lesz szükséged — ott a
+> nyelvtani alak dönt.
 
 - **Magázás felé:** `sir` / `ma'am`; `Mr.` / `Ms.` + vezetéknév; titulus + név
   (`Director` / `Manager` / `Professor` / `Chairman Kang`); emelt regiszterű fordulatok
@@ -82,11 +95,11 @@ Ezért a sorrend kötött — ne ugorj lépést:
 
 #### Az eredeti nyelvből átvett megszólítások
 
-> Ez az alszakasz a forrás*kultúrához* kötött, nem az angol nyelvhez: ezek a jelek akkor is
-> jelen lehetnek, ha a felirat angol. Nem ázsiai eredetinél elhagyható.
+> Ez az alszakasz a forrás*kultúrához* kötött, nem a felirat nyelvéhez: ezek a jelek
+> bármelyik forrásnyelvű feliratban bennmaradhatnak. Nem ázsiai eredetinél elhagyható.
 
 `-ssi`, `-nim`, `sunbae`, `hyung` / `unnie` / `oppa` / `noona`, `senpai`, `-san` / `-sama`.
-Ezek erősebb jelek bármelyik angol fordulatnál, mert az eredeti nyelv formalitását őrzik.
+Ezek erősebb jelek bármelyik közvetett fordulatnál, mert az eredeti nyelv formalitását őrzik.
 
 Fontos árnyalat: a `hyung` / `oppa` típusú megszólítás **közeli, de aszimmetrikus**
 viszonyt jelöl — a fiatalabb gyakran mégis udvarias formában beszél. Ezekből tehát nem

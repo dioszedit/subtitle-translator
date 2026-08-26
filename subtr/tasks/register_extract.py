@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-register_extract.py — Megszólítási regiszter kinyerése angol forrásfeliratból.
+register_extract.py — Megszólítási regiszter kinyerése a forrásfeliratból.
 
 OPCIONÁLIS lépés: a regisztert kézzel is megírhatod a TRANSLATION.local.md-ben,
 ez a script csak felkínál egy első változatot, illetve továbbvezeti a meglévőt.
 
 Mit csinál:
-  - Végigolvassa egy vagy több epizód angol SRT-jét, és kigyűjti, melyik
-    szereplő melyiket tegezi / magázza (a magyar tegezés/magázás az angolból
+  - Végigolvassa egy vagy több epizód forrásnyelvi SRT-jét, és kigyűjti, melyik
+    szereplő melyiket tegezi / magázza (a magyar tegezés/magázás a forrásból
     nem derül ki közvetlenül — a script a formalitás-jelekből következtet:
     megszólítások, rangok, honorifikumok, névhasználat, udvariassági fordulatok).
   - Több epizódnál összefésül: ha ugyanaz a pár az egyik részben magázódik, a
@@ -188,19 +188,12 @@ def write_local(path: str, pairs, others):
 # Prompt
 # ────────────────────────────────────────────────────────────────────────────
 
-def build_prompt(context: str, existing, dialogue: str, episode_label: str) -> str:
-    existing_txt = "\n".join(
-        f"  - {p['a']} {ARROW_BOTH if p['mutual'] else ARROW_ONE} {p['b']}: {p['form']}"
-        for p in existing
-    ) or "  (még nincs)"
-
-    return f"""Feliratfordítás előkészítése: MEGSZÓLÍTÁSI REGISZTERT állítasz össze.
-
-A magyar nyelv megköveteli a tegezés/magázás döntést, az angol felirat viszont
-ezt nem jelöli (`you` mindenre). A feladatod: az angol szövegből kikövetkeztetni,
-melyik szereplő melyiket TEGEZI és melyiket MAGÁZZA a magyar fordításban.
-
-=== MIRE FIGYELJ ===
+# Az angol felirat NEM jelöli a formalitást (`you` mindenre), ezért ott a
+# regisztert közvetett jelekből kell kikövetkeztetni. A legtöbb más
+# forrásnyelv viszont grammatikailag jelöli — ott a feladat leolvasás, nem
+# következtetés, és a promptnak ezt kell mondania, különben a modell fölöslegesen
+# találgat egy olyan szövegben, ami a választ már tartalmazza.
+INDIRECT_CUES = """=== MIRE FIGYELJ ===
 MAGÁZÁS felé mutat: `sir` / `ma'am`; `Mr.` / `Ms.` + vezetéknév; titulus + név
 (`Director` / `Manager` / `Professor` / `CEO` / `Chairman`); emelt regiszter
 (`may I`, `would you mind`, `I apologize`); első találkozás; hivatalos helyszín;
@@ -210,7 +203,45 @@ káromkodás; családtag fiatalabb felé; gyerekek egymás közt; felettes → b
 AZ EREDETI NYELVBŐL ÁTVETT megszólítások a legerősebb jelek, ha bennmaradtak:
 `-ssi`, `-nim`, `sunbae`, `hyung` / `unnie` / `oppa` / `noona`, `senpai`, `-san`.
 FIGYELEM: a `hyung` / `oppa` közeli, de ASZIMMETRIKUS viszonyt jelöl — a
-fiatalabb gyakran mégis udvarias formában beszél, ebből nem következik tegezés.
+fiatalabb gyakran mégis udvarias formában beszél, ebből nem következik tegezés."""
+
+
+def build_prompt(context: str, existing, dialogue: str, episode_label: str,
+                 src_lang: str = config.DEFAULT_SOURCE_LANG) -> str:
+    existing_txt = "\n".join(
+        f"  - {p['a']} {ARROW_BOTH if p['mutual'] else ARROW_ONE} {p['b']}: {p['form']}"
+        for p in existing
+    ) or "  (még nincs)"
+
+    src = config.source_lang_name(src_lang)
+    the_src = config.the_source_lang(src_lang)       # "az angol" / "a német"
+    The_src = the_src.capitalize()                   # mondat elején
+    marker = config.source_lang_formality(src_lang)
+
+    if marker:
+        intro = f"""A magyar nyelv megköveteli a tegezés/magázás döntést — és szerencsére
+{the_src} forrás EZT MAGA IS JELÖLI: {marker}.
+A feladatod elsősorban LEOLVASÁS, nem következtetés: nézd meg, a szereplők
+milyen formában beszélnek egymáshoz a forrásban, és vidd át magyarra.
+
+=== MIRE FIGYELJ ===
+{The_src} formalitás-jelölése ({marker}) a LEGERŐSEBB bizonyíték — ahol ez
+látszik, ott ne mérlegelj mást, és az "evidence" mezőbe ezt idézd.
+Csak ott támaszkodj közvetett jelekre (titulus, megszólítási forma, emelt
+regiszter, első találkozás, alá-fölérendeltség), ahol a szereplőpár között
+egyetlen explicit alak sem hangzik el.
+FIGYELEM: a formalitás-váltás önmagában is információ — ha egy páros a felirat
+folyamán vált, azt VÁLTÁS-ként jelezd, ne átlagold el."""
+    else:
+        intro = f"""A magyar nyelv megköveteli a tegezés/magázás döntést, {the_src} felirat
+viszont ezt nem jelöli (`you` mindenre). A feladatod: {the_src} szövegből kikövetkeztetni,
+melyik szereplő melyiket TEGEZI és melyiket MAGÁZZA a magyar fordításban.
+
+""" + INDIRECT_CUES
+
+    return f"""Feliratfordítás előkészítése: MEGSZÓLÍTÁSI REGISZTERT állítasz össze.
+
+{intro}
 
 === FONTOS SZABÁLYOK ===
 - A viszony gyakran ASZIMMETRIKUS: a főnök tegez, a beosztott magáz. Ilyenkor
@@ -230,7 +261,7 @@ fiatalabb gyakran mégis udvarias formában beszél, ebből nem következik tege
 === MÁR JÓVÁHAGYOTT REGISZTER (ezeket ne ismételd, csak ha ELLENTMOND a felirat) ===
 {existing_txt}
 
-=== ANGOL FELIRAT ({episode_label}) ===
+=== {src.upper()} FELIRAT ({episode_label}) ===
 {dialogue}
 """
 
@@ -429,8 +460,10 @@ def ask(r, reason: str):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Megszólítási regiszter kinyerése angol forrásfeliratból (opcionális lépés)")
-    parser.add_argument("srt", nargs="+", help="Egy vagy több angol SRT (több rész = pontosabb)")
+        description="Megszólítási regiszter kinyerése a forrásfeliratból (opcionális lépés)")
+    parser.add_argument("srt", nargs="+",
+                        help="Egy vagy több forrásnyelvi SRT (több rész = pontosabb)")
+    config.add_source_lang_argument(parser)
     parser.add_argument("--provider", choices=("gemini", "claude", "codex"),
                         default=config.default_provider(builtin="gemini"),
                         help="Kinyerő provider (default: gemini, "
@@ -471,8 +504,10 @@ def main():
         if not dialogue:
             print(f"FIGYELEM: {label} — nem találtam feliratszöveget, kihagyom.")
             continue
-        print(f"\n=== {label} ({dialogue.count(chr(10)) + 1} sor)")
-        prompt = build_prompt(context, existing, dialogue, label)
+        src_lang = config.resolve_source_lang(args.source_lang, path)
+        print(f"\n=== {label} ({dialogue.count(chr(10)) + 1} sor, "
+              f"{config.source_lang_name(src_lang)})")
+        prompt = build_prompt(context, existing, dialogue, label, src_lang)
         if args.provider == "gemini":
             rel = run_gemini(prompt, model)
         elif args.provider == "codex":

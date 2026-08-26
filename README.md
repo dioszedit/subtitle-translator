@@ -34,7 +34,7 @@ subtitle-translator/
 │                                  verify, review, apply, apply-auto, resegment, quota)
 │
 ├── subtr/                       ← A tényleges fordítás- és review-logika
-│   ├── config.py                ← .env betöltése, modell-feloldás, API-kulcsok
+│   ├── config.py                ← .env betöltése, modell- és forrásnyelv-feloldás, API-kulcsok
 │   ├── srt.py                   ← SRT parser
 │   ├── blocks.py                ← Blokk-alapú szegmentálás
 │   ├── context.py               ← TRANSLATION.md + glossary.json beolvasása
@@ -55,7 +55,7 @@ subtitle-translator/
 │   ├── mdl-init/                ← Új sorozat: TRANSLATION.local.md MyDramaList-linkből
 │   └── srt-preclean/            ← 0. lépés: SDH-forrás előtisztítása
 
-├── input/                       ← Ide tedd az angol SRT fájlokat
+├── input/                       ← Ide tedd a forrásnyelvi SRT fájlokat
 ├── blocks/                      ← Auto-generált blokk-fájlok
 ├── output/                      ← Kész magyar fájlok + review riportok
 │
@@ -133,7 +133,8 @@ copy .env.example .env
    fájlba kézzel. Mindkét esetben neked kell kitöltened a magyar címet, a
    *Megszólítási regisztert* és a speciális kifejezéseket — a scraper ezeket
    `TODO:` sorként hagyja benne.
-3. Tedd az angol SRT fájlt az `input/` mappába.
+3. Tedd a forrásnyelvi SRT fájlt az `input/` mappába, `.eng.srt` végződéssel
+   (vagy más nyelvnél a megfelelő kóddal — lásd [Forrásnyelv](#forrásnyelv)).
 
 ## Használat (PowerShell)
 
@@ -185,6 +186,65 @@ A review parancs **három providere** — Gemini (default), Claude, Codex —
 **független** egymástól: futtathatod csak az egyiket vagy többet, `--provider`-rel
 váltva. A találatokat a `subtr.py apply` fésüli össze és viszi át
 interaktívan; kézzel is javíthatsz a riportok alapján.
+
+### Forrásnyelv
+
+A pipeline alapesetben **angol** feliratból fordít, de nem minden epizódhoz van
+használható angol sáv — előfordul, hogy a kiadó rossz sávot muxol be, vagy egy
+adott release-ben egyszerűen nincs angol felirat. Ilyenkor másik nyelvből is
+lehet fordítani; a fordító-, review-, glossary- és regiszter-promptok
+mindegyike a tényleges forrásnyelvhez igazodik.
+
+#### Hogyan derül ki a forrásnyelv?
+
+Feloldási sorrend (a legerősebb nyer):
+
+| # | Forrás | Példa |
+|---|---|---|
+| 1 | `--source-lang` kapcsoló | `--source-lang ger` |
+| 2 | `SUBTR_SOURCE_LANG` env | `SUBTR_SOURCE_LANG=ger` |
+| 3 | **a fájlnév `.kód` tagja** | `input/Sorozat - S01E02.ger.srt` |
+| 4 | alapértelmezés | `eng` |
+
+A 3. pont miatt a legtöbb esetben **nem kell semmit beállítani**: elég a
+megszokott névkonvenció szerint elnevezni a fájlt. A `split` a blokkmappa nevét
+is a fájlnévből képzi (`blocks/Sorozat - S01E02.ger`), így a `translate` is
+felismeri.
+
+```powershell
+# Nincs teendő — a .ger tagból jön a nyelv
+python subtr.py split "input\Sorozat - S01E02.ger.srt"
+python subtr.py translate "blocks\Sorozat - S01E02.ger" --provider claude
+python subtr.py review "output\Sorozat - S01E02.hun.srt"
+
+# Kézi felülbírálás, ha a fájlnév nem árulkodik
+python subtr.py translate "blocks\Sorozat - S01E02" --source-lang ger
+```
+
+Támogatott kódok (ISO 639-2/B — ugyanaz, amit az mkv-k a feliratsávokon
+használnak): `ara`, `chi`, `eng`, `fre`, `ger`, `hin`, `ind`, `ita`, `jpn`,
+`kor`, `may`, `pol`, `por`, `rus`, `spa`, `tha`, `tur`, `vie`. Az ISO 639-1
+rövidítések (`de`, `fr`, `zh`, …) is elfogadottak.
+
+#### Miért számít ez a tegezés/magázásnál?
+
+Az angol `you` **nem jelöli a formalitást**, ezért a magyar tegezés/magázás
+döntést a pipeline közvetett jelekből következteti ki — vagy kikerüli. A legtöbb
+más forrásnyelv viszont grammatikailag jelöli: német `Sie`/`du`, kínai `您`/`你`,
+olasz `Lei`/`tu`, japán keigo, koreai beszédszintek.
+
+Ahol van ilyen jel, ott a promptok **átfordulnak**: a modellnek nem
+következtetnie kell, hanem leolvasnia — és a `register` parancs a
+formalitás-alakot idézhető bizonyítékként kezeli. Ilyenkor a nem angol forrás
+nemcsak pótlék, hanem **pontosabb** is az angolnál.
+
+```powershell
+# A regiszter a német Sie/du alapján áll össze, nem találgatásból
+python subtr.py register "input\Sorozat - S01E02.ger.srt"
+```
+
+Új nyelv felvétele: `subtr/config.py` → `SOURCE_LANGS` (magyar név +
+a formalitás-jelölés leírása; `None`, ha a nyelv nem jelöli).
 
 ### Fordítás — opciók
 
@@ -281,15 +341,17 @@ python subtr.py review "output\hun.srt" --provider claude --no-source
 ```
 
 A review mindhárom providernél automatikusan megkeresi a **forrásnyelvi SRT-t**
-(a `.hun.srt` névből `.eng.srt`-t keres az `input/` mappában, ill. a hun fájl
-mellett), és minden szekció mellé odaadja a modellnek a forrás eredetit is
+(a `.hun.srt` névből `.eng.srt`-t, `.ger.srt`-t stb. keres az `input/`
+mappában, ill. a hun fájl mellett — az összes ismert nyelvkódot végigpróbálja),
+és minden szekció mellé odaadja a modellnek a forrás eredetit is
 `[FORRÁS]` sorként. Így a lektor a forráshoz tudja mérni a magyart — jelentősen
 kevesebb a téves találat, és a félrefordításokat is elkapja, nem csak a
 stílushibákat.
 
-A `--source` kapcsoló **nyelvfüggetlen**: bármilyen forrásnyelvi SRT-t elfogad,
-csak az automatikus keresés van angol névkonvencióra kötve. (A kapcsoló régi
-neve `--english` volt; aliasként továbbra is működik, de az új név a helyes.)
+A `--source` kapcsoló **nyelvfüggetlen**: bármilyen forrásnyelvi SRT-t elfogad.
+(A kapcsoló régi neve `--english` volt; aliasként továbbra is működik, de az új
+név a helyes.) A megtalált fájl nevéből a review a **forrásnyelvet is felismeri**,
+és eszerint fogalmazza a lektor-promptot — lásd [Forrásnyelv](#forrásnyelv).
 
 A párosítás előtt **igazítás-ellenőrzés** fut (cue-számok + időbélyeg-
 szúrópróba): ha a két fájl elcsúszott egymáshoz képest (pl. a magyar

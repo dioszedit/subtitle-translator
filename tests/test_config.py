@@ -110,3 +110,87 @@ def test_model_help_text():
     assert text == (
         "default: SUBTR_GEMINI_MODEL_TRANSLATE / SUBTR_GEMINI_MODEL / gemini-3.6-flash"
     )
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# Forrásnyelv-feloldás
+# ────────────────────────────────────────────────────────────────────────────
+
+@pytest.mark.parametrize("value,expected", [
+    ("ger", "ger"),
+    ("de", "ger"),          # ISO 639-1 alias
+    ("DE", "ger"),          # kis-/nagybetű
+    ("  eng  ", "eng"),     # whitespace
+    ("zh", "chi"),
+    ("klingon", None),      # ismeretlen
+    ("", None),
+    (None, None),
+])
+def test_normalize_source_lang(value, expected):
+    assert config.normalize_source_lang(value) == expected
+
+
+@pytest.mark.parametrize("path,expected", [
+    ("input/Sorozat - S01E02.ger.srt", "ger"),
+    ("input/Sorozat - S01E01.eng.srt", "eng"),
+    ("blocks/Sorozat - S01E02.ger", "ger"),          # a split mappaneve
+    ("blocks/Sorozat - S01E02.ger/", "ger"),         # záró perjellel
+    ("/abs/path/Sorozat.chi.srt", "chi"),
+    ("input/Sorozat - S01E01.srt", None),            # nincs nyelvkód
+    ("input/Sorozat - S01E01.clean.srt", None),      # nem nyelvkód a tag
+    ("", None),
+    (None, None),
+])
+def test_detect_source_lang(path, expected):
+    assert config.detect_source_lang(path) == expected
+
+
+def test_resolve_source_lang_precedence(monkeypatch):
+    _clear_subtr_env(monkeypatch)
+    path = "input/Sorozat - S01E02.ger.srt"
+
+    # 4. alapértelmezés — nincs se kapcsoló, se env, se felismerhető fájlnév
+    assert config.resolve_source_lang(None, None) == config.DEFAULT_SOURCE_LANG
+    # 3. fájlnév
+    assert config.resolve_source_lang(None, path) == "ger"
+    # 2. env üti a fájlnevet
+    monkeypatch.setenv("SUBTR_SOURCE_LANG", "fre")
+    assert config.resolve_source_lang(None, path) == "fre"
+    # 1. a kapcsoló mindent üt
+    assert config.resolve_source_lang("chi", path) == "chi"
+    # érvénytelen kapcsoló/env NEM nyer — visszaesik a fájlnévre
+    monkeypatch.delenv("SUBTR_SOURCE_LANG", raising=False)
+    assert config.resolve_source_lang("klingon", path) == "ger"
+
+
+def test_source_lang_name_and_formality():
+    assert config.source_lang_name("ger") == "német"
+    assert config.source_lang_formality("eng") is None      # `you` mindenre
+    assert "Sie/du" in config.source_lang_formality("ger")
+    # ismeretlen kód nem robban, az alapértelmezettre esik vissza
+    assert config.source_lang_name("klingon") == config.source_lang_name(
+        config.DEFAULT_SOURCE_LANG)
+
+
+@pytest.mark.parametrize("code,expected", [
+    ("eng", "az angol"),
+    ("ger", "a német"),
+    ("ita", "az olasz"),
+    ("rus", "az orosz"),
+    ("ara", "az arab"),
+    ("ind", "az indonéz"),
+    ("kor", "a koreai"),
+])
+def test_the_source_lang_article(code, expected):
+    assert config.the_source_lang(code) == expected
+
+
+def test_every_source_lang_has_name_and_valid_formality():
+    """A tábla épsége: minden bejegyzés (név, jel|None) alakú, a név nem üres."""
+    for code, entry in config.SOURCE_LANGS.items():
+        name, marker = entry
+        assert name and isinstance(name, str), code
+        assert marker is None or (isinstance(marker, str) and marker), code
+    # minden alias létező kódra mutat
+    for alias, code in config.SOURCE_LANG_ALIASES.items():
+        assert code in config.SOURCE_LANGS, alias

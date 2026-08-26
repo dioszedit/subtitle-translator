@@ -2,9 +2,9 @@
 glossary_extract.py — Kifejezések kinyerése feliratból, interaktív jóváhagyással
 
 Két mód:
-  (1) Fordítás ELŐTT, csak az angol forrásból (a magyar argumentum elhagyásával):
+  (1) Fordítás ELŐTT, csak a forrásfeliratból (a magyar argumentum elhagyásával):
       az agent JAVASLATOT tesz a magyar fordításra a CLAUDE.md szabályai alapján.
-  (2) Fordítás UTÁN, angol-magyar párból: a "hu" a ténylegesen használt fordítás.
+  (2) Fordítás UTÁN, forrás-magyar párból: a "hu" a ténylegesen használt fordítás.
 
 Használat:
     python glossary_extract.py eredeti.eng.srt                      # (1) előzetes mód
@@ -142,13 +142,15 @@ def get_existing_terms(glossary: dict) -> set:
 
 JSON_SYNTAX_RULES = """JSON SZINTAKTIKAI SZABÁLY (KRITIKUS):
 - A JSON string értékek BELSEJÉBEN SOHA ne használj ASCII " (U+0022) karaktert, mert az lezárja a stringet és a parser elhasal.
-- Ha a magyar/angol szövegben idézőjel kell (pl. egy nevet idézel), KIZÁRÓLAG a magyar tipográfiai idézőjeleket használd: nyitó „ (U+201E) és záró " (U+201D).
+- Ha a magyar vagy forrásnyelvi szövegben idézőjel kell (pl. egy nevet idézel), KIZÁRÓLAG a magyar tipográfiai idézőjeleket használd: nyitó „ (U+201E) és záró " (U+201D).
 - Példa HELYES: {"en":"Shim Coffee House","hu":"„Shim” Kávéház","context":"kávézó neve"}
 - Példa HIBÁS:  {"en":"Shim Coffee House","hu":"„Shim\\" Kávéház",...} — a value belsejében " (ASCII) lezárja a stringet.
 - Aposztrófként se ASCII '-t, hanem ' (U+2019) karaktert használj, ha kell."""
 
+# Az "en" kulcs a glossary.json ADATFORMÁTUMA — a meglévő szójegyzékek miatt
+# akkor is ez a neve, ha a forrás nem angol. Jelentése: "forrásnyelvi alak".
 OUTPUT_SCHEMA = """Válaszolj KIZÁRÓLAG egy JSON tömbbel, semmi más szöveget NE írj:
-[{"en": "angol kifejezés", "hu": "magyar fordítás", "category": "honorifics|place_names|character_names|special_terms|phrases", "context": "rövid megjegyzés"}]"""
+[{"en": "a forrásnyelvi kifejezés", "hu": "magyar fordítás", "category": "honorifics|place_names|character_names|special_terms|phrases", "context": "rövid megjegyzés"}]"""
 
 CODEX_GLOSSARY_SCHEMA = {
     "type": "object",
@@ -232,11 +234,13 @@ def split_srt_pair_chunks(eng_content: str, hun_content: str,
     return chunks or [("", "")]
 
 
-def extract_terms(eng_path: str, hun_path: str, existing_terms: set, timeout: int = 300,
-                  provider: str = "claude", model: str | None = None) -> list[dict]:
+def extract_terms(src_path: str, hun_path: str, existing_terms: set, timeout: int = 300,
+                  provider: str = "claude", model: str | None = None,
+                  src_lang: str = config.DEFAULT_SOURCE_LANG) -> list[dict]:
     """Claude Code-dal kifejezések kinyerése a feliratpárból (utólagos mód).
     Hosszú fájlnál több darabban — a teljes epizód elemzésre kerül."""
-    with open(eng_path, 'r', encoding='utf-8-sig') as f:
+    src_name = config.source_lang_name(src_lang)
+    with open(src_path, 'r', encoding='utf-8-sig') as f:
         eng_content = f.read()
     with open(hun_path, 'r', encoding='utf-8-sig') as f:
         hun_content = f.read()
@@ -251,7 +255,7 @@ def extract_terms(eng_path: str, hun_path: str, existing_terms: set, timeout: in
     for ci, (ec, hc) in enumerate(chunk_pairs, 1):
         if len(chunk_pairs) > 1:
             print(f"\n[{ci}/{len(chunk_pairs)}] darab elemzése...")
-        prompt = f"""Elemezd az alábbi angol-magyar feliratpárt és gyűjtsd ki a visszatérő, konzisztensen fordítandó kifejezéseket.
+        prompt = f"""Elemezd az alábbi {src_name}-magyar feliratpárt és gyűjtsd ki a visszatérő, konzisztensen fordítandó kifejezéseket.
 
 KATEGÓRIÁK:
 - honorifics: megszólítások, rangok, címek (pl. Your Highness, General, My Lord)
@@ -270,7 +274,7 @@ FONTOS:
 
 {OUTPUT_SCHEMA}
 
-ANGOL FELIRAT (részlet {ci}/{len(chunk_pairs)}):
+{src_name.upper()} FELIRAT (részlet {ci}/{len(chunk_pairs)}):
 {ec}
 
 MAGYAR FELIRAT (részlet {ci}/{len(chunk_pairs)}):
@@ -283,16 +287,18 @@ MAGYAR FELIRAT (részlet {ci}/{len(chunk_pairs)}):
     return all_valid
 
 
-def extract_terms_english(eng_path: str, existing_terms: set, claude_md: str,
-                          timeout: int = 300, provider: str = "claude",
-                          model: str | None = None) -> list[dict]:
-    """Fordítás ELŐTTI kinyerés CSAK az angol forrásból.
+def extract_terms_source(src_path: str, existing_terms: set, claude_md: str,
+                         timeout: int = 300, provider: str = "claude",
+                         model: str | None = None,
+                         src_lang: str = config.DEFAULT_SOURCE_LANG) -> list[dict]:
+    """Fordítás ELŐTTI kinyerés CSAK a forrásfeliratból.
 
     Az agent JAVASLATOT tesz a magyar fordításra (a CLAUDE.md szabályai +
     a meglévő glossary alapján), te a konzolon hagyod jóvá/szerkeszted.
     Így a párhuzamos fordítás már egységes nevekkel/címekkel indul.
     """
-    with open(eng_path, 'r', encoding='utf-8-sig') as f:
+    src_name = config.source_lang_name(src_lang)
+    with open(src_path, 'r', encoding='utf-8-sig') as f:
         eng_content = f.read()
 
     claude_md_note = ""
@@ -314,7 +320,7 @@ A PROJEKT FORDÍTÁSI SZABÁLYAI (ezek szerint javasold a magyar fordítást):
     for ci, chunk in enumerate(chunks, 1):
         if len(chunks) > 1:
             print(f"\n[{ci}/{len(chunks)}] darab elemzése...")
-        prompt = f"""Olvasd végig az alábbi ANGOL feliratot. A fordítás MÉG NEM készült el — a Te feladatod,
+        prompt = f"""Olvasd végig az alábbi {src_name.upper()} feliratot. A fordítás MÉG NEM készült el — a Te feladatod,
 hogy ELŐRE összegyűjtsd azokat a visszatérő kifejezéseket, amelyeket az egész epizódban
 KONZISZTENSEN kell majd fordítani, és JAVASLATOT tegyél a magyar megfelelőjükre.
 
@@ -336,7 +342,7 @@ FONTOS:
 
 {OUTPUT_SCHEMA}
 
-ANGOL FELIRAT (részlet {ci}/{len(chunks)}):
+{src_name.upper()} FELIRAT (részlet {ci}/{len(chunks)}):
 {chunk}"""
 
         valid = _run_extraction(prompt, seen, timeout, provider, model)
@@ -558,14 +564,15 @@ def merge_into_glossary(glossary: dict, approved: list[dict]) -> int:
 def main():
     parser = argparse.ArgumentParser(
         description="Kifejezések kinyerése felirat(pár)ból a glossary.json bővítéséhez. "
-                    "Két mód: (1) fordítás ELŐTT csak angol forrásból (HU javaslattal), "
-                    "(2) fordítás UTÁN angol-magyar párból."
+                    "Két mód: (1) fordítás ELŐTT csak a forrásfeliratból (HU javaslattal), "
+                    "(2) fordítás UTÁN forrás-magyar párból."
     )
-    parser.add_argument("eng_srt", help="Eredeti angol SRT fájl")
+    parser.add_argument("source_srt", help="Az eredeti, forrásnyelvi SRT fájl")
     parser.add_argument("hun_srt", nargs="?", default=None,
                         help="Fordított magyar SRT fájl (opcionális). "
-                             "Ha NINCS megadva → fordítás előtti, angol-only kinyerés "
+                             "Ha NINCS megadva → fordítás előtti, forrás-only kinyerés "
                              "(az agent javaslatot tesz a magyar fordításra).")
+    config.add_source_lang_argument(parser)
     parser.add_argument("--glossary", type=str, default="glossary.json",
                         help="Szójegyzék fájl útvonala (alapértelmezett: glossary.json)")
     parser.add_argument("--timeout", type=int, default=300,
@@ -585,9 +592,10 @@ def main():
         args.model, args.provider, "glossary",
         builtin=GEMINI_MODEL_DEFAULT if args.provider == "gemini" else None)
 
-    pre_mode = args.hun_srt is None  # fordítás előtti, angol-only mód
+    pre_mode = args.hun_srt is None  # fordítás előtti, forrás-only mód
+    src_lang = config.resolve_source_lang(args.source_lang, args.source_srt)
 
-    check_paths = [args.eng_srt] if pre_mode else [args.eng_srt, args.hun_srt]
+    check_paths = [args.source_srt] if pre_mode else [args.source_srt, args.hun_srt]
     for path in check_paths:
         if not os.path.isfile(path):
             print(f"HIBA: Nem találom a fájlt: {path}")
@@ -595,11 +603,12 @@ def main():
 
     print("=" * 55)
     if pre_mode:
-        print("  Glossary Extract — Fordítás ELŐTTI kinyerés (angol-only)")
+        print("  Glossary Extract — Fordítás ELŐTTI kinyerés (csak a forrásból)")
     else:
-        print("  Glossary Extract — Fordítás UTÁNI kinyerés (angol-magyar)")
+        print("  Glossary Extract — Fordítás UTÁNI kinyerés (forrás-magyar)")
     print("=" * 55)
-    print(f"  Angol:      {args.eng_srt}")
+    print(f"  Forrás:     {args.source_srt}  "
+          f"[{config.source_lang_name(src_lang)}]")
     if not pre_mode:
         print(f"  Magyar:     {args.hun_srt}")
     print(f"  Szójegyzék: {args.glossary}")
@@ -617,11 +626,11 @@ def main():
         claude_md = load_claude_md()
         if claude_md:
             print(f"TRANSLATION.md betöltve a HU javaslatokhoz ({len(claude_md)} char)")
-        suggestions = extract_terms_english(args.eng_srt, existing_terms, claude_md, args.timeout,
-                                             args.provider, args.model)
+        suggestions = extract_terms_source(args.source_srt, existing_terms, claude_md,
+                                           args.timeout, args.provider, args.model, src_lang)
     else:
-        suggestions = extract_terms(args.eng_srt, args.hun_srt, existing_terms, args.timeout,
-                                    args.provider, args.model)
+        suggestions = extract_terms(args.source_srt, args.hun_srt, existing_terms,
+                                    args.timeout, args.provider, args.model, src_lang)
 
     if not suggestions:
         print("Nem találtam új kifejezést.")
