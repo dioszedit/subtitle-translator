@@ -41,10 +41,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from mdl_scrape import scrape  # noqa: E402
 
 
-# A repo gyökere: addons/mdl-init/ két szinttel lejjebb van
+# A kimenetek CWD-relatívak — ugyanaz a konvenció, mint a `subtr/config.py`-ban:
+# a pipeline-t mindig a SOROZAT projektmappájából futtatjuk. A script helyéből
+# számolni azért rossz, mert minden sorozatnak SAJÁT másolata van a repóból: ha
+# az egyik mappából a másik példány scriptjét hívod, a script-relatív út csendben
+# a MÁSIK sorozat fájljaiba írna.
+DEFAULT_OUT = Path("TRANSLATION.local.md")
+DEFAULT_GLOSSARY = Path("glossary.json")
+
+# A script saját repója — csak a `subtr` csomag importjához kell, kimenethez NEM.
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_OUT = REPO_ROOT / "TRANSLATION.local.md"
-DEFAULT_GLOSSARY = REPO_ROOT / "glossary.json"
 
 # A glossary.json kategóriái — a subtr csomagból, hogy egy helyen legyenek.
 # Az add-on önállóan is futtatható, ezért van fallback.
@@ -105,6 +111,16 @@ def parse_adapted_from(synopsis: str) -> dict:
     return out
 
 
+# A MyDramaList oldalcíme az évszámot is tartalmazza („My Boss (2024)”), a
+# felirat viszont sosem — évszámmal a bejegyzés soha nem illeszkedne.
+YEAR_SUFFIX_RE = re.compile(r"\s*\((?:19|20)\d{2}\)\s*$")
+
+
+def strip_year(title: str) -> str:
+    """A cím végéről leszedi az MDL évszám-toldalékát."""
+    return YEAR_SUFFIX_RE.sub("", (title or "").strip()).strip()
+
+
 def build_glossary_seed(data: dict, hu_title: str) -> list[dict]:
     """A glossary.json-ba felvehető bejegyzések: sorozatcímek + forrásmű címe.
 
@@ -127,8 +143,8 @@ def build_glossary_seed(data: dict, hu_title: str) -> list[dict]:
         out.append({"en": key, "hu": key,
                     "category": "special_terms", "context": context})
 
-    add(data.get("title"), TITLE_CONTEXT + hu_note)
-    add(data.get("native_title"), TITLE_CONTEXT + hu_note)
+    add(strip_year(data.get("title")), TITLE_CONTEXT + hu_note)
+    add(strip_year(data.get("native_title")), TITLE_CONTEXT + hu_note)
 
     src = parse_adapted_from(data.get("synopsis", ""))
     if src.get("work"):
@@ -267,14 +283,19 @@ def main():
                         help=f"Szójegyzék útvonala (alap: {DEFAULT_GLOSSARY.name})")
     parser.add_argument("--no-glossary", action="store_true",
                         help="Ne vegye fel a sorozat- és forrásmű-címeket a szójegyzékbe")
+    parser.add_argument("--glossary-only", action="store_true",
+                        help="CSAK a szójegyzéket bővítse; a TRANSLATION.local.md-hez "
+                             "ne nyúljon (már futó sorozat utólagos kiegészítéséhez)")
     args = parser.parse_args()
 
     if "mydramalist.com" not in args.url:
         parser.error("érvényes mydramalist.com URL kell")
+    if args.glossary_only and args.no_glossary:
+        parser.error("--glossary-only és --no-glossary kizárja egymást")
 
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-    if not args.stdout and args.out.exists() and not args.force:
+    if not args.stdout and not args.glossary_only and args.out.exists() and not args.force:
         print(f"HIBA: {args.out} már létezik. Felülíráshoz: --force (a régit .bak-ba menti).")
         sys.exit(1)
 
@@ -295,6 +316,19 @@ def main():
 
     seed = build_glossary_seed(data, args.hu_title)
 
+    if args.glossary_only:
+        # Már futó sorozat: a TRANSLATION.local.md kézzel hangolt (regiszter,
+        # special terms), ahhoz nem nyúlunk — csak a címek kerülnek be.
+        added = write_glossary_seed(seed, args.glossary)
+        if added:
+            print(f"Szójegyzék bővítve ({args.glossary.resolve()}) — {len(added)} cím:")
+            for e in added:
+                print(f'  "{e["en"]}"')
+        else:
+            print(f"Szójegyzék: nincs új cím, a fájlhoz nem nyúltam ({args.glossary}).")
+        print(f"A {args.out.name} érintetlen.")
+        return
+
     if args.stdout:
         print()
         print(doc)
@@ -310,12 +344,12 @@ def main():
         print(f"Régi fájl mentve: {backup}")
 
     args.out.write_text(doc, encoding="utf-8")
-    print(f"Kész: {args.out}")
+    print(f"Kész: {args.out.resolve()}")
 
     if not args.no_glossary:
         added = write_glossary_seed(seed, args.glossary)
         if added:
-            print(f"\nSzójegyzék bővítve ({args.glossary.name}) — {len(added)} cím,")
+            print(f"\nSzójegyzék bővítve ({args.glossary.resolve()}) — {len(added)} cím,")
             print("hogy a fordító ne próbálkozzon a lefordításukkal:")
             for e in added:
                 print(f'  "{e["en"]}"')

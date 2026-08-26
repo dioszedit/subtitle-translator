@@ -48,8 +48,26 @@ Még kitöltendő (4 sor):
 | `--out ÚTVONAL` | Más kimeneti fájl (alapból a repo gyökerében `TRANSLATION.local.md`) |
 | `--max-cast N` | Legfeljebb N szereplő (alapból **12**), főszereplők előre |
 | `--include-guests` | A vendégszereplők (Guest Role) is kerüljenek bele |
-| `--glossary ÚTVONAL` | Másik szójegyzék-fájl (alapból a repo gyökerében `glossary.json`) |
+| `--glossary ÚTVONAL` | Másik szójegyzék-fájl (alapból a munkakönyvtárban `glossary.json`) |
 | `--no-glossary` | Ne vegye fel a címeket a szójegyzékbe |
+| `--glossary-only` | CSAK a szójegyzéket bővítse; a `TRANSLATION.local.md`-hez ne nyúljon |
+
+A `--out` és a `--glossary` alapértelmezése **a munkakönyvtárhoz** képest
+értendő (ugyanaz a konvenció, mint a `subtr` parancsoknál) — a scriptet mindig
+a sorozat projektmappájából futtasd. Ez azért fontos, mert minden sorozatnak
+saját másolata van a repóból: ha az egyik mappából a másik példány scriptjét
+hívod, a kimenet akkor is a **munkakönyvtárba** kerül, nem a script repójába.
+
+### Már futó sorozat utólagos kiegészítése
+
+A `TRANSLATION.local.md` ilyenkor kézzel hangolt (regiszter, special terms),
+ezért a script `--force` nélkül leállna. A `--glossary-only` ezt kikerüli:
+csak a címeket veszi fel, a fájlhoz nem nyúl.
+
+```bash
+cd "/útvonal/a/sorozathoz"
+python3 addons/mdl-init/init_local.py <mdl-url> --hu-title "Magyar cím" --glossary-only
+```
 
 ## A címek a szójegyzékben
 

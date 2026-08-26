@@ -227,3 +227,69 @@ def test_write_seed_nem_ir_bak_ot_ha_nincs_uj(tmp_path):
     (tmp_path / "glossary.json.bak").unlink(missing_ok=True)
     init_local.write_glossary_seed(_seed(), p)
     assert not (tmp_path / "glossary.json.bak").exists()
+
+
+def test_glossary_only_nem_nyul_a_local_md_hez(tmp_path, monkeypatch, capsys):
+    """Már futó sorozatnál a TRANSLATION.local.md kézzel hangolt (regiszter,
+    special terms) — a címfelvétel nem írhatja felül, és a hiánya miatt sem
+    állhat le."""
+    local = tmp_path / "TRANSLATION.local.md"
+    local.write_text("KÉZZEL HANGOLT TARTALOM\n", encoding="utf-8")
+    gloss = tmp_path / "glossary.json"
+
+    monkeypatch.setattr(init_local, "scrape", lambda url: {
+        "title": "The Early Spring", "native_title": "早春晴朗",
+        "synopsis": ADAPTED_NOTE, "cast": [],
+        "country": "China", "episodes": "24", "duration": "45 min.",
+        "genres": "Romance", "tags": "",
+    })
+    monkeypatch.setattr(sys, "argv", [
+        "init_local.py", "https://mydramalist.com/1-x", "--glossary-only",
+        "--out", str(local), "--glossary", str(gloss)])
+    init_local.main()
+
+    assert local.read_text(encoding="utf-8") == "KÉZZEL HANGOLT TARTALOM\n"
+    assert not (tmp_path / "TRANSLATION.local.md.bak").exists()
+    import json
+    assert len(json.loads(gloss.read_text(encoding="utf-8"))["special_terms"]) == 3
+    assert "érintetlen" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("raw,expected", [
+    ("My Boss (2024)", "My Boss"),
+    ("Pull Strings (2026)", "Pull Strings"),
+    ("OK! Let’s Get Divorced (2026)", "OK! Let’s Get Divorced"),
+    ("The Early Spring", "The Early Spring"),          # nincs mit levágni
+    ("Reply 1988", "Reply 1988"),                      # évszám, de nem zárójelben
+    ("Something (Special)", "Something (Special)"),    # zárójel, de nem évszám
+    ("", ""),
+])
+def test_evszam_toldalek_levagasa(raw, expected):
+    """A MyDramaList oldalcíme az évszámot is viseli, a felirat sosem —
+    évszámmal a szójegyzék-bejegyzés soha nem illeszkedne."""
+    assert init_local.strip_year(raw) == expected
+
+
+def test_seed_evszam_nelkuli_cimet_vesz_fel():
+    ens = [e["en"] for e in init_local.build_glossary_seed(
+        {"title": "My Boss (2024)", "native_title": "你也有今天", "synopsis": ""}, "A főnököm")]
+    assert ens == ["My Boss", "你也有今天"]
+
+
+def test_kimenetek_cwd_relativak(tmp_path, monkeypatch):
+    """Minden sorozatnak SAJÁT másolata van a repóból. Ha a célfájlokat a script
+    helyéből számolnánk, egy másik mappából hívott példány csendben a MÁSIK
+    sorozat glossary.json-jába írna — ez egyszer meg is történt."""
+    assert not init_local.DEFAULT_OUT.is_absolute()
+    assert not init_local.DEFAULT_GLOSSARY.is_absolute()
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(init_local, "scrape", lambda url: {
+        "title": "X (2026)", "native_title": "", "synopsis": "", "cast": [],
+        "country": "", "episodes": "", "duration": "", "genres": "", "tags": "",
+    })
+    monkeypatch.setattr(sys, "argv", ["init_local.py", "https://mydramalist.com/1-x",
+                                      "--glossary-only"])
+    init_local.main()
+    # a MUNKAKÖNYVTÁRBA írt, nem a script repójába
+    assert (tmp_path / "glossary.json").is_file()
