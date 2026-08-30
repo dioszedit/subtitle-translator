@@ -92,7 +92,11 @@ def log(text: str, detail: str = ""):
 # fordítás "ok" státusszal menne tovább a merge-be.
 PLACEHOLDER_MARKERS = ("[DAL]", "[SONG]", "[LYRICS]", "[NEM FORDITHATO]",
                        "[NEM FORDÍTHATÓ]", "[NOT TRANSLATED]", "[UNTRANSLATED]",
-                       "[TODO]", "[...]")
+                       "[TODO]")
+# Ezek részstringként túl általánosak (egy legitim felirat is tartalmazhat
+# "[...]"-t kihagyás-jelölésként) — csak akkor placeholderek, ha egy sor
+# TELJES tartalmát adják.
+PLACEHOLDER_LINE_MARKERS = ("[...]", "[…]")
 
 
 def find_placeholder_sections(output_path: str, input_path: str | None = None) -> list[str]:
@@ -121,7 +125,9 @@ def find_placeholder_sections(output_path: str, input_path: str | None = None) -
         if not text:
             if section["num"] not in source_empty:
                 hits.append(section["num"])
-        elif any(marker in upper for marker in PLACEHOLDER_MARKERS):
+        elif (any(marker in upper for marker in PLACEHOLDER_MARKERS)
+              or any(line.strip() in PLACEHOLDER_LINE_MARKERS
+                     for line in text.splitlines())):
             hits.append(section["num"])
     return hits
 

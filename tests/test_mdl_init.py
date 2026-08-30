@@ -338,3 +338,16 @@ def test_uj_glossary_meta_series(tmp_path):
         [{"en": "X", "hu": "X", "category": "special_terms", "context": ""}], path,
         series="My Boss")
     assert json.loads(path.read_text(encoding="utf-8"))["meta"]["series"] == "My Boss"
+
+
+def test_clean_synopsis_inline_labjegyzet_is_kiesik():
+    """A lábjegyzet nem mindig áll külön sorban — a bekezdésen belüli
+    "~~ ..." farok és "(Source: ...)" is menjen."""
+    assert init_local.clean_synopsis(
+        'Egy sima szinopszis. (Source: MyDramaList) ~~ Adapted from the novel "X".'
+    ) == "Egy sima szinopszis."
+    assert init_local.clean_synopsis(
+        'Első bekezdés.\nMásodik vége. ~~ Adapted from "Y".'
+    ) == "Első bekezdés.\n\nMásodik vége."
+    # ha csak lábjegyzet volt, TODO marad
+    assert init_local.clean_synopsis('~~ Adapted from "Z".') == "TODO: szinopszis"

@@ -223,7 +223,8 @@ py subtr.py apply "output\Sorozat - S01E01.hun.srt"
 #     több száz kérdés. Ha egy agent (vagy Te, előre elkészített listával)
 #     vezeti át a javításokat, ez a parancs kérdés nélkül dolgozik:
 py subtr.py apply-auto "output\Sorozat - S01E01.hun.srt" decisions.json
-# A decisions.json formátuma (a sorszám + időbélyeg SOHA nem módosul):
+# A döntés-fájl neve szabad (a /review-triage skill <stem>_decisions.json néven,
+# a hun.srt mellé írja). Formátuma (a sorszám + időbélyeg SOHA nem módosul):
 #   [
 #     {"sorszam": 12, "eredeti": "A régi szöveg", "javaslat": "Az új magyar szöveg"},
 #     {"sorszam": 40, "javaslat": "Első sor\nMásodik sor"}

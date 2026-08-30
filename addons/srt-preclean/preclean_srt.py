@@ -126,10 +126,27 @@ def parse_srt(txt: str):
     return out
 
 
+# Nyitott ::cue/STYLE blokk CSS-folytatássora (color: white; illetve })
+CSS_OPEN_RE = re.compile(r"\{[^}]*$")
+
+
 def preclean(subs, keep_res, strip_labels: bool):
     kept, dropped = [], 0
+    in_css = False  # a ::cue { ... } blokk a feliratok határán is átfuthat
     for ts, text in subs:
-        newlines = [ln for ln in text if not is_pure_cue_line(ln, keep_res)]
+        newlines = []
+        for ln in text:
+            if in_css:
+                # a blokk belseje (color: white;) és a záró } is artefaktum
+                if "}" in ln:
+                    in_css = False
+                continue
+            if ARTIFACT_RE.match(ln.strip()):
+                if CSS_OPEN_RE.search(ln):
+                    in_css = True            # ::cue(...) { — a blokk nyitva maradt
+                continue
+            if not is_pure_cue_line(ln, keep_res):
+                newlines.append(ln)
         # Több sorra tört cue ([dramatic music\ncontinues]): soronként egyik fele
         # sem "tiszta", összefűzve viszont az — felirat-szinten is megnézzük.
         if newlines and is_pure_cue_line(" ".join(newlines), keep_res):
@@ -208,8 +225,9 @@ def main():
             print(f"  {fn}  ({n} felirat)")
 
     data = clean_path.read_text(encoding="utf-8")
-    left = len(re.findall(r"(?m)^\s*(?:STYLE\s*$|::cue)", data))
-    print(f"\nEllenőrzés — STYLE/::cue() maradt: {left} (0 a jó)")
+    left = len(re.findall(
+        r"(?m)^\s*(?:STYLE\s*$|::cue|\}\s*$|[a-z-]+\s*:\s*[^;\n]+;\s*$)", data))
+    print(f"\nEllenőrzés — STYLE/::cue()/CSS-sor maradt: {left} (0 a jó)")
 
 
 if __name__ == "__main__":

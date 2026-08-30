@@ -83,7 +83,9 @@ def test_modell_bizonytalansaga_nem_irhato_felul_felfele():
 
 
 def test_forrasszoveg_nelkul_nincs_gepi_fek():
-    """Utólagos módban is működjön, ha nincs mihez mérni."""
+    """Üres forrásszöveg mellett a gépi fék kikapcsol — védőháló arra az
+    esetre, ha nincs mihez mérni. (A valós hívások — előzetes és utólagos
+    mód egyaránt — mindig átadják a teljes forrást, ott a fék él.)"""
     out = ge.validate_suggestions([_sug("bármi")], set(), "")
     assert out[0]["confidence"] == "biztos"
 

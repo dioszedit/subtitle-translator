@@ -108,3 +108,14 @@ def test_ures_forras_cue_nem_placeholder(tmp_path):
     assert find_placeholder_sections(out, str(src)) == ["3"]
     # input nélkül a régi viselkedés: minden üres cue találat
     assert find_placeholder_sections(out) == ["2", "3"]
+
+
+def test_szovegbe_agyazott_kihagyasjel_nem_placeholder(tmp_path):
+    """A "[...]" részstringként legitim kihagyás-jelölés lehet — csak akkor
+    placeholder, ha egy sor TELJES tartalmát adja."""
+    path = write_srt_file(
+        tmp_path,
+        "1\n00:00:01,000 --> 00:00:02,000\nAzt mondta [...] hogy jó.\n\n"
+        "2\n00:00:03,000 --> 00:00:04,000\n[...]\n\n"
+        "3\n00:00:05,000 --> 00:00:06,000\nElső sor\n[…]\n\n")
+    assert find_placeholder_sections(path) == ["2", "3"]

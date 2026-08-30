@@ -431,7 +431,9 @@ python subtr.py apply-auto "output\hun.srt" decisions.json
 python subtr.py apply-auto "output\hun.srt" decisions.json --dry-run
 ```
 
-A `decisions.json` egy egyszerű lista — szekciószám és a végleges szöveg:
+A döntés-fájl neve szabad (a `/review-triage` skill pl. `<stem>_decisions.json`
+néven, a hun.srt mellé írja) — a tartalma egy egyszerű lista: szekciószám és a
+végleges szöveg:
 
 ```json
 [

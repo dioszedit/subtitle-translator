@@ -37,3 +37,15 @@ def test_tobb_sorra_tort_cue_torlodik():
         [("t1", ["[dramatic music", "continues]"]), ("t2", ["Szia!", "[sighs]"])], [], False)
     assert dropped == 1
     assert kept == [("t2", ["Szia!"])]
+
+
+def test_style_blokk_folytatassorai_is_torlodnek():
+    """A ::cue { ... } blokk belseje (color: white;) és a záró } is artefaktum —
+    a blokk a feliratok határán is átfuthat."""
+    subs = [("t1", ["::cue(v[voice=Anna]) {", "color: white;", "}", "Szia!"]),
+            ("t2", ["STYLE", "::cue { color: red }"]),
+            ("t3", ["::cue {", "background: black;"]),
+            ("t4", ["}", "Ez már szöveg"])]
+    kept, dropped = preclean_srt.preclean(subs, [], False)
+    assert kept == [("t1", ["Szia!"]), ("t4", ["Ez már szöveg"])]
+    assert dropped == 2

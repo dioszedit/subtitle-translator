@@ -218,7 +218,16 @@ def clean_synopsis(text: str) -> str:
         return "TODO: szinopszis"
     paragraphs = [p.strip() for p in text.split("\n") if p.strip()]
     paragraphs = [p for p in paragraphs if not SOURCE_NOTE_RE.match(p)]
-    return "\n\n".join(paragraphs) if paragraphs else "TODO: szinopszis"
+    # A lábjegyzet nem mindig áll külön sorban (a scrapelt HTML-ben lehet
+    # <br> vagy szimpla újsor előtte, ami a get_text-ben összeolvad) — a
+    # bekezdésen BELÜLI "~~ ..." farok és "(Source: ...)" jelölés is menjen.
+    cleaned = []
+    for p in paragraphs:
+        p = re.sub(r"\s*~~.*$", "", p, flags=re.S)
+        p = re.sub(r"\s*\(Source:[^)]*\)", "", p, flags=re.IGNORECASE).strip()
+        if p:
+            cleaned.append(p)
+    return "\n\n".join(cleaned) if cleaned else "TODO: szinopszis"
 
 
 def filter_cast(cast, max_cast: int, include_guests: bool):

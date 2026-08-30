@@ -105,7 +105,10 @@ def extract_synopsis(soup: BeautifulSoup) -> str:
     span = synopsis_div.select_one("span")
     text = (span or synopsis_div).get_text()
 
-    text = re.sub(r"Edit\s*Translation\s*", "", text)
+    # A MyDramaList "Edit Translation" gombjának szövege a get_text-ben a
+    # szinopszis szélére kerül. CSAK ott artefaktum — a szöveg belsejében álló
+    # (elvben legitim) előfordulást nem bántjuk.
+    text = re.sub(r"^\s*Edit\s*Translation\s*|\s*Edit\s*Translation\s*$", "", text)
     text = re.sub(r"[ \t]+", " ", text)
     # Bekezdéshatár CSAK az üres sor. A mondat közepén álló egyetlen újsor a
     # HTML forrás tördeléséből jön, nem a szövegből — az szóköz.
