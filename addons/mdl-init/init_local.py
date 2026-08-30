@@ -23,8 +23,9 @@ Használat:
   python addons/mdl-init/init_local.py <url> --force        # meglévő fájl felülírása
   python addons/mdl-init/init_local.py <url> --stdout       # csak kiírja, nem ír fájlt
 
-Kimenet:
-  <repo gyökér>/TRANSLATION.local.md   (gitignore-olt, a --out felülbírálja)
+Kimenet (a munkakönyvtárhoz képest):
+  ./TRANSLATION.local.md   (gitignore-olt, a --out felülbírálja)
+  ./glossary.json          (a sorozat- és forrásmű-cím bekerül; --no-glossary kikapcsolja)
 
 Függőségek: cloudscraper, beautifulsoup4  →  pip install -e ".[addons]"
 """
@@ -86,11 +87,15 @@ SOURCE_WORK_CONTEXT = (
 
 # Az MDL-szinopszis végén álló adaptációs lábjegyzet:
 #   ~~ Adapted from the web novel "Zao Chun Qing Lang" (早春晴朗) by Gu Niang Bie Ku
+# A minta nem futhat át mondat-/bekezdéshatáron ([^"“”\n.]*): a szinopszis
+# törzsében álló »adapted from real events. He said "hello"« különben "hello"-t
+# tenne a KÖTELEZŐ szójegyzékbe. Több találatnál az utolsó (a lábjegyzet) nyer.
+# A szerzőnév pontot is tartalmazhat (J.K. Rowling) — csak a záró pont vág.
 ADAPTED_RE = re.compile(
-    r"adapted from(?: the)?[^\"“”]*[\"“”](?P<work>[^\"“”]+)[\"“”]"
+    r"adapted from(?: the)?[^\"“”\n.]*[\"“”](?P<work>[^\"“”\n]+)[\"“”]"
     r"(?:\s*\((?P<native>[^)]+)\))?"
-    r"(?:\s*by\s+(?P<author>[^(.]+?)\s*(?:\(|\.|$))?",
-    re.IGNORECASE,
+    r"(?:\s*by\s+(?P<author>[^(\n]+?)\s*(?:\(|\.?\s*$))?",
+    re.IGNORECASE | re.MULTILINE,
 )
 
 
@@ -100,9 +105,10 @@ def parse_adapted_from(synopsis: str) -> dict:
     A `clean_synopsis` ezt a sort eldobja (jogosan: a fordítási döntésekhez nem
     ad semmit), de a CÍME igenis kell — az adaptációs kártyán megjelenik.
     """
-    m = ADAPTED_RE.search(synopsis or "")
-    if not m:
+    matches = list(ADAPTED_RE.finditer(synopsis or ""))
+    if not matches:
         return {}
+    m = matches[-1]
     out = {"work": (m.group("work") or "").strip()}
     for key in ("native", "author"):
         val = (m.group(key) or "").strip()
@@ -156,20 +162,39 @@ def build_glossary_seed(data: dict, hu_title: str) -> list[dict]:
     return out
 
 
-def write_glossary_seed(entries: list[dict], path: Path) -> list[dict]:
+class GlossaryError(ValueError):
+    pass
+
+
+def write_glossary_seed(entries: list[dict], path: Path, series: str = "") -> list[dict]:
     """A magok beírása a glossary.json-ba. Meglévő „en” kulcsot NEM ír felül.
 
+    Új fájlnál a `meta.series` a sorozat címe. Sérült JSON-nál GlossaryError —
+    a hívó ezt HIBA-ként jelenti, nem tracebackkel áll le.
     Visszaadja a ténylegesen hozzáadott bejegyzéseket.
     """
-    if path.exists() and path.read_text(encoding="utf-8").strip():
-        data = json.loads(path.read_text(encoding="utf-8"))
+    raw = path.read_text(encoding="utf-8-sig") if path.exists() else ""
+    if raw.strip():
+        try:
+            data = json.loads(raw)
+        except ValueError as e:
+            raise GlossaryError(f"{path}: hibás JSON — {e}") from e
+        if not isinstance(data, dict):
+            raise GlossaryError(f"{path}: a gyökér nem objektum")
     else:
         data = {"meta": {"description": "Fordítási szójegyzék — kézzel validált kifejezések",
-                         "series": ""},
+                         "series": series},
                 **{cat: [] for cat in CATEGORIES}}
 
-    existing = {e.get("en", "").lower()
-                for cat in CATEGORIES for e in data.get(cat, [])}
+    existing = set()
+    for cat in CATEGORIES:
+        bucket = data.get(cat, [])
+        if not isinstance(bucket, list):
+            raise GlossaryError(f"{path}: a(z) {cat!r} kategória nem lista")
+        for e in bucket:
+            if not isinstance(e, dict):
+                raise GlossaryError(f"{path}: a(z) {cat!r} kategóriában nem-objektum elem")
+            existing.add(str(e.get("en") or "").lower())
     added = []
     for entry in entries:
         if entry["en"].lower() in existing:
@@ -292,6 +317,8 @@ def main():
         parser.error("érvényes mydramalist.com URL kell")
     if args.glossary_only and args.no_glossary:
         parser.error("--glossary-only és --no-glossary kizárja egymást")
+    if args.glossary_only and args.stdout:
+        parser.error("--glossary-only és --stdout kizárja egymást (a --stdout nem ír fájlt)")
 
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
@@ -316,10 +343,16 @@ def main():
 
     seed = build_glossary_seed(data, args.hu_title)
 
+    series_title = strip_year(data.get("title"))
+
     if args.glossary_only:
         # Már futó sorozat: a TRANSLATION.local.md kézzel hangolt (regiszter,
         # special terms), ahhoz nem nyúlunk — csak a címek kerülnek be.
-        added = write_glossary_seed(seed, args.glossary)
+        try:
+            added = write_glossary_seed(seed, args.glossary, series_title)
+        except GlossaryError as e:
+            print(f"HIBA: {e}")
+            sys.exit(1)
         if added:
             print(f"Szójegyzék bővítve ({args.glossary.resolve()}) — {len(added)} cím:")
             for e in added:
@@ -347,7 +380,11 @@ def main():
     print(f"Kész: {args.out.resolve()}")
 
     if not args.no_glossary:
-        added = write_glossary_seed(seed, args.glossary)
+        try:
+            added = write_glossary_seed(seed, args.glossary, series_title)
+        except GlossaryError as e:
+            print(f"HIBA: {e} — a {args.out.name} elkészült, a szójegyzék nem bővült.")
+            sys.exit(1)
         if added:
             print(f"\nSzójegyzék bővítve ({args.glossary.resolve()}) — {len(added)} cím,")
             print("hogy a fordító ne próbálkozzon a lefordításukkal:")

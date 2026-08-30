@@ -1,6 +1,7 @@
 """addons/mdl-init — a TRANSLATION.local.md összeállítása (hálózat nélkül)."""
 
 import importlib.util
+import json
 import sys
 from pathlib import Path
 
@@ -293,3 +294,47 @@ def test_kimenetek_cwd_relativak(tmp_path, monkeypatch):
     init_local.main()
     # a MUNKAKÖNYVTÁRBA írt, nem a script repójába
     assert (tmp_path / "glossary.json").is_file()
+
+
+# ── parse_adapted_from: a törzsben álló "adapted from" ne adjon hamis címet ──
+
+def test_adapted_from_a_torzsben_nem_ad_hamis_cimet():
+    text = ('Body text adapted from real events. He said "hello" to her.\n\n'
+            '~~ Adapted from the web novel "Real Work" by Author.')
+    assert init_local.parse_adapted_from(text) == {"work": "Real Work", "author": "Author"}
+    # csak törzsbeli, mondathatáron átfutó találat: nincs cím
+    assert init_local.parse_adapted_from(
+        'Adapted from real events. He said "hello" to her.') == {}
+
+
+def test_szerzonev_ponttal():
+    assert init_local.parse_adapted_from('~~ Adapted from the novel "Book" by J.K. Rowling.') \
+        == {"work": "Book", "author": "J.K. Rowling"}
+
+
+# ── write_glossary_seed: sérült/BOM-os fájl, meta.series ──
+
+def test_serult_glossary_json_hibauzenet_nem_traceback(tmp_path):
+    path = tmp_path / "glossary.json"
+    path.write_text("{ broken", encoding="utf-8")
+    with pytest.raises(init_local.GlossaryError):
+        init_local.write_glossary_seed(
+            [{"en": "X", "hu": "X", "category": "special_terms", "context": ""}], path)
+    assert path.read_text(encoding="utf-8") == "{ broken"   # nem nyúlt hozzá
+
+
+def test_bom_os_es_null_en_glossary_json(tmp_path):
+    path = tmp_path / "glossary.json"
+    path.write_text('﻿{"meta": {}, "special_terms": [{"en": null, "hu": "x"}]}',
+                    encoding="utf-8")
+    added = init_local.write_glossary_seed(
+        [{"en": "X", "hu": "X", "category": "special_terms", "context": ""}], path)
+    assert [e["en"] for e in added] == ["X"]
+
+
+def test_uj_glossary_meta_series(tmp_path):
+    path = tmp_path / "glossary.json"
+    init_local.write_glossary_seed(
+        [{"en": "X", "hu": "X", "category": "special_terms", "context": ""}], path,
+        series="My Boss")
+    assert json.loads(path.read_text(encoding="utf-8"))["meta"]["series"] == "My Boss"

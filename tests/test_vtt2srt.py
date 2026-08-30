@@ -76,3 +76,49 @@ def test_existing_target_needs_force(tmp_path):
 def test_bad_timestamp_is_an_error():
     with pytest.raises(vtt2srt.VttError):
         vtt2srt.parse_vtt("WEBVTT\n\n00:00:01 --> 00:00:02\nx\n")
+
+
+# ── Hibás (de a gyakorlatban előforduló) fájlok: egyetlen cue se vesszen el ──
+
+def test_ures_sor_nelkuli_cue_k_nem_olvadnak_ossze():
+    cues = vtt2srt.parse_vtt(
+        "WEBVTT\n\n1\n00:00:01.000 --> 00:00:02.000\nA\n"
+        "2\n00:00:03.000 --> 00:00:04.000\nB\n")
+    assert [c["text"] for c in cues] == ["A", "B"]
+
+
+def test_fejlec_utan_hianyzo_ures_sor_nem_nyeli_el_a_cue_t():
+    cues = vtt2srt.parse_vtt(
+        "WEBVTT\n00:00:01.000 --> 00:00:02.000\nA\n\n00:00:03.000 --> 00:00:04.000\nB\n")
+    assert [c["text"] for c in cues] == ["A", "B"]
+
+
+def test_note_torzseben_a_nyil_nem_idobelyeg():
+    cues = vtt2srt.parse_vtt(
+        "WEBVTT\n\nNOTE this --> that\nmore\n\n00:00:03.000 --> 00:00:04.000\nB\n")
+    assert [c["text"] for c in cues] == ["B"]
+
+
+def test_v_tag_osztallyal_is_kibomlik():
+    cues = vtt2srt.parse_vtt("WEBVTT\n\n00:00:03.000 --> 00:00:04.000\n<v.loud Song Mo>Hé!</v>\n")
+    assert cues[0]["text"] == "Hé!"
+
+
+def test_haromjegyu_ora_es_szemet_a_beallitas_helyen():
+    assert vtt2srt.parse_vtt("WEBVTT\n\n100:00:01.000 --> 100:00:02.500\nX\n")[0]["timestamp"] \
+        == "100:00:01,000 --> 100:00:02,500"
+    with pytest.raises(vtt2srt.VttError):
+        vtt2srt.parse_vtt("WEBVTT\n\n00:00:01.000 --> 00:00:02.000xyz\nX\n")
+
+
+def test_out_dir_azonos_alapnev_utkozes_iras_elott(tmp_path, capsys):
+    for sub in ("a", "b"):
+        d = tmp_path / sub
+        d.mkdir()
+        (d / "x.vtt").write_text("WEBVTT\n\n00:00:01.000 --> 00:00:02.000\nA\n", encoding="utf-8")
+    out = tmp_path / "out"
+    rc = vtt2srt.main([str(tmp_path / "a" / "x.vtt"), str(tmp_path / "b" / "x.vtt"),
+                       "--out-dir", str(out), "--force"])
+    assert rc == 1
+    assert "ugyanarra a célra" in capsys.readouterr().out
+    assert not (out / "x.srt").exists()

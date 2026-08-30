@@ -30,6 +30,9 @@ Használat:
 Kimenet (alapértelmezés): a .vtt mellé, azonos néven, .srt kiterjesztéssel.
 Meglévő .srt-t csak --force-szal ír felül.
 
+A fájlok egymástól függetlenül dolgozódnak fel: egy hibás fájl a többit nem
+állítja le, a hibák a végén 1-es kilépési kódot adnak.
+
 Kilépési kód: 0 siker, 1 hiba (hiányzó fájl, létező cél --force nélkül,
 értelmezhetetlen időbélyeg).
 """
@@ -39,13 +42,16 @@ import re
 import sys
 from pathlib import Path
 
+# Az óra a WebVTT-spec szerint 2+ jegyű is lehet; a cue-beállítások (align:,
+# position:…) csak szóköz után jöhetnek — "00:00:02.000xyz" hibás, nem elnyelt.
 TIMESTAMP_RE = re.compile(
-    r"^\s*(?P<start>(?:\d{1,2}:)?\d{2}:\d{2}[.,]\d{3})\s*-->\s*"
-    r"(?P<end>(?:\d{1,2}:)?\d{2}:\d{2}[.,]\d{3})(?P<settings>.*)$"
+    r"^\s*(?P<start>(?:\d{1,}:)?\d{2}:\d{2}[.,]\d{3})\s*-->\s*"
+    r"(?P<end>(?:\d{1,}:)?\d{2}:\d{2}[.,]\d{3})(?P<settings>\s.*)?$"
 )
 SKIP_BLOCK_RE = re.compile(r"^(?:WEBVTT|NOTE|STYLE|REGION)\b")
-# WebVTT-specifikus szövegtagek — a bennük lévő szöveg marad, csak a tag megy.
-VTT_TAG_RE = re.compile(r"</?c(?:\.[^>]*)?>|<v(?:\s[^>]*)?>|</v>")
+# WebVTT-specifikus szövegtagek — a bennük lévő szöveg marad, csak a tag megy:
+# <c.osztály>, <v Név>, <v.osztály Név>, </v>.
+VTT_TAG_RE = re.compile(r"</?c(?:\.[^>]*)?>|<v(?:[.\s][^>]*)?>|</v>")
 
 
 class VttError(ValueError):
@@ -69,23 +75,36 @@ def normalize_timestamp(ts: str) -> str:
 def parse_vtt(content: str) -> list[dict]:
     """A WebVTT szövegből cue-lista: {timestamp, text} — sorszám nélkül,
     azt a kiíró adja. Csak az időbélyeg-sort tartalmazó blokkok számítanak."""
-    content = content.lstrip("﻿").replace("\r\n", "\n").replace("\r", "\n")
+    content = content.lstrip("\ufeff").replace("\r\n", "\n").replace("\r", "\n")
     cues = []
     for block in re.split(r"\n\s*\n", content.strip()):
         lines = [l.rstrip() for l in block.split("\n")]
         while lines and not lines[0].strip():
             lines.pop(0)
-        if not lines or SKIP_BLOCK_RE.match(lines[0]):
+        if not lines:
             continue
-        ts_index = next((i for i, l in enumerate(lines) if "-->" in l), None)
-        if ts_index is None:
-            continue                         # nem cue (pl. id nélküli szemét)
-        m = TIMESTAMP_RE.match(lines[ts_index])
-        if not m:
-            raise VttError(f"hibás időbélyeg-sor: {lines[ts_index]!r}")
-        timestamp = f"{normalize_timestamp(m.group('start'))} --> {normalize_timestamp(m.group('end'))}"
-        text_lines = [VTT_TAG_RE.sub("", l) for l in lines[ts_index + 1:]]
-        cues.append({"timestamp": timestamp, "text": "\n".join(text_lines).strip("\n")})
+        ts_indexes = [i for i, l in enumerate(lines) if TIMESTAMP_RE.match(l)]
+        if not ts_indexes:
+            if any("-->" in l for l in lines) and not SKIP_BLOCK_RE.match(lines[0]):
+                bad = next(l for l in lines if "-->" in l)
+                raise VttError(f"hibás időbélyeg-sor: {bad!r}")
+            continue                         # nem cue (fejléc, NOTE, szemét)
+        if SKIP_BLOCK_RE.match(lines[0]):
+            # Fejléc/NOTE, amelyet NEM választ el üres sor a következő cue-tól
+            # (hibás fájl): a fejlécsort eldobjuk, a cue-t megtartjuk.
+            lines = lines[1:]
+            ts_indexes = [i - 1 for i in ts_indexes]
+        # Üres sorral el nem választott cue-k (hibás fájl): minden időbélyeg-sor
+        # új cue-t nyit, hogy egyetlen cue se olvadjon össze a következővel.
+        for n, ts_index in enumerate(ts_indexes):
+            end = ts_indexes[n + 1] if n + 1 < len(ts_indexes) else len(lines)
+            m = TIMESTAMP_RE.match(lines[ts_index])
+            timestamp = f"{normalize_timestamp(m.group('start'))} --> {normalize_timestamp(m.group('end'))}"
+            body = lines[ts_index + 1:end]
+            if n + 1 < len(ts_indexes) and body and body[-1].strip().isdigit():
+                body = body[:-1]             # a következő cue sorszáma, nem szöveg
+            text_lines = [VTT_TAG_RE.sub("", l) for l in body]
+            cues.append({"timestamp": timestamp, "text": "\n".join(text_lines).strip("\n")})
     return cues
 
 
@@ -121,6 +140,17 @@ def main(argv=None) -> int:
     if out_dir:
         out_dir.mkdir(parents=True, exist_ok=True)
 
+    # --out-dir + azonos alapnevű bemenetek (a/x.vtt, b/x.vtt) ugyanarra a
+    # célra írnának; ezt írás ELŐTT fogjuk meg, ne fele úton derüljön ki.
+    targets = {}
+    for name in args.vtt:
+        src = Path(name)
+        dst = (out_dir or src.parent) / (src.stem + ".srt")
+        if dst in targets and targets[dst] != src:
+            print(f"HIBA: {src} és {targets[dst]} ugyanarra a célra írna: {dst}")
+            return 1
+        targets[dst] = src
+
     failed = 0
     for name in args.vtt:
         src = Path(name)
@@ -131,7 +161,7 @@ def main(argv=None) -> int:
         dst = (out_dir or src.parent) / (src.stem + ".srt")
         try:
             n = convert_file(src, dst, force=args.force)
-        except (VttError, UnicodeDecodeError) as e:
+        except (VttError, UnicodeDecodeError, OSError) as e:
             print(f"HIBA: {src.name}: {e}")
             failed += 1
             continue

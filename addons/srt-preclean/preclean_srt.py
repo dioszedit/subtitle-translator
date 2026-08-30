@@ -63,11 +63,17 @@ ARTIFACT_RE = re.compile(r"^\s*(?:(?:WEBVTT|STYLE|REGION|NOTE)\s*$|::cue)")
 # a vegyes írású "Listen:", "Remember this:", "Meet me at 5:30" valódi
 # mondat(kezdet), azt tilos levágni. A zárójeles címkénél a kettőspont opcionális.
 _CAPS_WORD = r"[A-ZÁÉÍÓÖŐÚÜŰ][A-ZÁÉÍÓÖŐÚÜŰ'’.\-]{1,15}"
+# A párbeszéd-kötőjel (- [Anna] Szia!) megőrzendő, ezért csoportban van, és a
+# csere visszaírja.
 LEADING_LABEL_RE = re.compile(
-    r"^\s*[-–—]?\s*(?:"
+    r"^(?P<dash>\s*[-–—]?\s*)(?:"
     r"[\[(][^\])]{1,40}[\])]\s*:?"                      # [Anna]  (Anna)  [Anna]:
     rf"|{_CAPS_WORD}(?:\s+{_CAPS_WORD}){{0,2}}\s*:"     # ANNA:  JOO IN AH:
     r")\s*")
+# Formázó tagek, amelyek a hangcue-t is körbeveszik (<i>[tense music]</i>,
+# {\an8}[music]) — a tisztaság-vizsgálat előtt lejönnek, különben a cue
+# üres <i></i>-ként maradna bent.
+FORMAT_TAG_RE = re.compile(r"</?[ibu]>|\{\\an\d\}", re.IGNORECASE)
 
 
 def is_pure_cue_line(line: str, keep_res) -> bool:
@@ -82,7 +88,8 @@ def is_pure_cue_line(line: str, keep_res) -> bool:
     if ARTIFACT_RE.match(s):
         return True
     # [...] és (...) szegmensek eltávolítása után nézzük, marad-e valódi szöveg
-    nobr = re.sub(r"\[[^\]]*\]", "", line)
+    nobr = FORMAT_TAG_RE.sub("", line)
+    nobr = re.sub(r"\[[^\]]*\]", "", nobr)
     nobr = re.sub(r"\([^)]*\)", "", nobr)
     nobr = nobr.strip(" -–—\t♪♫〜~*·").strip()
     return nobr == ""
@@ -93,7 +100,7 @@ def strip_leading_label(line: str, keep_res) -> str:
     for kr in keep_res:
         if kr.search(line):
             return line
-    return LEADING_LABEL_RE.sub("", line, count=1)
+    return LEADING_LABEL_RE.sub(lambda m: m.group("dash"), line, count=1)
 
 
 def parse_srt(txt: str):
@@ -103,13 +110,19 @@ def parse_srt(txt: str):
         lines = block.split("\n")
         if len(lines) < 2:
             continue
-        # az 1. sor a sorszám, a 2. az időbélyeg (" --> "), a többi a szöveg
-        ts_idx = 1 if "-->" in lines[1] else (0 if "-->" in lines[0] else None)
-        if ts_idx is None:
+        # az 1. sor a sorszám, a 2. az időbélyeg (" --> "), a többi a szöveg.
+        # Üres sorral el nem választott feliratok (hibás fájl): minden további
+        # időbélyeg-sor új feliratot nyit, hogy egy se olvadjon össze.
+        first = 1 if "-->" in lines[1] else (0 if "-->" in lines[0] else None)
+        if first is None:
             continue
-        ts = lines[ts_idx]
-        text = lines[ts_idx + 1:]
-        out.append((ts, text))
+        ts_idxs = [first] + [i for i, l in enumerate(lines) if i > first and "-->" in l]
+        for n, ts_idx in enumerate(ts_idxs):
+            end = ts_idxs[n + 1] if n + 1 < len(ts_idxs) else len(lines)
+            text = lines[ts_idx + 1:end]
+            if n + 1 < len(ts_idxs) and text and text[-1].strip().isdigit():
+                text = text[:-1]             # a következő felirat sorszáma
+            out.append((lines[ts_idx], text))
     return out
 
 
@@ -117,6 +130,10 @@ def preclean(subs, keep_res, strip_labels: bool):
     kept, dropped = [], 0
     for ts, text in subs:
         newlines = [ln for ln in text if not is_pure_cue_line(ln, keep_res)]
+        # Több sorra tört cue ([dramatic music\ncontinues]): soronként egyik fele
+        # sem "tiszta", összefűzve viszont az — felirat-szinten is megnézzük.
+        if newlines and is_pure_cue_line(" ".join(newlines), keep_res):
+            newlines = []
         if strip_labels:
             newlines = [strip_leading_label(ln, keep_res) for ln in newlines]
             newlines = [ln for ln in newlines if ln.strip()]
