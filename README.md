@@ -53,6 +53,7 @@ subtitle-translator/
 │
 ├── addons/                      ← Opcionális segédscriptek (saját READMÉ-kkel)
 │   ├── mdl-init/                ← Új sorozat: TRANSLATION.local.md MyDramaList-linkből
+│   ├── vtt2srt/                 ← Meglévő .vtt felirat átvétele: WebVTT → SRT
 │   └── srt-preclean/            ← 0. lépés: SDH-forrás előtisztítása
 
 ├── input/                       ← Ide tedd a forrásnyelvi SRT fájlokat
@@ -140,6 +141,25 @@ copy .env.example .env
    a feliratból, a tényleges írásmódjukkal.
 3. Tedd a forrásnyelvi SRT fájlt az `input/` mappába, `.eng.srt` végződéssel
    (vagy más nyelvnél a megfelelő kóddal — lásd [Forrásnyelv](#forrásnyelv)).
+
+### Meglévő fordítás átvétele (vtt-import)
+
+Ha egy sorozat korábbi részei **már le vannak fordítva** más forrásból (pl.
+`.vtt`-ben), és csak a maradékot fordítod a pipeline-nal, a következetesség
+három lépésben vihető át — részletek:
+[`addons/vtt2srt/README.md`](addons/vtt2srt/README.md).
+
+1. `python3 addons/vtt2srt/vtt2srt.py …/*.vtt` — a pipeline SRT-t vár; a
+   konverter az időzítést és a szöveget (`<i>`, `♫`, `[kártyák]`) változatlanul
+   viszi, csak újraszámoz és a `.`→`,` cserét végzi el az időbélyegben.
+2. `python3 subtr.py glossary "input/…EXX.eng.srt" "…/…EXX.hun.srt"` — a
+   [szójegyzék utólagos módja](#szójegyzék-bővítése) a **ténylegesen használt**
+   magyar alakot tanulja meg. A párosítás sorszám szerint megy, ezért az angol
+   és a magyar fájl cue-számának egyeznie kell.
+3. `python3 subtr.py register "…/…EXX.hun.srt" --hungarian` — a
+   [regiszter-kinyerés](#megszólítási-regiszter-kinyerése-subtrpy-register--opcionális)
+   a kész magyar szövegből dolgozik: a tegezés/magázás ott nem következtetés,
+   hanem a magyar igealak leolvasása.
 
 ## Használat (PowerShell)
 

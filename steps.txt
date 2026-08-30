@@ -37,6 +37,23 @@
 #      találgatás, hanem leolvasás — a promptok automatikusan átállnak erre.
 #      Részletek: README.md → Forrásnyelv
 
+# 0/d. (CSAK HA KELL) MEGLÉVŐ FORDÍTÁS ÁTVÉTELE — ha a sorozat korábbi részei már
+#      le vannak fordítva más forrásból (pl. vtt-ben), és a maradékot a pipeline-nal
+#      fordítod, a következetességet három lépésben veszed át (részletek:
+#      addons\vtt2srt\README.md — csak stdlib, nincs telepítendő függőség):
+#      1) vtt → srt (a pipeline SRT-t vár; az időzítés és a szöveg változatlan marad):
+# py addons\vtt2srt\vtt2srt.py "Season 01\Sorozat - S01E01.hun.vtt"
+# py addons\vtt2srt\vtt2srt.py input\*.eng.vtt
+#      2) szójegyzék a KÉSZ párokból — a 6. lépés utólagos módja, néhány jellemző
+#         részre (az eleje a nevekhez, a vége a végállapothoz):
+# py subtr.py glossary "input\Sorozat - S01E01.eng.srt" "Season 01\Sorozat - S01E01.hun.srt" --yes
+#         FIGYELEM: a párosítás sorszám szerint megy — az angol és a magyar fájl
+#         cue-számának egyeznie kell (ha a magyar más forrásból készült, előbb
+#         ellenőrizd), különben a darabolás elcsúszik.
+#      3) megszólítási regiszter a KÉSZ MAGYAR szövegből — a tegezés/magázás ott
+#         nem következtetés, hanem leolvasás:
+# py subtr.py register "Season 01\Sorozat - S01E30.hun.srt" "Season 01\Sorozat - S01E32.hun.srt" --hungarian
+
 # 1. SRT szétvágás (ezt TE futtatod, nem kell hozzá Claude)
 py subtr.py split "input\Sorozat - S01E01.eng.srt"
 # Újra-splitnél (pl. más --block-size) a régi blokkok törléséhez: --clean

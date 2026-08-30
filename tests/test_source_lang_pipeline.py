@@ -103,3 +103,13 @@ def test_split_dir_name_keeps_the_language_tag():
     a bemeneti fájl teljes törzsét használja mappanévnek, így a tag megmarad."""
     stem = Path("input/S - S01E02.ger.srt").stem       # "S - S01E02.ger"
     assert config.detect_source_lang(f"blocks/{stem}") == "ger"
+
+
+def test_register_prompt_hungarian_reads_the_translation_itself():
+    hun = register_extract.build_prompt("", [], "D", "E32", "eng", hungarian=True)
+    assert "KÉSZ MAGYAR FORDÍTÁSA" in hun
+    assert "Mit gondol?" in hun and "Mit gondolsz?" in hun
+    assert "MAGYAR (KÉSZ FORDÍTÁS) FELIRAT (E32)" in hun
+    # a forrásnyelvi ágak szövege nem keveredik bele
+    assert "kikövetkeztetni" not in hun
+    assert "Sie/du" not in hun

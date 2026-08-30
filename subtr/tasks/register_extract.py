@@ -206,8 +206,21 @@ FIGYELEM: a `hyung` / `oppa` közeli, de ASZIMMETRIKUS viszonyt jelöl — a
 fiatalabb gyakran mégis udvarias formában beszél, ebből nem következik tegezés."""
 
 
+HUNGARIAN_MARKER = ("Ön/ön, Maga/maga, Önök + 3. személyű igealak és birtokos "
+                    "(pl. »Mit gondol?«, »az Ön lánya«) = MAGÁZ; te/ti, 2. személyű "
+                    "igealak és birtokos (pl. »Mit gondolsz?«, »a lányod«) = TEGEZ; "
+                    "felszólításnál »jöjjön« = MAGÁZ, »gyere« = TEGEZ")
+
+
 def build_prompt(context: str, existing, dialogue: str, episode_label: str,
-                 src_lang: str = config.DEFAULT_SOURCE_LANG) -> str:
+                 src_lang: str = config.DEFAULT_SOURCE_LANG,
+                 hungarian: bool = False) -> str:
+    """A regiszter-kinyerő prompt.
+
+    hungarian=True: a `dialogue` nem forrásfelirat, hanem a KÉSZ MAGYAR
+    fordítás (pl. más forrásból átvett korábbi részek) — ott a tegezés/magázás
+    nem következtetés és nem is idegen nyelvű jel leolvasása, hanem maga a
+    magyar igealak. A forrásnyelv ilyenkor nem számít."""
     existing_txt = "\n".join(
         f"  - {p['a']} {ARROW_BOTH if p['mutual'] else ARROW_ONE} {p['b']}: {p['form']}"
         for p in existing
@@ -218,7 +231,23 @@ def build_prompt(context: str, existing, dialogue: str, episode_label: str,
     The_src = the_src.capitalize()                   # mondat elején
     marker = config.source_lang_formality(src_lang)
 
-    if marker:
+    if hungarian:
+        src = "magyar (kész fordítás)"
+        intro = f"""A megadott felirat NEM forrásnyelvi szöveg, hanem a sorozat korábbi
+részeinek KÉSZ MAGYAR FORDÍTÁSA. A magyar nyelv jelöli a tegezést/magázást,
+tehát a feladatod tiszta LEOLVASÁS: nézd meg, melyik szereplő melyiket hogyan
+szólítja meg, és rögzítsd ugyanazt — ezt a regisztert kell a hátralévő
+részeknek is tartaniuk.
+
+=== MIRE FIGYELJ ===
+A magyar igealak és névmás a bizonyíték: {HUNGARIAN_MARKER}.
+Ahol ez látszik, ott ne mérlegelj mást, és az "evidence" mezőbe a magyar
+sort idézd. Ne javíts és ne bírálj felül semmit: ha a fordítás egy párnál
+következetlen, azt VÁLTÁS-ként vagy bizonytalanként jelezd, ne átlagold el —
+a felhasználó dönti el, melyik alak a helyes.
+A kikerülő (nem döntő) mondatok — főnévi igenév, többes szám első személy,
+megszólítás nélküli felkiáltás — NEM bizonyítékok."""
+    elif marker:
         intro = f"""A magyar nyelv megköveteli a tegezés/magázás döntést — és szerencsére
 {the_src} forrás EZT MAGA IS JELÖLI: {marker}.
 A feladatod elsősorban LEOLVASÁS, nem következtetés: nézd meg, a szereplők
@@ -464,6 +493,10 @@ def main():
     parser.add_argument("srt", nargs="+",
                         help="Egy vagy több forrásnyelvi SRT (több rész = pontosabb)")
     config.add_source_lang_argument(parser)
+    parser.add_argument("--hungarian", action="store_true",
+                        help="A megadott fájl(ok) a KÉSZ MAGYAR fordítás (pl. más forrásból "
+                             "átvett korábbi részek): a tegezés/magázás közvetlenül a magyar "
+                             "igealakból olvasódik le, a forrásnyelv nem számít")
     parser.add_argument("--provider", choices=("gemini", "claude", "codex"),
                         default=config.default_provider(builtin="gemini"),
                         help="Kinyerő provider (default: gemini, "
@@ -505,9 +538,10 @@ def main():
             print(f"FIGYELEM: {label} — nem találtam feliratszöveget, kihagyom.")
             continue
         src_lang = config.resolve_source_lang(args.source_lang, path)
-        print(f"\n=== {label} ({dialogue.count(chr(10)) + 1} sor, "
-              f"{config.source_lang_name(src_lang)})")
-        prompt = build_prompt(context, existing, dialogue, label, src_lang)
+        lang_label = "magyar — kész fordítás" if args.hungarian else config.source_lang_name(src_lang)
+        print(f"\n=== {label} ({dialogue.count(chr(10)) + 1} sor, {lang_label})")
+        prompt = build_prompt(context, existing, dialogue, label, src_lang,
+                              hungarian=args.hungarian)
         if args.provider == "gemini":
             rel = run_gemini(prompt, model)
         elif args.provider == "codex":
