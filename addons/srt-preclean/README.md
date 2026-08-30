@@ -44,32 +44,34 @@ Amit **NEM** dob el:
   úgyis kikerülnek. (Ha eleve törölnéd őket: `--strip-labels`.)
 - A `--keep "MINTA"` mintát tartalmazó sorokat (pl. kétnyelvű cím-kártya).
 
-## A teljes fordítási menet (lépésről lépésre)
+## Hogyan illeszkedik a pipeline-ba
 
 ```
 0. ELŐTISZTÍTÁS (ez az add-on):
-     python preclean_srt.py "input.eng.srt"
-   -> input.eng.clean.srt  +  blocks/input.eng/..._block_001_....srt
+     python addons/srt-preclean/preclean_srt.py "input/Sorozat - S01E01.eng.srt"
+   -> input/Sorozat - S01E01.eng.clean.srt
+   -> input/blocks/Sorozat - S01E01.eng/..._block_001_....srt   (a forrás mappája alá!)
 
-1. FORDÍTÁS blokkonként:
-   - Minden blokkfájlt fordíts le, a kimenet ugyanoda, nyelvi végződéssel:
-       ..._block_001_0001-0150.srt  ->  ..._block_001_0001-0150_HUN.srt
-   - SZIGORÚ szabály: a sorszámot ÉS az időbélyeget 1:1 másold a forrásból,
-     SOHA ne generáld fejből. Csak a szöveget fordítsd.
-   - Megőrzendő: <i>/<b> tagek, kötőjeles párbeszéd (- ...), ♪ daljelölés.
-   - A megtartott beszélőcímkékből (kontextus) a fordításban készíts tiszta
-     szöveget: a [Anna]/NARRÁTOR: jelölést töröld, csak a mondat maradjon.
+1–3. FORDÍTÁS + ÖSSZEFŰZÉS a szokásos parancsokkal, a preclean blokkmappájával:
+     python subtr.py translate "input/blocks/Sorozat - S01E01.eng" --provider claude
+     python subtr.py merge "input/blocks/Sorozat - S01E01.eng" "output/Sorozat - S01E01.hun.srt"
+   (Vagy: --blocks-dir blocks kapcsolóval eleve a gyökér blocks/ alá kéred a
+   blokkokat; vagy a .clean.srt-t splitteled a subtr.py split-tel — ekkor nem
+   angol forrásnál add meg a --source-lang-ot, mert a ".clean" tag elfedi a
+   fájlnév nyelvkódját.)
 
-2. ÖSSZEFŰZÉS + újraszámozás:
-   - A _HUN.srt blokkokat sorrendben fűzd össze egy fájlba (a blokkokon belül
-     a sorszám már folytonos, mert a forrás is az volt).
-
-3. ELLENŐRZÉS (verify_preclean.py):
-     python verify_preclean.py "input.eng.clean.srt" "kesz.hun.srt"
+4. ELLENŐRZÉS — a .clean.srt ELLEN (az add-on törölt és újraszámozott, az
+   eredeti .eng.srt-hez képest hamis hibákat kapnál):
+     python subtr.py verify "input/Sorozat - S01E01.eng.clean.srt" "output/Sorozat - S01E01.hun.srt"
+   vagy az add-on saját ellenőrzője:
+     python addons/srt-preclean/verify_preclean.py "input/….eng.clean.srt" "output/….hun.srt"
    - Egyezik-e a feliratszám, az időbélyeg 1:1, folytonos-e a sorszám.
      A megmaradt zárójeles sorokat FIGYELMEZTETÉSKÉNT listázza (a lefordított
      [megjegyzések] és a címkártya jogosak — azok nem hibák).
 ```
+
+A fordításnál a megtartott beszélőcímkék (`[Anna]`, `NARRÁTOR:`) csak
+kontextus: a `TRANSLATION.md` szerint a kész magyar szövegből kikerülnek.
 
 > Miért blokkokban? Így egy hosszú felirat kezelhető, ellenőrizhető darabokban
 > fordítható, és egy elrontott blokk újrafordítható a többi érintése nélkül.
@@ -127,7 +129,7 @@ hogy ne ütközzön a projekt gyökerében lévő másik ellenőrzéssel (ma: `p
 - **Dalszövegek:** a `♪ ... ♪` közti valódi szöveget MEGTARTJA (csak a tisztán
   `♪`-ből álló sorokat dobja). A dalszöveget a fordításnál fordítsd le.
 - **Blokk-védelem:** újrafuttatáskor a forrás-blokkokat regenerálja, de a
-  lefordított, kétbetűs nyelvi végződésű fájlokat (`_HUN.srt`, `_DE.srt`, …)
+  lefordított, 2–3 betűs nyelvi végződésű fájlokat (`_HUN.srt`, `_DE.srt`, …)
   SOHA nem törli — a kész munkád biztonságban van.
 - **Testreszabás:** ha egy sorozatban visszatérő, nem szabványos cue-forma van,
   a `preclean_srt.py` tetején az `ARTIFACT_RE` és a `LEADING_LABEL_RE`
@@ -136,7 +138,7 @@ hogy ne ütközzön a projekt gyökerében lévő másik ellenőrzéssel (ma: `p
 ## Fájlok
 
 ```
-srt-preclean-addon/
+addons/srt-preclean/
 ├── preclean_srt.py   # fordítás előtti tisztító + blokkokra bontó
 ├── verify_preclean.py # fordítás utáni ellenőrző
 └── README.md         # ez a leírás

@@ -21,6 +21,12 @@
 #    jegyzeteket tartalmaz ([music playing], [sighs], NÉV: címkék stb.)
 #    Részletek: addons\srt-preclean\README.md
 # py addons\srt-preclean\preclean_srt.py "input\Sorozat - S01E01.eng.srt"
+#    Kimenet: input\Sorozat - S01E01.eng.clean.srt + a blokkok input\blocks\<X>.eng\
+#    alá (NEM a gyökér blocks\ alá). Innen kétféleképp mehetsz tovább:
+#      - py subtr.py translate "input\blocks\Sorozat - S01E01.eng"   (az 1. lépés kimarad), vagy
+#      - --blocks-dir blocks kapcsolóval eleve a gyökér blocks\-ba kéred őket, vagy
+#      - a .clean.srt-t splitteled az 1. lépéssel — ekkor NEM ANGOL forrásnál add meg
+#        a --source-lang-ot, mert a ".clean" tag elfedi a fájlnév nyelvkódját.
 # FONTOS: preclean után a 4. lépés ellenőrzését a .clean.srt ellen futtasd
 # (az addon töröl cue-kat és ÚJRASZÁMOZ, ezért az eredeti .eng.srt-hez
 # képest hamis hibákat jelezne), vagy használd az addon verify_preclean.py-át.
@@ -144,9 +150,9 @@ py subtr.py review "output\Sorozat - S01E01.hun.srt"
 #   --end-chunk N --suffix _part2  hogy ne írja felül a meglévő riportot
 # Kimenet: output\Sorozat - S01E01.hun_REVIEW_GEMINI.txt (olvasható riport)
 #          output\Sorozat - S01E01.hun_REVIEW_GEMINI.json (a subtr.py apply-hoz)
-# A javításokat az 5c. lépés (subtr.py apply) viszi át interaktívan
+# A javításokat az 5b. lépés (subtr.py apply) viszi át interaktívan
 
-# 5b. ALTERNATÍVA/KIEGÉSZÍTÉS: Stilisztikai review Claude Code-dal
+# 5. ALTERNATÍVA/KIEGÉSZÍTÉS: Stilisztikai review Claude Code-dal
 py subtr.py review "output\Sorozat - S01E01.hun.srt" --provider claude
 # Default modell: sonnet (default chunk-size: 100)
 # Opcionálisan:
@@ -156,11 +162,11 @@ py subtr.py review "output\Sorozat - S01E01.hun.srt" --provider claude
 # Kimenet: output\Sorozat - S01E01.hun_REVIEW_CLAUDE.txt (olvasható riport)
 #          output\Sorozat - S01E01.hun_REVIEW_CLAUDE.json (a subtr.py apply-hoz)
 
-# 5c. ALTERNATÍVA/KIEGÉSZÍTÉS: Stilisztikai review Codex CLI-vel
+# 5. ALTERNATÍVA/KIEGÉSZÍTÉS: Stilisztikai review Codex CLI-vel
 # py subtr.py review "output\Sorozat - S01E01.hun.srt" --provider codex
 # Kimenet: output\Sorozat - S01E01.hun_REVIEW_CODEX.txt + .json
 
-# 5b/2. GEMINI KVÓTA — mennyi hívás van még ma?
+# (5. lépéshez) GEMINI KVÓTA — mennyi hívás van még ma?
 #     A Gemini API NEM adja vissza a maradék napi kvótát (kipróbálva: a Service
 #     Usage API 403-at ad API kulccsal, a válaszfejlécekben nincs ratelimit-*),
 #     ezért a subtr.py quota HELYBEN könyveli a hívásokat.
@@ -203,7 +209,7 @@ py subtr.py quota                 # mai fogyás modellenként
 # MODELLENKÉNT (a limit modellenként külön van, ezért modellváltással lehet
 # tovább dolgozni). Egy ~400 szekciós rész review-ja 4-5 kérés.
 
-# 5c. Review-javaslatok alkalmazása (a riportokat összefésüli és deduplikálja)
+# 5b. Review-javaslatok alkalmazása (a riportokat összefésüli és deduplikálja)
 py subtr.py apply "output\Sorozat - S01E01.hun.srt"
 # Automatikusan megtalálja a fájl melletti _REVIEW_CLAUDE / _REVIEW_GEMINI / _REVIEW_CODEX
 # riportokat (a .json a kanonikus, a .txt-t is érti). Találatonként kérdez:
@@ -212,8 +218,8 @@ py subtr.py apply "output\Sorozat - S01E01.hun.srt"
 # Az első íráskor .bak mentés készül az eredetiről.
 # Csak listázás módosítás nélkül: --dry-run
 
-# 5d. ALTERNATÍVA: review-javítások NEM interaktív alkalmazása
-#     Az 5c. lépés konzolon kérdez minden találatnál — sok részt átnézve ez
+# 5c. ALTERNATÍVA: review-javítások NEM interaktív alkalmazása
+#     Az 5b. lépés konzolon kérdez minden találatnál — sok részt átnézve ez
 #     több száz kérdés. Ha egy agent (vagy Te, előre elkészített listával)
 #     vezeti át a javításokat, ez a parancs kérdés nélkül dolgozik:
 py subtr.py apply-auto "output\Sorozat - S01E01.hun.srt" decisions.json

@@ -17,16 +17,16 @@ Az "eredeti" mező OPCIONÁLIS, de AJÁNLOTT. Ha megadod, a script ellenőrzi, h
 a fájlban tényleg az áll-e — vagyis hogy a döntés-fájl ehhez a fájl-állapothoz
 készült-e. Eltérés esetén kihagyja az adott bejegyzést.
 
-Miért kell ez: a sorszámok nem örökérvényűek. A resegment_srt.py --split
+Miért kell ez: a sorszámok nem örökérvényűek. A `subtr.py resegment reflow --split`
 ÚJRASZÁMOZZA a cue-kat, és onnantól egy korábban készült döntés-fájl sorszámai
 már egészen más szekciókra mutatnak. Ilyenkor az "eredeti" nélkül a script
 némán rossz helyekre írna — ezt az ellenőrzés fogja meg. A review riportok
 (_REVIEW_*.json) amúgy is tartalmaznak "eredeti" mezőt, érdemes átvinni.
 
 Használat:
-    python apply_review_auto.py "output/Sorozat - S01E01.hun.srt" decisions.json
-    python apply_review_auto.py "output/....hun.srt" decisions.json --dry-run
-    python apply_review_auto.py "output/....hun.srt" decisions.json --ignore-drift
+    python subtr.py apply-auto "output/Sorozat - S01E01.hun.srt" decisions.json
+    python subtr.py apply-auto "output/....hun.srt" decisions.json --dry-run
+    python subtr.py apply-auto "output/....hun.srt" decisions.json --ignore-drift
 
 Az első íráskor .bak mentés készül az eredetiről (ha még nincs).
 A sorszám + időbélyeg SOHA nem módosul, csak a szövegrész.
@@ -139,7 +139,7 @@ def main(argv=None):
         print(f"\n[!] {drifted} bejegyzés kihagyva eltérés miatt.")
         if checked and drifted >= max(3, checked // 2):
             print("    Ennyi eltérés jellemzően azt jelenti, hogy az SRT időközben")
-            print("    ÚJRASZÁMOZÓDOTT (pl. resegment_srt.py --split) — ilyenkor a")
+            print("    ÚJRASZÁMOZÓDOTT (pl. subtr.py resegment reflow --split) — ilyenkor a")
             print("    döntés-fájl sorszámai már más szekciókra mutatnak, és a")
             print("    javításokat a review megismétlésével érdemes újra előállítani.")
     elif not has_expected and decisions:

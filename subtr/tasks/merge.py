@@ -1,8 +1,8 @@
 """
-merge_srt.py — Lefordított blokkok összefűzése egy SRT fájlba
+subtr.py merge — Lefordított blokkok összefűzése egy SRT fájlba
 
 Használat:
-    python merge_srt.py blocks/Sorozat_S01E01_eng output/Sorozat_S01E01_hun.srt
+    python subtr.py merge "blocks/Sorozat - S01E01.eng" "output/Sorozat - S01E01.hun.srt"
 """
 
 import os

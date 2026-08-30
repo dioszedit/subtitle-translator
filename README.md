@@ -3,11 +3,11 @@
 SRT felirat-fordítási keretrendszer LLM-alapú fordítással és stilisztikai review-val.
 A workflow Claude Code-, Gemini API- és Codex CLI-providerrel futtatható.
 
-**Irány:** angolról magyarra (EN→HU). A **célnyelv fixen magyar** — a fordító és a
+**Irány:** forrásnyelvből magyarra. A **célnyelv fixen magyar** — a fordító és a
 review promptok magyar nyelvre vannak megírva, ez nem paraméter. A **forrásnyelv
-angolra van hangolva**: a promptok is ezt mondják a modellnek. Más forrásnyelvvel a
-folyamat lefut és használható eredményt ad, de több ponton gyengébben — a részletekért
-és a beállításokért lásd a *Más forrásnyelv* szakaszt.
+alapból angol**, de bármelyik támogatott nyelv lehet: a fájlnév `.kód` tagjából
+(`.eng`, `.ger`, `.kor`, …) minden lépés automatikusan felismeri, és a promptok
+ehhez igazodnak — részletek a *Forrásnyelv* szakaszban.
 
 **Tipikus use-case:** sorozat-feliratok fordítása (pl. koreai és más ázsiai drámák),
 ahol fontos a karakterek, megszólítások és kulturális kifejezések konzisztens
@@ -26,7 +26,7 @@ subtitle-translator/
 ├── CLAUDE.md                    ← Claude Code belépési pont a közös szabályzathoz
 ├── AGENTS.md                    ← Codex projektutasítások
 ├── glossary.json                ← Fordítási szójegyzék (kézzel validált)
-├── .env.example                 ← Gemini API kulcs sablonja (.env-be másold)
+├── .env.example                 ← .env sablon: Gemini API kulcs, modell-defaultok, default provider
 ├── .gitignore                   ← Mit ne commit-oljunk
 │
 ├── subtr.py                     ← Egyparancsos CLI — minden lépés ezen keresztül fut
@@ -45,16 +45,22 @@ subtitle-translator/
 │   │   ├── gemini.py            ← Gemini API + retry + kvótakezelés
 │   │   ├── claude_cli.py        ← Claude Code wrapper
 │   │   └── codex_cli.py         ← Codex CLI wrapper
-│   └── tasks/                   ← Fordítás- és review-logika
-│       ├── translate.py         ← Közös fordítási prompt és feldolgozás
-│       ├── review.py            ← Közös review-prompt és feldolgozás
-│       ├── glossary_extract.py  ← Szójegyzék bővítés
-│       └── register_extract.py  ← Regiszter kinyerés
+│   └── tasks/                   ← Egy fájl = egy subtr parancs
+│       ├── split.py             ← split: SRT → blokkok
+│       ├── translate.py         ← translate: közös fordítási prompt és feldolgozás
+│       ├── merge.py             ← merge: blokkok → egy SRT
+│       ├── verify.py            ← verify: strukturális ellenőrzés
+│       ├── review.py            ← review: közös review-prompt és feldolgozás
+│       ├── apply_review.py      ← apply: riportok összefésülése, interaktív átvezetés
+│       ├── apply_review_auto.py ← apply-auto: átvezetés döntés-fájlból
+│       ├── resegment.py         ← resegment: sorhossz-riport / újratördelés
+│       ├── glossary_extract.py  ← glossary: szójegyzék bővítés
+│       └── register_extract.py  ← register: regiszter kinyerés
 │
 ├── addons/                      ← Opcionális segédscriptek (saját READMÉ-kkel)
-│   ├── mdl-init/                ← Új sorozat: TRANSLATION.local.md MyDramaList-linkből
-│   ├── vtt2srt/                 ← Meglévő .vtt felirat átvétele: WebVTT → SRT
-│   └── srt-preclean/            ← 0. lépés: SDH-forrás előtisztítása
+│   ├── mdl-init/                ← 0/a: új sorozat — TRANSLATION.local.md + glossary-címek MyDramaList-linkből
+│   ├── srt-preclean/            ← 0/b: SDH-forrás előtisztítása
+│   └── vtt2srt/                 ← 0/d: meglévő .vtt felirat átvétele (WebVTT → SRT)
 
 ├── input/                       ← Ide tedd a forrásnyelvi SRT fájlokat
 ├── blocks/                      ← Auto-generált blokk-fájlok
@@ -97,6 +103,10 @@ pip install google-genai python-dotenv pydantic
 copy .env.example .env
 # Szerkeszd: GEMINI_API_KEY=...   (https://aistudio.google.com/apikey)
 ```
+
+> Opcionális: `pip install -e .` után a parancs `subtr <parancs> ...` alakban is
+> hívható (meg `python -m subtr`-ként) — a README a `python subtr.py` formát
+> használja, mert az telepítés nélkül is működik.
 
 > **macOS / Linux megjegyzés:** a README parancsai Windows PowerShell-re vannak
 > írva. Más platformon a következő helyettesítések kellenek:
@@ -299,6 +309,12 @@ python subtr.py translate "blocks\eng" --provider claude --agents 3
 del "blocks\eng\eng_block_003_0301-0450_HUN.srt"
 python subtr.py translate "blocks\eng" --provider claude --agents 1
 ```
+
+> A Claude-ág egy ismert CLI-mellékhatást magától javít: ha az agent a Read tool
+> `sorszám<TAB>tartalom` megjelenítését másolja a kimenetbe (minden sor elé
+> sorszám kerül), a parancs a prefixeket leszedi és `(Read-sorszámprefix
+> eltávolítva)` üzenettel elfogadja a blokkot — a fordítás ilyenkor jó, csak a
+> szerializálás romlott el.
 
 #### Gemini API fordító (`subtr.py translate --provider gemini`) — alternatíva
 ```powershell
@@ -666,7 +682,21 @@ python subtr.py register "input\S01E01.eng.srt" --provider codex
 
 # Csak nézni akarod, nem írni
 python subtr.py register "input\S01E01.eng.srt" --dry-run
+
+# KÉSZ MAGYAR feliratból (meglévő fordítás átvételekor): a tegezés/magázás
+# ott nem következtetés, hanem leolvasás
+python subtr.py register "Season 01\S01E01.hun.srt" "Season 01\S01E02.hun.srt" --hungarian
 ```
+
+| Kapcsoló | Jelentés |
+|---|---|
+| `--provider gemini\|claude\|codex` | Modell-provider (default: gemini) |
+| `--model NÉV` | Modell-felülbírálás (a `.env` `SUBTR_<PROVIDER>_MODEL_REGISTER` is jó) |
+| `--source-lang KÓD` | A forrás nyelve, ha a fájlnév nem árulkodik (lásd *Forrásnyelv*) |
+| `--hungarian` | A bemenet(ek) kész **magyar** felirat(ok): a formát a magyar szövegből olvassa le |
+| `--local-file ÚTVONAL` | Melyik fájlban van a regiszter (default: `TRANSLATION.local.md`) |
+| `--dry-run` / `--yes` / `--all-interactive` | Csak mutat / nem kérdez / mindenre kérdez |
+| `--timeout MP` | Egy hívás időkorlátja |
 
 Hogyan dönt, mit kérdez meg:
 
@@ -726,32 +756,19 @@ továbbra is a `TRANSLATION.md` és a `glossary.json`. A Codexes megfelelőik a
 
 ## Más forrásnyelv (nem angol forrásból)
 
-A **célnyelv fixen magyar**: a `subtr.py translate` és a `subtr.py review`
-promptjai magyar nyelvre vannak megírva, ez nem kapcsolható ki.
-
-A **forrásnyelv angolra van hangolva**, de a folyamat más forrásnyelvvel is lefut, és
-használható eredményt ad. Amit ilyenkor tudni érdemes:
+A gépi oldal nyelvfüggetlen — a promptok, a forrás automatikus megkeresése és a
+regiszter-kinyerés a felismert forrásnyelvhez igazodik (lásd a *Forrásnyelv*
+szakaszt). Ami **nem** áll át magától, az a szabályzat szövege:
 
 | Mi | Mi történik | Mit tegyél |
 |---|---|---|
-| A fordító prompt kimondja: „angolról magyarra" | A modell téves állítást kap a forrásról. Általában elnézi, de nem ideális | A prompt átírása kódmódosítás — ha rendszeresen kell, érdemes |
 | A `TRANSLATION.md` angol forrásnyelvi hibamintái konkrét angol kifejezésekre épülnek | Ezek a szabályok nem sülnek el — holt teher, de nem ártanak | Cseréld a saját forrásnyelved tipikus csapdáira |
-| A forrás automatikus megkeresése `.hun.srt` → `.eng.srt` névcserével megy | Más kiterjesztésű forrást nem talál meg, és a review **forrás-összevetés nélkül** fut | **Add meg kézzel:** `--source "input\....srt"` — a kapcsoló bármilyen fájlt elfogad |
-| A forrássorok címkéje a promptban `[FORRÁS]`, a kapcsoló neve `--source` | Nyelvfüggetlen, nincs teendő | — |
-| A `glossary.json` kulcsa `en` | Csak elnevezés; funkcionálisan „forrásnyelvi kifejezés" | — |
 | A `TRANSLATION.md` *Tegezés/magázás* szakasza | A döntési sorrend, a Megszólítási regiszter és a kikerülő megfogalmazás nyelvfüggetlen | A *Formalitás-jelek angol forrásban* alszakaszt cseréld a saját forrásnyelved jeleire; az *eredeti nyelvből átvett megszólítások* alszakasz nem ázsiai eredetinél elhagyható |
+| A `glossary.json` kulcsa `en` | Csak elnevezés; funkcionálisan „forrásnyelvi kifejezés" | — |
+| A forrás fájlneve nem követi a `.kód.srt` konvenciót | A review nem találja meg a forrást, és **forrás-összevetés nélkül** fut (több téves találat) | `--source "input\....srt"` kézzel — vagy nevezd át a fájlt a konvenció szerint |
 
-A legfontosabb ezek közül a harmadik. Forrás-összevetés nélkül a review érezhetően
-több téves találatot ad (a lektor ilyenkor csak a magyar szöveget látja, és nem tudja
-ellenőrizni, hogy az eredeti igazolja-e a megoldást), ezért nem angol forrásnál a
-`--source` kézi megadása gyakorlatilag kötelező:
-
-```powershell
-python subtr.py review "output\hun.srt" --source "input\Sorozat - S01E01.kor.srt"
-```
-
-A `glossary.json` szerepe itt még nagyobb, mint EN→HU esetben: mivel a C. blokk
-szabályai kiesnek, a konzisztencia jórészt a szójegyzéken múlik.
+A `glossary.json` szerepe nem angol forrásnál még nagyobb: mivel a hibaminta-szabályok
+kiesnek, a konzisztencia jórészt a szójegyzéken múlik.
 
 ## Modell-defaultok .env-ből
 
@@ -797,7 +814,8 @@ SUBTR_CLAUDE_MODEL_TRANSLATE=opus
 
 ## Tippek
 
-- **Agent szám:** 3 az ajánlott. 5-nél fölött API rate limit jöhet, üres válasszal.
+- **Agent szám:** 3 az ajánlott. Gemininél `--agents 10` fölött 429 rate limit jöhet
+  (a parancs figyelmeztet is); Claude-nál/Codexnél a CLI-folyamatok száma a korlát.
 - **Blokk méret:** 150 az alapértelmezett. Ha sok a hiba, csökkentsd 100-ra.
 - **TRANSLATION.md:** Minél részletesebb az aktuális sorozat adatai rész, annál jobb
   a fordítás minősége (karakter-háttér, formalitás-szintek, kontextus).
@@ -814,6 +832,12 @@ SUBTR_CLAUDE_MODEL_TRANSLATE=opus
   törlődik, így az is újramegy), mind a három review-ág pedig `--start-chunk` /
   `--end-chunk` / `--suffix` kapcsolókkal folytatható. A `subtr.py merge`
   `--force` kapcsolóval hiányzó blokkok mellett is összefűz (a hiányt listázza).
+- **Részleges megtagadás:** ha az agent szerkezetileg ép fájlt ír, de egyes cue-k
+  helyére placeholdert tesz (`[DAL]`, `[SONG]`, `[TODO]`, üres szöveg ott, ahol a
+  forrásban volt), a blokk `warning`-gal törlődik és újrafutáskor újramegy — a
+  hiányos fordítás nem kerül a merge-be. A részletes ok (az érintett cue-k és az
+  agent válasza) a projekt gyökerében lévő **`.translate.log`**-ban van
+  (gitignore-olt, 2 MB fölött `.translate.log.1`-re forog).
 - **Fordító finomhangolás:** `subtr.py translate --provider claude --timeout <mp>` (default
   900), `--max-turns <n>` (default 20, futó-galopp elleni plafon),
   `--no-cleanup` (régi sys-prompt fájlok megtartása); `subtr.py glossary

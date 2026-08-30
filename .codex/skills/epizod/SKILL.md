@@ -9,8 +9,8 @@ Az utasítások forrása a `steps.txt`; a fordítási szabályzat a `TRANSLATION
 
 | Lépés | Kész, ha |
 |---|---|
-| Preclean | `input/<X>.eng.clean.srt` létezik; innentől ezt használd forrásnak |
-| Split | `blocks/<X>.eng/` és benne inputblokkok léteznek |
+| Preclean | `input/<X>.<lang>.clean.srt` létezik; innentől ezt használd forrásnak (a blokkok `input/blocks/<X>.<lang>/` alatt is lehetnek) |
+| Split | `blocks/<X>.<lang>/` és benne inputblokkok léteznek (`<lang>` = a forrás nyelvkódja: `eng`, `ger`, …) |
 | Fordítás | minden inputblokkhoz van `_HUN.srt` |
 | Merge | `output/<X>.hun.srt` létezik |
 | Verify | a `subtr.py verify` már lefutott a megfelelő forrással |
@@ -26,7 +26,7 @@ Az utasítások forrása a `steps.txt`; a fordítási szabályzat a `TRANSLATION
 - A checkpoint miatt újrafuttatás csak a hiányzó blokkokat dolgozza fel. Egy konkrét blokk újrafordítását a `--block` kapcsolóval végezd.
 - Merge-nél hiányzó blokk esetén ne használj `--force`-ot külön felhasználói kérés nélkül.
 - Preclean után a `.clean.srt` legyen a `subtr.py verify` forrása.
-- Nem angol forrásnál review-hoz kötelező a `--source` explicit megadása.
+- A forrásnyelvet a fájlnév `.kód` tagjából minden lépés felismeri; `--source-lang` csak akkor kell, ha a név nem árulkodik (pl. a `.clean.srt` splittelésekor). A review a forrás SRT-t magától megtalálja; `--source` csak nem konvenció szerinti fájlnévnél kell.
 - A review-javaslatokat a `review-triage` skill szerint szűrd, és csak ezután futtasd a resegmentet.
 
 A végén emlékeztesd a felhasználót a videóval való végső kézi ellenőrzésre.

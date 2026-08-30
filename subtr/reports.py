@@ -1,6 +1,6 @@
 """Review-riport kontraktus — fájlnevek, formázás, mentés EGY helyen.
 
-A riport-utótag (`_REVIEW_CLAUDE.json` stb.) kontraktus: az apply_review.py
+A riport-utótag (`_REVIEW_CLAUDE.json` stb.) kontraktus: a `subtr.py apply`
 globbal keresi, a review-triage skill `_REVIEW_*.json`-t vár. Az alakja itt
 rögzül, és nem változhat a fogyasztók tudta nélkül.
 

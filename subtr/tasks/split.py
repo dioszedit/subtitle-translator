@@ -1,9 +1,9 @@
 """
-split_srt.py — SRT fájl feldarabolása fordítási blokkokra
+subtr.py split — SRT fájl feldarabolása fordítási blokkokra
 
 Használat:
-    python split_srt.py input/Sorozat_S01E01_eng.srt
-    python split_srt.py input/Sorozat_S01E01_eng.srt --block-size 200
+    python subtr.py split "input/Sorozat - S01E01.eng.srt"
+    python subtr.py split "input/Sorozat - S01E01.eng.srt" --block-size 200
 """
 
 import glob

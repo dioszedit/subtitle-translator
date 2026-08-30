@@ -1,21 +1,20 @@
 #!/usr/bin/env python3
 """
-apply_review.py — Review riportok összefésülése és interaktív alkalmazása.
+subtr.py apply — Review riportok összefésülése és interaktív alkalmazása.
 
-A review scriptek (review_with_claude.py / review_with_gemini.py) riportjait
-beolvassa, szekciószám szerint összefésüli és deduplikálja, majd találatonként
+A `subtr.py review` riportjait (bármelyik provider) beolvassa, szekciószám szerint összefésüli és deduplikálja, majd találatonként
 megkérdezi, alkalmazza-e a javaslatot a magyar SRT-re. Az eredetiről .bak
 mentés készül az első íráskor.
 
 Használat:
-    python apply_review.py "output/Sorozat - S01E01.hun.srt"
-        → automatikusan megkeresi a _REVIEW_CLAUDE*.json/.txt és
-          _REVIEW_GEMINI*.json/.txt riportokat a fájl mellett
+    python subtr.py apply "output/Sorozat - S01E01.hun.srt"
+        → automatikusan megkeresi a _REVIEW_CLAUDE / _REVIEW_GEMINI /
+          _REVIEW_CODEX riportokat (.json/.txt) a fájl mellett
 
-    python apply_review.py "output/....hun.srt" riport1.json riport2.txt
+    python subtr.py apply "output/....hun.srt" riport1.json riport2.txt
         → csak a megadott riportokat használja
 
-    python apply_review.py "output/....hun.srt" --dry-run
+    python subtr.py apply "output/....hun.srt" --dry-run
         → csak listázza az összefésült találatokat, nem módosít
 
 Interaktív parancsok találatonként:

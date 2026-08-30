@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-gemini_quota.py — Gemini API napi kérésszám nyilvántartása (gépszinten, kulcs szerint)
+subtr.py quota — Gemini API napi kérésszám nyilvántartása (gépszinten, kulcs szerint)
 
 MIÉRT KELL: a Gemini API NEM adja vissza a maradék kvótát. Kipróbálva:
   - Service Usage API (consumerQuotaMetrics) → 403, API kulccsal tiltott (OAuth kell)
@@ -58,17 +58,17 @@ kérés-limitet jegyzi meg. Enélkül egy múló percenkénti 429 (amit magas
 --agents értéknél rutinszerűen kapunk) örökre rossz napi limitet tanulna be,
 és a nap hátralévő részére hamisan „kimerült"-nek jelölné a modellt.
 
-PÁRHUZAMOS FUTÁS: a translate_with_gemini.py több agenttel dolgozik, és több
+PÁRHUZAMOS FUTÁS: a `subtr.py translate --provider gemini` több agenttel dolgozik, és több
 projekt is futhat egyszerre. Az írás ezért lock-fájllal védett, hogy a
 párhuzamos növelések ne írják egymást felül.
 
 HASZNÁLAT (parancssorból):
-    py gemini_quota.py                 # mai fogyás modellenként
-    py gemini_quota.py --days 7        # utolsó 7 nap
-    py gemini_quota.py --projects      # mai fogyás projektmappa szerint is
-    py gemini_quota.py --where         # hol van a napló
-    py gemini_quota.py --reset         # mai számlálók nullázása (ha félrement)
-    py gemini_quota.py --forget-limit gemini-3.6-flash   # rossz limit elfelejtése
+    py subtr.py quota                  # mai fogyás modellenként
+    py subtr.py quota --days 7         # utolsó 7 nap
+    py subtr.py quota --projects       # mai fogyás projektmappa szerint is
+    py subtr.py quota --where          # hol van a napló
+    py subtr.py quota --reset          # mai számlálók nullázása (ha félrement)
+    py subtr.py quota --forget-limit gemini-3.6-flash    # rossz limit elfelejtése
 
 HASZNÁLAT (kódból):
     from subtr import quota as gq

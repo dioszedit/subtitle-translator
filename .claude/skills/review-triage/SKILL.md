@@ -21,12 +21,14 @@ NE innen idézd, hanem onnan.
 
 1. **A magyar SRT**: az argumentumban kapott `hun.srt` (ha nincs argumentum,
    keresd az `output/` legfrissebb `.hun.srt` fájlját, és erősíttesd meg).
-2. **Riportok**: a hun.srt mellett `<stem>_REVIEW_CLAUDE*.json` és
-   `<stem>_REVIEW_GEMINI*.json` (ha egy riportnak .json és .txt változata is van,
-   a .json a kanonikus). Ha EGYIK sincs → állj meg, és mondd meg, hogy előbb
-   review-t kell futtatni (`py subtr.py review --provider claude` / `py subtr.py review`).
-3. **Forrás SRT**: a hun.srt nevéből `.hun.` → `.eng.` csere, keresés az
-   `input/`-ban és a hun.srt mellett. Ha nem található (pl. nem angol a forrás),
+2. **Riportok**: a hun.srt mellett `<stem>_REVIEW_CLAUDE*.json`,
+   `<stem>_REVIEW_GEMINI*.json` és `<stem>_REVIEW_CODEX*.json` (ha egy riportnak
+   .json és .txt változata is van, a .json a kanonikus). Ha EGYIK sincs → állj
+   meg, és mondd meg, hogy előbb review-t kell futtatni
+   (`py subtr.py review [--provider claude|codex]`).
+3. **Forrás SRT**: a hun.srt nevéből a `.hun.` tag helyére a forrásnyelv kódja
+   (`.eng.`, `.ger.`, … — bármelyik ismert kód), keresés az `input/`-ban és a
+   hun.srt mellett. Ha nem található (a fájlnév nem követi a konvenciót),
    kérdezd meg a felhasználót, melyik fájl a forrás — forrás nélkül csak
    óvatosabb triage lehetséges, és ezt jelezd is az összegzésben.
 
@@ -38,7 +40,7 @@ decisions.json-hoz MINDIG a fájl AKTUÁLIS szövege kell.
 
 ## 3. Minden találat megítélése
 
-A két riport találatait szekciószám szerint fésüld össze. Találatonként:
+A riportok találatait szekciószám szerint fésüld össze. Találatonként:
 
 | Helyzet | Döntés |
 |---|---|

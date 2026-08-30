@@ -6,7 +6,7 @@ Mindegyiknek saját README-je van a részletekkel.
 
 | Add-on | Mikor | Mit csinál |
 |---|---|---|
-| [`mdl-init/`](mdl-init/README.md) | Sorozatonként **egyszer**, a legelső lépés | MyDramaList-linkből megírja a `TRANSLATION.local.md`-t (cím, szereplők, szinopszis) |
+| [`mdl-init/`](mdl-init/README.md) | Sorozatonként **egyszer**, a legelső lépés | MyDramaList-linkből megírja a `TRANSLATION.local.md`-t (cím, szereplők, szinopszis), és a sorozat- + forrásmű-címet beírja a `glossary.json`-ba |
 | [`srt-preclean/`](srt-preclean/README.md) | Epizódonként, **csak SDH-forrásnál** | A nyers SRT-ből kiszedi a hang-/effekt-cue-kat, újraszámoz, blokkokra bont |
 | [`vtt2srt/`](vtt2srt/README.md) | **Csak ha van kész fordítás** `.vtt`-ben más forrásból | WebVTT → SRT (fejléc/NOTE/STYLE eldobása, újraszámozás, `.`→`,`), hogy a `glossary`/`register`/`verify`/`review` dolgozni tudjon vele |
 

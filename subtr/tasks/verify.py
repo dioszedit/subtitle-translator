@@ -1,8 +1,8 @@
 """
-verify_srt.py — Eredeti és fordított SRT összehasonlítása
+subtr.py verify — Eredeti és fordított SRT összehasonlítása
 
 Használat:
-    python verify_srt.py input/eredeti.srt output/fordított.srt
+    python subtr.py verify "input/eredeti.srt" "output/fordított.srt"
 """
 
 import re

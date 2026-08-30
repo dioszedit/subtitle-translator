@@ -1,5 +1,4 @@
-"""Feladat-réteg: provider-független kinyerő/review logika.
+"""Feladat-réteg: provider-független fordítás/kinyerő/review logika.
 
-A gyökérkönyvtár azonos nevű scriptjei (pl. glossary_extract.py,
-register_extract.py) csak vékony wrapperek, amelyek ide importálnak.
+Egy modul = egy subtr parancs; a CLI (subtr/cli.py) ide diszpécserel.
 """

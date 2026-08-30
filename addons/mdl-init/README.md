@@ -45,7 +45,7 @@ Még kitöltendő (4 sor):
 | `--hu-title "Cím"` | A magyar cím beírása rögtön (különben `TODO` marad) |
 | `--stdout` | Csak kiírja a képernyőre, fájlt nem ír (előnézet) |
 | `--force` | Meglévő `TRANSLATION.local.md` felülírása — a régit `.bak`-ba menti |
-| `--out ÚTVONAL` | Más kimeneti fájl (alapból a repo gyökerében `TRANSLATION.local.md`) |
+| `--out ÚTVONAL` | Más kimeneti fájl (alapból a munkakönyvtárban: `./TRANSLATION.local.md`) |
 | `--max-cast N` | Legfeljebb N szereplő (alapból **12**), főszereplők előre |
 | `--include-guests` | A vendégszereplők (Guest Role) is kerüljenek bele |
 | `--glossary ÚTVONAL` | Másik szójegyzék-fájl (alapból a munkakönyvtárban `glossary.json`) |
@@ -92,7 +92,13 @@ A sorozatcím bejegyzésének `context`-je külön kimondja a **címkártya-kiv�
 enélkül a modell a sorozatcím-kártyáról is lehagyná a magyar címet, holott ott a
 `TRANSLATION.md` *Címkártya* szabálya érvényes (fölül a magyar cím, alatta az
 eredeti). Ha a magyar cím a `--hu-title`-lel meg van adva, az is bekerül a
-`context`-be.
+`context`-be — de csak **új** bejegyzésnél: meglévő címbejegyzést a script soha
+nem ír át, tehát a magyar címet utólag kézzel kell a `context`-be tenni.
+
+Az **évszámot a script levágja** a címről: a MyDramaList oldalcíme „My Boss
+(2024)” alakú, a felirat viszont sosem írja ki az évet — évszámmal a bejegyzés
+soha nem illeszkedne. A `glossary.json`-ba és a `meta.series`-be ezért „My Boss”
+kerül.
 
 **Szereplőneveket szándékosan NEM vesz fel.** A MyDramaList írásmódja gyakran
 eltér a feliratétól (`Shang Zhi Tao` vs. a feliratbeli `Shang Zhitao`), és egy

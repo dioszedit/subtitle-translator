@@ -36,7 +36,7 @@ python3 addons/vtt2srt/vtt2srt.py x.vtt --force                   # létező .sr
 |---|---|
 | `vtt…` | Egy vagy több `.vtt` fájl |
 | `--out-dir MAPPA` | Kimeneti mappa (alapból a `.vtt` mellé, azonos néven, `.srt`-vel) |
-| `--force` | Meglévő `.srt` felülírása (enélkül hibával leáll) |
+| `--force` | Meglévő `.srt` felülírása (enélkül azt a fájlt kihagyja, a többit konvertálja, és 1-es kilépési kóddal zár) |
 
 ## Meglévő fordítás „betanítása” a pipeline-nak
 

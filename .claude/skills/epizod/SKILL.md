@@ -17,20 +17,20 @@ Az epizód azonosítójából (pl. `Sorozat - S01E01`) sorban ellenőrizd:
 
 | Lépés | Kész, ha… |
 |---|---|
-| 0. preclean (opcionális) | `input/<X>.eng.clean.srt` létezik — akkor INNENTŐL ez a forrás |
-| 1. split | `blocks/<X>.eng/` létezik és vannak benne blokkok |
+| 0. preclean (opcionális) | `input/<X>.<lang>.clean.srt` létezik — akkor INNENTŐL ez a forrás (a blokkok ilyenkor `input/blocks/<X>.<lang>/` alatt is lehetnek) |
+| 1. split | `blocks/<X>.<lang>/` létezik és vannak benne blokkok (`<lang>` = a forrás nyelvkódja: `eng`, `ger`, …) |
 | 2. translate | MINDEN `<X>_block_NNN_*.srt`-hez van `*_HUN.srt` párja |
 | 3. merge | `output/<X>.hun.srt` létezik |
 | 4. verify | le kell futtatni (olcsó, mindig futtatható) |
-| 5. review | `output/<X>.hun_REVIEW_CLAUDE*` vagy `_REVIEW_GEMINI*` létezik |
-| 5c/5d. triage | a review-javítások átvezetve (ezt a felhasználótól kérdezd, fájlból nem látszik) |
+| 5. review | `output/<X>.hun_REVIEW_CLAUDE*`, `_REVIEW_GEMINI*` vagy `_REVIEW_CODEX*` létezik |
+| 5b/5c. triage | a review-javítások átvezetve (ezt a felhasználótól kérdezd, fájlból nem látszik) |
 | 7. resegment | `*.reflow.srt` létezik, vagy a felhasználó Subtitle Editben folytatja |
 
 Írd ki tömören, mi kész és mi a következő lépés, MIELŐTT bármit futtatnál.
 
 ## 2. Lépések futtatása — a csapdákkal együtt
 
-- **Split**: ha a `blocks/<X>.eng/` már létezik és újra-split kell (más
+- **Split**: ha a `blocks/<X>.<lang>/` már létezik és újra-split kell (más
   `--block-size`), CSAK `--clean`-nel — enélkül a script szándékosan leáll.
 - **Regiszter-ellenőrzés (translate ELŐTT)**: nézd meg, van-e `Megszólítási
   regiszter` a `TRANSLATION.local.md`-ben, és tartalmazza-e az előző epizód óta
@@ -52,9 +52,14 @@ Az epizód azonosítójából (pl. `Sorozat - S01E01`) sorban ellenőrizd:
   kell újrafuttatni; `--force`-ot csak a felhasználó kifejezett kérésére.
 - **Verify**: ha volt preclean, az összevetés a `.clean.srt` ELLEN fut, nem az
   eredeti `.eng.srt` ellen (az addon újraszámoz, hamis hibákat jelezne).
+- **Forrásnyelv**: a fájlnév `.kód` tagjából (`.eng`, `.ger`, …) minden lépés
+  magától felismeri. `--source-lang` csak akkor kell, ha a név nem árulkodik —
+  tipikusan a preclean `.clean.srt`-jének splittelésekor, mert ott a `.clean`
+  tag elfedi a nyelvkódot.
 - **Review**: a review három providere független, futhat az egyik vagy több is.
-  NEM ANGOL forrásnál a `--source "<forrás srt>"` kézi megadása kötelező
-  (az automatikus keresés csak `.eng.srt`-t talál meg).
+  A forrás SRT-t magától megtalálja (a `.hun.` tag helyére bármely ismert
+  nyelvkód); `--source "<forrás srt>"` csak akkor kell, ha a fájlnév nem követi a
+  konvenciót.
 - **Review-javítások átvezetése**: add át a **review-triage** skillnek
   (`/review-triage "<output/X.hun.srt>"`) — ott van a szűrési eljárás.
 - **Resegment**: CSAK a review-javítások átvezetése UTÁN (`--split` újraszámoz,
