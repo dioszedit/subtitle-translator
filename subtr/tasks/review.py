@@ -10,7 +10,7 @@ a forrás-párosítás és a lektor-prompt törzse két teljes másolatban. Itt:
   - a chunk-ciklus + riportírás közös, a provider csak egy "executor" closure:
     (chunk_text, i, total) -> (normalizált findings-lista | None, hibaüzenet).
 
-A gyökér review_with_*.py fájlok vékony wrapperek a main(provider) fölött.
+Belépési pont: `subtr.py review [--provider claude|gemini|codex]`.
 """
 
 import argparse
@@ -425,13 +425,13 @@ def main(argv=None):
     parser.add_argument("--end-chunk", type=int, default=None,
                         help="Eddig a chunkig (bezárólag, 1-alapú). Default: utolsó")
     parser.add_argument("--suffix", type=str, default="",
-                        help="Riport fájl utótag, pl. '_part2' → _REVIEW_...:_part2.txt")
+                        help="Riport fájl utótag, pl. '_part2' → _REVIEW_GEMINI_part2.txt")
     config.add_source_lang_argument(parser)
     parser.add_argument("--source", "--english", type=str, default=None,
-                        help="Forrásnyelvi SRT (default: automatikus keresés "
-                             "a .hun.srt névből az input/ mappában, .eng.srt-t "
-                             "keresve). Bármilyen forrásnyelvhez használható — "
-                             "nem angol forrásnál kötelező kézzel megadni. "
+                        help="Forrásnyelvi SRT (default: automatikus keresés — "
+                             "a .hun. tag helyére a forrásnyelv kódja, majd bármely "
+                             "ismert .kód.srt az input/ mappában és a fájl mellett). "
+                             "Csak akkor kell, ha a fájlnév nem követi a konvenciót. "
                              "A --english a kapcsoló régi neve.")
     parser.add_argument("--no-source", "--no-english", action="store_true",
                         help="Forrásnyelvi SRT kihagyása akkor is, ha megtalálható")
@@ -520,7 +520,9 @@ def main(argv=None):
             sys.exit(1)
         if src_path:
             if not args.source_lang:
-                src_lang = config.resolve_source_lang(None, src_path)
+                # A megtalált fájl neve nyer az env felett: SUBTR_SOURCE_LANG=ger
+                # mellett egy .eng.srt-hez ne német utasítást kapjon a lektor.
+                src_lang = config.detect_source_lang(src_path) or src_lang
             src_map = parse_by_index(src_path)
             problem = check_source_alignment(entries, src_map)
             if problem and not args.source:

@@ -405,7 +405,7 @@ def extract_terms(src_path: str, hun_path: str, existing_terms: set,
     chunk_pairs = split_srt_pair_chunks(eng_content, hun_content)
     if len(chunk_pairs) > 1:
         print(f"A felirat {len(chunk_pairs)} darabban lesz elemezve "
-              f"(darabonként egy Claude-hívás).")
+              f"(darabonként egy hívás).")
 
     all_valid = []
     seen = set(existing_terms)
@@ -479,6 +479,10 @@ def validate_suggestions(suggestions, existing_terms: set,
         if not all(key in suggestion for key in ("en", "hu", "category")):
             continue
         if suggestion["category"] not in CATEGORIES:
+            continue
+        # A Claude-ág szabad JSON-t enged át (null, szám) — a séma nélküli
+        # érték .lower()-nél dobna, és az egész darab elveszne.
+        if not isinstance(suggestion["en"], str) or not isinstance(suggestion["hu"], str):
             continue
         if suggestion["en"].lower() in existing_terms:
             continue

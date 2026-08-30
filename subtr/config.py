@@ -7,6 +7,7 @@ fájl nem töltődik be (pl. ha a környezeti változók már máshonnan jönnek
 """
 
 import os
+import sys
 
 try:
     from dotenv import load_dotenv
@@ -184,11 +185,30 @@ def resolve_source_lang(cli_value=None, path=None):
       3. path               — a fájl- vagy mappanév `.kód` tagja
       4. DEFAULT_SOURCE_LANG ("eng")
     """
-    for candidate in (cli_value, os.environ.get("SUBTR_SOURCE_LANG", "")):
+    for label, candidate in (("--source-lang", cli_value),
+                             ("SUBTR_SOURCE_LANG", os.environ.get("SUBTR_SOURCE_LANG", ""))):
+        if not candidate or not str(candidate).strip():
+            continue
         code = normalize_source_lang(candidate)
         if code:
             return code
+        # Elgépelt kód ("german", "deutsch") némán angolra esne vissza, és a
+        # felhasználó azt hinné, német promptot kap — ezért hangosan szólunk.
+        print(f"FIGYELEM: ismeretlen forrásnyelv-kód a {label} értékében: "
+              f"{str(candidate).strip()!r} — figyelmen kívül hagyva "
+              f"(lehet: {', '.join(sorted(SOURCE_LANGS))})", file=sys.stderr)
     return detect_source_lang(path) or DEFAULT_SOURCE_LANG
+
+
+def source_lang_origin(cli_value=None, path=None) -> str:
+    """Honnan jött a feloldott forrásnyelv — az állapotkiíráshoz."""
+    if normalize_source_lang(cli_value):
+        return "--source-lang"
+    if normalize_source_lang(os.environ.get("SUBTR_SOURCE_LANG", "")):
+        return "SUBTR_SOURCE_LANG"
+    if detect_source_lang(path):
+        return "a fájl-/mappanévből"
+    return "alapértelmezés"
 
 
 def source_lang_name(code) -> str:

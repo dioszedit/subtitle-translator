@@ -95,24 +95,40 @@ PLACEHOLDER_MARKERS = ("[DAL]", "[SONG]", "[LYRICS]", "[NEM FORDITHATO]",
                        "[TODO]", "[...]")
 
 
-def find_placeholder_sections(output_path: str) -> list[str]:
-    """Placeholder-re cserélt vagy üres szövegű cue-k sorszámai."""
+def find_placeholder_sections(output_path: str, input_path: str | None = None) -> list[str]:
+    """Placeholder-re cserélt vagy üres szövegű cue-k sorszámai.
+
+    Üres kimeneti cue csak akkor gyanús, ha a forrás ugyanazon cue-ja NEM üres:
+    a legitim üres forrás-cue (a srt.py érvényesnek tekinti) különben minden
+    futásnál "részleges megtagadás"-nak számítana, és a blokk sosem készülne el.
+    Ha nincs input_path, minden üres cue találat (régi viselkedés).
+    """
     try:
         sections = parse_sections(output_path)
     except Exception:
         return []
+    source_empty: set[str] = set()
+    if input_path:
+        try:
+            source_empty = {s["num"] for s in parse_sections(input_path)
+                            if not (s.get("text") or "").strip()}
+        except Exception:
+            source_empty = set()
     hits = []
     for section in sections:
         text = (section.get("text") or "").strip()
         upper = text.upper()
-        if not text or any(marker in upper for marker in PLACEHOLDER_MARKERS):
+        if not text:
+            if section["num"] not in source_empty:
+                hits.append(section["num"])
+        elif any(marker in upper for marker in PLACEHOLDER_MARKERS):
             hits.append(section["num"])
     return hits
 
 
-def placeholder_warning(output_path: str) -> str | None:
+def placeholder_warning(output_path: str, input_path: str | None = None) -> str | None:
     """Warning-üzenet, ha az output placeholder/üres cue-kat tartalmaz (különben None)."""
-    hits = find_placeholder_sections(output_path)
+    hits = find_placeholder_sections(output_path, input_path)
     if not hits:
         return None
     preview = ", ".join(str(n) for n in hits[:5])
@@ -122,9 +138,9 @@ def placeholder_warning(output_path: str) -> str | None:
             f"megtagadás gyanúja, output törölve, újrafutáskor újrafordítjuk")
 
 
-def placeholder_detail(output_path: str) -> str:
+def placeholder_detail(output_path: str, input_path: str | None = None) -> str:
     """A naplóba: az ÖSSZES érintett cue sorszáma (a message csak 5-öt mutat)."""
-    hits = find_placeholder_sections(output_path)
+    hits = find_placeholder_sections(output_path, input_path)
     if not hits:
         return ""
     return "érintett cue-k: " + ", ".join(str(n) for n in hits)
@@ -429,11 +445,11 @@ def _make_gemini_translator(client, model, system_instruction, max_retries,
 
         out_count = count_sections(output_path)
         if in_count == out_count:
-            stub = placeholder_warning(output_path)
+            stub = placeholder_warning(output_path, block_path)
             if stub:
                 result["status"] = "warning"
                 result["message"] = stub
-                result["detail"] = placeholder_detail(output_path)
+                result["detail"] = placeholder_detail(output_path, block_path)
                 safe_remove(output_path)
                 return result
             result["status"] = "ok"
@@ -496,9 +512,9 @@ def _make_codex_translator(codex_bin, model, instruction, timeout, retries):
             safe_remove(output_path)
             return {"block": name, "status": "warning",
                     "message": "Szekciószám eltérés — output törölve"}
-        stub = placeholder_warning(output_path)
+        stub = placeholder_warning(output_path, block_path)
         if stub:
-            detail = placeholder_detail(output_path)
+            detail = placeholder_detail(output_path, block_path)
             safe_remove(output_path)
             return {"block": name, "status": "warning", "message": stub,
                     "detail": detail}
@@ -597,11 +613,11 @@ def _make_claude_translator(claude_bin, sys_prompt_path, model, timeout, max_tur
                                          "újrafutáskor újrafordítjuk")
                     safe_remove(output_path)
                     return result
-                stub = placeholder_warning(output_path)
+                stub = placeholder_warning(output_path, block_path)
                 if stub:
                     result["status"] = "warning"
                     result["message"] = stub
-                    result["detail"] = (placeholder_detail(output_path)
+                    result["detail"] = (placeholder_detail(output_path, block_path)
                                         + "\n--- agent válasza ---\n" + (stdout or ""))
                     safe_remove(output_path)
                     return result
@@ -803,7 +819,7 @@ def main(argv=None):
     print(f"  Agent-ek:       {args.agents}")
     print(f"  Modell:         {model or 'provider-alapértelmezés'}")
     print(f"  Forrásnyelv:    {config.source_lang_name(src_lang)} ({src_lang})"
-          + ("" if args.source_lang else "  [a mappanévből]"))
+          f"  [{config.source_lang_origin(args.source_lang, args.blocks_dir)}]")
     for label, value in extra_status:
         print(f"  {label}:{' ' * max(1, 15 - len(label))}{value}")
     if not claude_md:

@@ -1,8 +1,7 @@
 """Kis, stdlib-alapú adapter a Claude Code CLI hívásaihoz.
 
-A repóban négy hely kereste meg és hívta meg saját maga a `claude` parancsot
-(glossary_extract.py, register_extract.py, translate_parallel.py,
-review_with_claude.py) — ez a modul a közös részt fogja össze: a CLI
+A tasks-modulok (translate, review, glossary_extract, register_extract) mind
+a `claude` parancsot hívják — ez a modul a közös részt fogja össze: a CLI
 elérési útjának feloldását, a `claude -p -` subprocess-hívást és a válaszból
 a JSON kinyerését.
 """
@@ -121,7 +120,8 @@ def extract_json(raw: str):
     return None
 
 
-READ_PREFIX_RE = re.compile(r"^(\d+)\t(.*)$")
+# `cat -n` stílusú, szóközzel igazított prefixet is elfogad ("     1\tszöveg").
+READ_PREFIX_RE = re.compile(r"^\s*(\d+)\t(.*)$")
 
 
 def strip_read_line_numbers(content: str) -> str | None:
@@ -154,19 +154,24 @@ def strip_read_line_numbers(content: str) -> str | None:
     expected = 1
     seen_prefix = False
     for line in lines:
+        # CRLF: a \r nem része a tartalomnak, de az üres sort jelző csupasz
+        # sorszám ("4\r") különben nem lenne isdigit() — leválasztjuk, és a
+        # kimenetre visszatesszük.
+        eol = "\r" if line.endswith("\r") else ""
+        line = line[:-1] if eol else line
         m = READ_PREFIX_RE.match(line)
         if m and int(m.group(1)) == expected:
-            out.append(m.group(2))
+            out.append(m.group(2) + eol)
             expected += 1
             seen_prefix = True
-        elif seen_prefix and line.isdigit() and int(line) == expected:
+        elif seen_prefix and line.strip().isdigit() and int(line) == expected:
             # csak a sorszámot tartalmazó sor = eredetileg üres sor. Ezt CSAK
             # akkor értelmezzük így, ha már láttunk valódi prefixet — különben
             # egy ép SRT első sorát ("1") is kitörölnénk.
-            out.append("")
+            out.append(eol)
             expected += 1
         else:
-            out.append(line)
+            out.append(line + eol)
 
     if not seen_prefix:
         return None

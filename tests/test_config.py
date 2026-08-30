@@ -194,3 +194,23 @@ def test_every_source_lang_has_name_and_valid_formality():
     # minden alias létező kódra mutat
     for alias, code in config.SOURCE_LANG_ALIASES.items():
         assert code in config.SOURCE_LANGS, alias
+
+
+def test_resolve_source_lang_invalid_value_warns(monkeypatch, capsys):
+    _clear_subtr_env(monkeypatch)
+    assert config.resolve_source_lang("german", "input/X.ger.srt") == "ger"
+    err = capsys.readouterr().err
+    assert "FIGYELEM" in err and "'german'" in err and "--source-lang" in err
+    monkeypatch.setenv("SUBTR_SOURCE_LANG", "deutsch")
+    config.resolve_source_lang(None, None)
+    assert "SUBTR_SOURCE_LANG" in capsys.readouterr().err
+
+
+def test_source_lang_origin(monkeypatch):
+    _clear_subtr_env(monkeypatch)
+    assert config.source_lang_origin("chi", "x.ger.srt") == "--source-lang"
+    monkeypatch.setenv("SUBTR_SOURCE_LANG", "fre")
+    assert config.source_lang_origin(None, "x.ger.srt") == "SUBTR_SOURCE_LANG"
+    monkeypatch.delenv("SUBTR_SOURCE_LANG")
+    assert config.source_lang_origin(None, "blocks/x.ger") == "a fájl-/mappanévből"
+    assert config.source_lang_origin(None, "blocks/x") == "alapértelmezés"

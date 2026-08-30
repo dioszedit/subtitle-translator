@@ -77,3 +77,14 @@ def test_empty_input():
 def test_trailing_newline_is_preserved():
     assert strip_read_line_numbers("1\ta\n2\tb\n").endswith("b\n")
     assert strip_read_line_numbers("1\ta\n2\tb") == "a\nb"
+
+
+def test_crlf_prefixed_output_is_repaired():
+    broken = "1\t1\r\n2\t00:00:01,000 --> 00:00:02,000\r\n3\tSzia!\r\n4\r\n5\t2\r\n6\t00:00:03,000 --> 00:00:04,000\r\n7\tHé!\r\n"
+    assert strip_read_line_numbers(broken) == (
+        "1\r\n00:00:01,000 --> 00:00:02,000\r\nSzia!\r\n\r\n2\r\n00:00:03,000 --> 00:00:04,000\r\nHé!\r\n")
+
+
+def test_cat_n_style_aligned_prefix_is_repaired():
+    broken = "     1\t1\n     2\t00:00:01,000 --> 00:00:02,000\n     3\tSzia!\n     4\n"
+    assert strip_read_line_numbers(broken) == "1\n00:00:01,000 --> 00:00:02,000\nSzia!\n\n"

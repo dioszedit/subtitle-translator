@@ -89,3 +89,22 @@ def test_rotate_log_meret_folott(tmp_path, monkeypatch):
     rotate_log()
     assert not (tmp_path / TRANSLATE_LOG).exists()
     assert (tmp_path / (TRANSLATE_LOG + ".1")).read_text(encoding="utf-8") == "x" * 100
+
+
+def test_ures_forras_cue_nem_placeholder(tmp_path):
+    """A forrásban is üres cue (a srt.py érvényesnek veszi) a kimenetben sem
+    gyanús — különben a blokk minden futásnál törlődne, és sosem készülne el."""
+    src = tmp_path / "block.srt"
+    src.write_text(
+        "1\n00:00:01,000 --> 00:00:02,000\nHi!\n\n"
+        "2\n00:00:03,000 --> 00:00:04,000\n\n"
+        "3\n00:00:05,000 --> 00:00:06,000\nBye!\n\n", encoding="utf-8")
+    out = write_srt_file(
+        tmp_path,
+        "1\n00:00:01,000 --> 00:00:02,000\nSzia!\n\n"
+        "2\n00:00:03,000 --> 00:00:04,000\n\n"
+        "3\n00:00:05,000 --> 00:00:06,000\n\n")
+    # a 2-es a forrásban is üres → nem hiba; a 3-as viszont üresre fordult
+    assert find_placeholder_sections(out, str(src)) == ["3"]
+    # input nélkül a régi viselkedés: minden üres cue találat
+    assert find_placeholder_sections(out) == ["2", "3"]

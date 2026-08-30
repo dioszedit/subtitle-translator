@@ -98,7 +98,7 @@ def srt_dialogue(path: str) -> str:
     """Az SRT-ből '#sorszám szöveg' sorok — időbélyeg nélkül, hogy a prompt
     rövidebb legyen. A beszélőcímkék ([Anna], (Hagi)) SZÁNDÉKOSAN maradnak:
     ezek az elsődleges támpont ahhoz, hogy ki beszél kihez."""
-    raw = Path(path).read_text(encoding="utf-8", errors="replace")
+    raw = Path(path).read_text(encoding="utf-8-sig", errors="replace")
     out = []
     for block in re.split(r"\n\s*\n", raw.strip()):
         lines = [l.strip() for l in block.strip().split("\n") if l.strip()]
