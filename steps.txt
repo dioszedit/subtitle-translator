@@ -47,7 +47,12 @@ py subtr.py split "input\Sorozat - S01E01.eng.srt"
 #     az agent JAVASLATOT tesz a magyar fordításra (a TRANSLATION.md szabályai alapján),
 #     te jóváhagyod (y/n/e/q). Így a párhuzamos fordítás már EGYSÉGES nevekkel indul.
 #     (Csak a forrásfájlt add meg — a magyar argumentum elhagyása kapcsolja be ezt a módot.)
+#     A BIZTOS találatokat magától átveszi, csak a BIZONYTALANOKAT kérdezi
+#     (biztos = a modell is annak mondja ÉS legalább 2x előfordul a feliratban).
 py subtr.py glossary "input\Sorozat - S01E01.eng.srt"
+# Csak a biztosak, kérdés nélkül:   --yes
+# Mindent végigkérdez:              --all-interactive
+# Próbafutás, nem ír fájlba:        --dry-run
 # Másik providerrel (default: claude):
 # py subtr.py glossary "input\Sorozat - S01E01.eng.srt" --provider codex
 # py subtr.py glossary "input\Sorozat - S01E01.eng.srt" --provider gemini

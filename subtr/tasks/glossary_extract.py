@@ -11,11 +11,23 @@ Használat:
     python glossary_extract.py eredeti.eng.srt forditott.hun.srt    # (2) utólagos mód
     python glossary_extract.py eredeti.eng.srt forditott.hun.srt --glossary glossary.json
     python glossary_extract.py eredeti.eng.srt --provider gemini   # vagy codex / claude
+    python glossary_extract.py eredeti.eng.srt --yes                # csak a biztosakat veszi át
+    python glossary_extract.py eredeti.eng.srt --all-interactive    # mindent végigkérdez
+    python glossary_extract.py eredeti.eng.srt --dry-run            # nem ír fájlba
 
 A feliratot Claude Code-dal, Codex CLI-vel vagy Gemini API-val elemzi (hosszú fájlnál több darabban, szekció-
 határon vágva — párban a két nyelv ugyanazokat a szekciókat kapja), kigyűjti
 a visszatérő kifejezéseket (megszólítások, helyszínek, nevek, speciális
-fogalmak), majd a konzolon egyesével jóváhagyhatod őket.
+fogalmak), majd a konzolon jóváhagyhatod őket.
+
+A javaslatok BIZTOS/BIZONYTALAN besorolást kapnak: a modell önbevallása mellett
+a gépi fék is számít (a kifejezés tényleges előfordulásszáma a forrásfeliratban,
+lásd MIN_OCCURRENCES). Alapból a biztosak automatikusan átmennek, és csak a
+bizonytalanokat kérdezzük — ugyanaz a séma, mint a regiszter-kinyerésnél.
+
+A prompt a fordítóéval AZONOS kontextust kap: a teljes TRANSLATION.md +
+TRANSLATION.local.md, és a teljes jóváhagyott szójegyzék (a `hu`/`context`
+mezőkkel), hogy a rokon kifejezéseknél is a sorozat terminológiáját kövesse.
 Csak az elfogadott kifejezések kerülnek a glossary.json-ba.
 Mentéskor az előző állapotról glossary.json.bak készül.
 """
@@ -28,7 +40,7 @@ import argparse
 import shutil
 import subprocess
 
-from subtr.glossary import CATEGORIES
+from subtr.glossary import CATEGORIES, as_prompt_text
 from subtr.providers.codex_cli import CodexRunError, find_codex, run_codex_json
 from subtr import config
 from subtr.context import load_translation_context as load_claude_md
@@ -150,7 +162,17 @@ JSON_SYNTAX_RULES = """JSON SZINTAKTIKAI SZABÁLY (KRITIKUS):
 # Az "en" kulcs a glossary.json ADATFORMÁTUMA — a meglévő szójegyzékek miatt
 # akkor is ez a neve, ha a forrás nem angol. Jelentése: "forrásnyelvi alak".
 OUTPUT_SCHEMA = """Válaszolj KIZÁRÓLAG egy JSON tömbbel, semmi más szöveget NE írj:
-[{"en": "a forrásnyelvi kifejezés", "hu": "magyar fordítás", "category": "honorifics|place_names|character_names|special_terms|phrases", "context": "rövid megjegyzés"}]"""
+[{"en": "a forrásnyelvi kifejezés", "hu": "magyar fordítás", "category": "honorifics|place_names|character_names|special_terms|phrases", "context": "rövid megjegyzés", "confidence": "biztos|bizonytalan", "evidence": ["#412 „idézet a feliratból”"]}]"""
+
+# A regiszter-kinyerés bevált szövege: a modell önbevallását kérjük, de a
+# gépi fék (count_occurrences + MIN_OCCURRENCES) felül is bírálja.
+CONFIDENCE_RULE = """- confidence="biztos" CSAK akkor, ha a magyar alak a fenti szabályokból vagy a
+  már jóváhagyott szójegyzék terminológiájából EGYÉRTELMŰEN következik.
+  Ha mérlegelned kell (több elfogadható magyar alak, kontextusfüggő jelentés,
+  ismeretlen kulturális fogalom), akkor confidence="bizonytalan" — a
+  bizonytalanság megjelölése HASZNOS, nem hiba: azt a felhasználó dönti el.
+- Az "evidence" mezőbe konkrét sorszámot és rövid idézetet adj a feliratból
+  (pl. '#412 „Yes, sir.”'), ne általánosságot. Bizonyíték nélkül ne állíts semmit."""
 
 CODEX_GLOSSARY_SCHEMA = {
     "type": "object",
@@ -163,8 +185,12 @@ CODEX_GLOSSARY_SCHEMA = {
                     "en": {"type": "string"}, "hu": {"type": "string"},
                     "category": {"type": "string", "enum": CATEGORIES},
                     "context": {"type": "string"},
+                    "confidence": {"type": "string",
+                                   "enum": ["biztos", "bizonytalan"]},
+                    "evidence": {"type": "array", "items": {"type": "string"}},
                 },
-                "required": ["en", "hu", "category", "context"],
+                "required": ["en", "hu", "category", "context",
+                             "confidence", "evidence"],
                 "additionalProperties": False,
             },
         },
@@ -176,13 +202,82 @@ CODEX_GLOSSARY_SCHEMA = {
 GEMINI_MODEL_DEFAULT = "gemini-3.6-flash"
 
 
-def _existing_note(existing_terms: set) -> str:
-    if not existing_terms:
+def _existing_note(new_terms) -> str:
+    """A futás korábbi darabjaiban már javasolt kifejezések.
+
+    A GLOSSARY-ban meglévőket nem itt soroljuk fel, hanem a `_glossary_note()`
+    teljes szövegében — ott a `hu` és a `context` is látszik, ami a lényeg.
+    """
+    terms = sorted(t for t in new_terms if t)
+    if not terms:
         return ""
     return f"""
-MÁR MEGLÉVŐ KIFEJEZÉSEK (ne javasold újra ezeket):
-{', '.join(sorted(existing_terms))}
+EBBEN A FUTÁSBAN MÁR JAVASOLT KIFEJEZÉSEK (ne javasold újra ezeket):
+{', '.join(terms)}
 """
+
+
+def _glossary_note(glossary_text: str) -> str:
+    """A jóváhagyott szójegyzék TELJES szövege a promptba.
+
+    Korábban csak a kisbetűs `en` kulcsok listája ment át (duplikátumszűrésre),
+    így a modell nem láthatta a már eldöntött magyar alakokat — a rokon
+    kifejezéseknél ezért tért el a sorozat terminológiájától.
+    """
+    if not glossary_text.strip():
+        return ""
+    return f"""
+=== MÁR JÓVÁHAGYOTT SZÓJEGYZÉK — A TERMINOLÓGIÁJA KÖTELEZŐ ===
+{glossary_text}
+=== SZÓJEGYZÉK VÉGE ===
+Ezeket a kifejezéseket NE javasold újra. A ROKON kifejezéseknél viszont KÖVESD
+a fenti terminológiát: ha a szójegyzék szerint "Sect" = "Rend", akkor a
+"Sect Elder" magyar alakja is „Rend"-del képződik, nem „szektá"-val.
+"""
+
+
+def _rules_note(claude_md: str) -> str:
+    """A projekt fordítási szabályzata — CSONKÍTATLANUL.
+
+    Korábban `[:6000]`-re volt vágva; a TRANSLATION.md maga is hosszabb ennél,
+    és a `subtr.context` a TRANSLATION.local.md-t a VÉGÉRE fűzi — vagyis a
+    sorozatspecifikus kontextusból soha semmi nem jutott el a kinyerőhöz.
+    A translate.py és a review.py is csonkítatlanul adja át.
+    """
+    if not claude_md.strip():
+        return ""
+    return f"""
+=== A PROJEKT FORDÍTÁSI SZABÁLYAI (ezek szerint javasold a magyar fordítást) ===
+{claude_md.strip()}
+=== SZABÁLYOK VÉGE ===
+"""
+
+
+MIN_OCCURRENCES = 2  # ennyi előfordulás alatt a javaslat bizonytalan
+
+_WS_RE = re.compile(r"\s+")
+
+
+def count_occurrences(term: str, text: str) -> int:
+    r"""Hányszor szerepel a kifejezés a forrásszövegben (kis-nagybetű-független).
+
+    A kifejezésen belüli szóközök `\s+`-ra lazulnak, mert a feliratban a
+    többszavas kifejezést sortörés is megszakíthatja. Szóhatárt csak ott
+    teszünk, ahol a kifejezés betűvel/számmal kezdődik vagy végződik —
+    a „Your Highness!" végén a `\b` sosem illeszkedne.
+    """
+    term = (term or "").strip()
+    if not term or not text:
+        return 0
+    pattern = r"\s+".join(re.escape(p) for p in _WS_RE.split(term))
+    if term[0].isalnum():
+        pattern = r"\b" + pattern
+    if term[-1].isalnum():
+        pattern = pattern + r"\b"
+    try:
+        return len(re.findall(pattern, text, re.IGNORECASE))
+    except re.error:
+        return 0
 
 
 CHUNK_CHAR_TARGET = 15000  # ~ennyi karakter kerül egy Claude-hívásba nyelvenként
@@ -234,12 +329,74 @@ def split_srt_pair_chunks(eng_content: str, hun_content: str,
     return chunks or [("", "")]
 
 
-def extract_terms(src_path: str, hun_path: str, existing_terms: set, timeout: int = 300,
+CATEGORIES_BLOCK = """KATEGÓRIÁK:
+- honorifics: megszólítások, rangok, címek (pl. Your Highness, General, My Lord)
+- place_names: helyszínek, tartományok, paloták
+- character_names: karakternevek — a "hu" mezőbe a helyes magyar ÍRÁSMÓD kerüljön, NE fordítás (a nevet nem fordítjuk)
+- special_terms: kulturális/speciális kifejezések (pl. spiritual root, cultivation, gisaeng)
+- phrases: visszatérő kifejezések, amelyeknek konzisztens fordítása fontos"""
+
+
+def build_pair_prompt(src_chunk: str, hun_chunk: str, ci: int, total: int,
+                      new_terms, glossary_text: str, claude_md: str,
+                      src_lang: str = config.DEFAULT_SOURCE_LANG) -> str:
+    """Utólagos (forrás-magyar páros) mód promptja — tiszta függvény, tesztelhető."""
+    src_name = config.source_lang_name(src_lang)
+    return f"""Elemezd az alábbi {src_name}-magyar feliratpárt és gyűjtsd ki a visszatérő, konzisztensen fordítandó kifejezéseket.
+
+{CATEGORIES_BLOCK}
+{_existing_note(new_terms)}{_rules_note(claude_md)}{_glossary_note(glossary_text)}
+FONTOS:
+- Csak olyan kifejezéseket adj, amelyek TÖBBSZÖR előfordulnak vagy fontosak a konzisztencia szempontjából
+- A "hu" mezőben azt a fordítást add, amit a magyar feliratban TÉNYLEGESEN használtunk
+- Ne adj triviális szavakat (pl. "yes" = "igen")
+{CONFIDENCE_RULE}
+- Maximum 30-40 kifejezést adj
+
+{JSON_SYNTAX_RULES}
+
+{OUTPUT_SCHEMA}
+
+{src_name.upper()} FELIRAT (részlet {ci}/{total}):
+{src_chunk}
+
+MAGYAR FELIRAT (részlet {ci}/{total}):
+{hun_chunk}"""
+
+
+def build_source_prompt(chunk: str, ci: int, total: int, new_terms,
+                        glossary_text: str, claude_md: str,
+                        src_lang: str = config.DEFAULT_SOURCE_LANG) -> str:
+    """Fordítás előtti (csak forrás) mód promptja — tiszta függvény, tesztelhető."""
+    src_name = config.source_lang_name(src_lang)
+    return f"""Olvasd végig az alábbi {src_name.upper()} feliratot. A fordítás MÉG NEM készült el — a Te feladatod,
+hogy ELŐRE összegyűjtsd azokat a visszatérő kifejezéseket, amelyeket az egész epizódban
+KONZISZTENSEN kell majd fordítani, és JAVASLATOT tegyél a magyar megfelelőjükre.
+
+{CATEGORIES_BLOCK}
+{_existing_note(new_terms)}{_rules_note(claude_md)}{_glossary_note(glossary_text)}
+FONTOS:
+- Csak olyan kifejezéseket adj, amelyek TÖBBSZÖR előfordulnak vagy fontosak a konzisztencia szempontjából
+- A "hu" mező a JAVASOLT fordítás — kövesd a fenti projekt-szabályokat (megszólítások, "rész", semleges nem ahol kétséges)
+- Ne adj triviális szavakat (pl. "yes" = "igen")
+- Ha egy kifejezés magyar fordítása bizonytalan vagy kontextusfüggő, a "context" mezőben jelezd
+{CONFIDENCE_RULE}
+- Maximum 30-40 kifejezést adj
+
+{JSON_SYNTAX_RULES}
+
+{OUTPUT_SCHEMA}
+
+{src_name.upper()} FELIRAT (részlet {ci}/{total}):
+{chunk}"""
+
+
+def extract_terms(src_path: str, hun_path: str, existing_terms: set,
+                  claude_md: str = "", glossary_text: str = "", timeout: int = 300,
                   provider: str = "claude", model: str | None = None,
                   src_lang: str = config.DEFAULT_SOURCE_LANG) -> list[dict]:
     """Claude Code-dal kifejezések kinyerése a feliratpárból (utólagos mód).
     Hosszú fájlnál több darabban — a teljes epizód elemzésre kerül."""
-    src_name = config.source_lang_name(src_lang)
     with open(src_path, 'r', encoding='utf-8-sig') as f:
         eng_content = f.read()
     with open(hun_path, 'r', encoding='utf-8-sig') as f:
@@ -255,39 +412,20 @@ def extract_terms(src_path: str, hun_path: str, existing_terms: set, timeout: in
     for ci, (ec, hc) in enumerate(chunk_pairs, 1):
         if len(chunk_pairs) > 1:
             print(f"\n[{ci}/{len(chunk_pairs)}] darab elemzése...")
-        prompt = f"""Elemezd az alábbi {src_name}-magyar feliratpárt és gyűjtsd ki a visszatérő, konzisztensen fordítandó kifejezéseket.
+        prompt = build_pair_prompt(ec, hc, ci, len(chunk_pairs),
+                                   seen - existing_terms, glossary_text,
+                                   claude_md, src_lang)
 
-KATEGÓRIÁK:
-- honorifics: megszólítások, rangok, címek (pl. Your Highness, General, My Lord)
-- place_names: helyszínek, tartományok, paloták
-- character_names: karakternevek (a helyes írásmód, NEM fordítás)
-- special_terms: kulturális/speciális kifejezések (pl. spiritual root, cultivation, gisaeng)
-- phrases: visszatérő kifejezések, amelyeknek konzisztens fordítása fontos
-{_existing_note(seen)}
-FONTOS:
-- Csak olyan kifejezéseket adj, amelyek TÖBBSZÖR előfordulnak vagy fontosak a konzisztencia szempontjából
-- A "hu" mezőben azt a fordítást add, amit a magyar feliratban TÉNYLEGESEN használtunk
-- Ne adj triviális szavakat (pl. "yes" = "igen")
-- Maximum 30-40 kifejezést adj
-
-{JSON_SYNTAX_RULES}
-
-{OUTPUT_SCHEMA}
-
-{src_name.upper()} FELIRAT (részlet {ci}/{len(chunk_pairs)}):
-{ec}
-
-MAGYAR FELIRAT (részlet {ci}/{len(chunk_pairs)}):
-{hc}"""
-
-        valid = _run_extraction(prompt, seen, timeout, provider, model)
+        valid = _run_extraction(prompt, seen, timeout, provider, model,
+                                source_text=eng_content)
         for v in valid:
             seen.add(v["en"].lower())
         all_valid.extend(valid)
     return all_valid
 
 
-def extract_terms_source(src_path: str, existing_terms: set, claude_md: str,
+def extract_terms_source(src_path: str, existing_terms: set, claude_md: str = "",
+                         glossary_text: str = "",
                          timeout: int = 300, provider: str = "claude",
                          model: str | None = None,
                          src_lang: str = config.DEFAULT_SOURCE_LANG) -> list[dict]:
@@ -297,76 +435,70 @@ def extract_terms_source(src_path: str, existing_terms: set, claude_md: str,
     a meglévő glossary alapján), te a konzolon hagyod jóvá/szerkeszted.
     Így a párhuzamos fordítás már egységes nevekkel/címekkel indul.
     """
-    src_name = config.source_lang_name(src_lang)
     with open(src_path, 'r', encoding='utf-8-sig') as f:
         eng_content = f.read()
-
-    claude_md_note = ""
-    if claude_md.strip():
-        claude_md_note = f"""
-A PROJEKT FORDÍTÁSI SZABÁLYAI (ezek szerint javasold a magyar fordítást):
----
-{claude_md.strip()[:6000]}
----
-"""
 
     chunks = split_srt_chunks(eng_content)
     if len(chunks) > 1:
         print(f"A felirat {len(chunks)} darabban lesz elemezve "
-              f"(darabonként egy Claude-hívás).")
+              f"(darabonként egy hívás).")
 
     all_valid = []
     seen = set(existing_terms)
     for ci, chunk in enumerate(chunks, 1):
         if len(chunks) > 1:
             print(f"\n[{ci}/{len(chunks)}] darab elemzése...")
-        prompt = f"""Olvasd végig az alábbi {src_name.upper()} feliratot. A fordítás MÉG NEM készült el — a Te feladatod,
-hogy ELŐRE összegyűjtsd azokat a visszatérő kifejezéseket, amelyeket az egész epizódban
-KONZISZTENSEN kell majd fordítani, és JAVASLATOT tegyél a magyar megfelelőjükre.
+        prompt = build_source_prompt(chunk, ci, len(chunks),
+                                     seen - existing_terms, glossary_text,
+                                     claude_md, src_lang)
 
-KATEGÓRIÁK:
-- honorifics: megszólítások, rangok, címek (pl. Your Highness, General, My Lord)
-- place_names: helyszínek, tartományok, paloták
-- character_names: karakternevek — a "hu" mezőbe a helyes magyar ÍRÁSMÓD kerüljön, NE fordítás (a nevet nem fordítjuk)
-- special_terms: kulturális/speciális kifejezések (pl. spiritual root, cultivation, gisaeng)
-- phrases: visszatérő kifejezések, amelyeknek konzisztens fordítása fontos
-{_existing_note(seen)}{claude_md_note}
-FONTOS:
-- Csak olyan kifejezéseket adj, amelyek TÖBBSZÖR előfordulnak vagy fontosak a konzisztencia szempontjából
-- A "hu" mező a JAVASOLT fordítás — kövesd a fenti projekt-szabályokat (megszólítások, "rész", semleges nem ahol kétséges)
-- Ne adj triviális szavakat (pl. "yes" = "igen")
-- Ha egy kifejezés magyar fordítása bizonytalan vagy kontextusfüggő, a "context" mezőben jelezd
-- Maximum 30-40 kifejezést adj
-
-{JSON_SYNTAX_RULES}
-
-{OUTPUT_SCHEMA}
-
-{src_name.upper()} FELIRAT (részlet {ci}/{len(chunks)}):
-{chunk}"""
-
-        valid = _run_extraction(prompt, seen, timeout, provider, model)
+        valid = _run_extraction(prompt, seen, timeout, provider, model,
+                                source_text=eng_content)
         for v in valid:
             seen.add(v["en"].lower())
         all_valid.extend(valid)
     return all_valid
 
 
-def validate_suggestions(suggestions, existing_terms: set) -> list[dict]:
-    """A provider válaszát a glossary szerződéséhez igazítja."""
+def validate_suggestions(suggestions, existing_terms: set,
+                         source_text: str = "") -> list[dict]:
+    """A provider válaszát a glossary szerződéséhez igazítja.
+
+    Itt dől el a biztos/bizonytalan besorolás is. A modell önbevallásos
+    magabiztossága önmagában nem szűr (a regiszter-kinyerésnél szerzett
+    tapasztalat: mindent "biztos"-nak jelöl), ezért a forrásfeliratban mért
+    tényleges előfordulásszám felülbírálhatja: MIN_OCCURRENCES alatt a
+    javaslat bizonytalan, akármit is állít magáról.
+    """
     if not isinstance(suggestions, list):
         return []
     valid = []
     for suggestion in suggestions:
         if not isinstance(suggestion, dict):
             continue
-        if all(key in suggestion for key in ("en", "hu", "category")):
-            if suggestion["category"] in CATEGORIES and suggestion["en"].lower() not in existing_terms:
-                valid.append(suggestion)
+        if not all(key in suggestion for key in ("en", "hu", "category")):
+            continue
+        if suggestion["category"] not in CATEGORIES:
+            continue
+        if suggestion["en"].lower() in existing_terms:
+            continue
+
+        occ = count_occurrences(suggestion["en"], source_text)
+        conf = "biztos" if str(suggestion.get("confidence", "")).strip().lower() == "biztos" \
+            else "bizonytalan"
+        if source_text and occ < MIN_OCCURRENCES:
+            conf = "bizonytalan"
+        suggestion["confidence"] = conf
+        suggestion["occurrences"] = occ
+        suggestion["evidence"] = [str(e).strip()
+                                  for e in (suggestion.get("evidence") or [])
+                                  if str(e).strip()][:4]
+        valid.append(suggestion)
     return valid
 
 
-def _run_gemini(prompt: str, existing_terms: set, model: str | None) -> list[dict]:
+def _run_gemini(prompt: str, existing_terms: set, model: str | None,
+                source_text: str = "") -> list[dict]:
     """Gemini API ág — a retry/kvóta logika a közös adapterben (subtr.providers.gemini)."""
     from subtr.providers import gemini as gemini_provider
     if not gemini_provider.DEPS_OK:
@@ -390,14 +522,16 @@ def _run_gemini(prompt: str, existing_terms: set, model: str | None) -> list[dic
     if err:
         print(f"HIBA: Gemini API hiba: {err}")
         return []
-    return validate_suggestions(parsed.get("suggestions", []), existing_terms)
+    return validate_suggestions(parsed.get("suggestions", []), existing_terms,
+                                source_text)
 
 
 def _run_extraction(prompt: str, existing_terms: set, timeout: int,
-                    provider: str = "claude", model: str | None = None) -> list[dict]:
+                    provider: str = "claude", model: str | None = None,
+                    source_text: str = "") -> list[dict]:
     """Közös rész: provider hívás, válasz-parse és validáció."""
     if provider == "gemini":
-        return _run_gemini(prompt, existing_terms, model)
+        return _run_gemini(prompt, existing_terms, model, source_text)
 
     if provider == "codex":
         codex_cmd = find_codex()
@@ -413,7 +547,8 @@ def _run_extraction(prompt: str, existing_terms: set, timeout: int,
         except CodexRunError as exc:
             print(f"HIBA: Codex hiba: {exc}")
             return []
-        return validate_suggestions(result.get("suggestions", []), existing_terms)
+        return validate_suggestions(result.get("suggestions", []), existing_terms,
+                                    source_text)
 
     claude_cmd = find_claude_cli()
     print(f"Claude Code elemzi a feliratot... ({claude_cmd})")
@@ -470,7 +605,7 @@ def _run_extraction(prompt: str, existing_terms: set, timeout: int,
             print(f"  Első 300 karakter:\n  {raw[:300]!r}")
             return []
 
-        return validate_suggestions(suggestions, existing_terms)
+        return validate_suggestions(suggestions, existing_terms, source_text)
 
     except subprocess.TimeoutExpired:
         print(f"HIBA: Timeout ({timeout} mp)")
@@ -482,57 +617,117 @@ def _run_extraction(prompt: str, existing_terms: set, timeout: int,
         return []
 
 
-def interactive_review(suggestions: list[dict]) -> list[dict]:
-    """Interaktív jóváhagyás a konzolon."""
+def _describe(s: dict) -> str:
+    cat_label = CATEGORY_LABELS.get(s["category"], s["category"])
+    ctx = s.get("context", "")
+    return (f'[{cat_label}] "{s["en"]}" = "{s["hu"]}"'
+            + (f"  ({ctx})" if ctx else ""))
+
+
+def _ask(s: dict, i: int, total: int) -> str:
+    """Egy javaslat elbírálása. Visszaad: 'y' | 'n' | 'q'.
+
+    Szerkesztésnél a rekordot helyben módosítja, és 'y'-t ad vissza.
+    """
+    cat_label = CATEGORY_LABELS.get(s["category"], s["category"])
+    context = s.get("context", "")
+    ctx_str = f"  ({context})" if context else ""
+    flag = "BIZTOS" if s.get("confidence") == "biztos" else "BIZONYTALAN"
+
+    print(f"[{i}/{total}] [{cat_label}]  {flag} "
+          f"({s.get('occurrences', 0)} előfordulás)")
+    print(f"  EN: {s['en']}")
+    print(f"  HU: {s['hu']}{ctx_str}")
+    for e in s.get("evidence", [])[:2]:
+        print(f"  bizonyíték: {e}")
+
+    while True:
+        choice = input("  Döntés ([y] elfogad / n / e szerkeszt / q kilép): ").strip().lower()
+        if choice in ("y", ""):
+            print("  → Elfogadva")
+            return "y"
+        if choice == "n":
+            print("  → Elutasítva")
+            return "n"
+        if choice == "q":
+            return "q"
+        if choice == "e":
+            new_hu = input(f"  Új magyar fordítás [{s['hu']}]: ").strip()
+            if new_hu:
+                s["hu"] = new_hu
+            new_ctx = input(f"  Új kontextus [{context}]: ").strip()
+            if new_ctx:
+                s["context"] = new_ctx
+            new_cat = input(f"  Új kategória [{s['category']}]: ").strip()
+            if new_cat and new_cat in CATEGORIES:
+                s["category"] = new_cat
+            print("  → Elfogadva (szerkesztve)")
+            return "y"
+        print("  Ismeretlen válasz. Használj: y / n / e / q")
+
+
+def interactive_review(suggestions: list[dict], auto_yes: bool = False,
+                       all_interactive: bool = False) -> list[dict]:
+    """Jóváhagyás a konzolon, a biztos/bizonytalan besorolás szerint.
+
+    Alapból a biztos találatok automatikusan átmennek, és csak a
+    bizonytalanokat kérdezzük — ugyanaz a séma, mint a regiszter-kinyerésnél.
+    `--yes` esetén a bizonytalanok kimaradnak, `--all-interactive` esetén
+    mindent végigkérdezünk (ez volt a korábbi viselkedés).
+    """
     if not suggestions:
         print("\nNincs új javaslat.")
         return []
 
+    certain = sum(1 for s in suggestions if s.get("confidence") == "biztos")
     print(f"\n{'=' * 55}")
-    print(f"  {len(suggestions)} új kifejezés javaslat")
-    print(f"{'=' * 55}")
-    print("  y = elfogad  |  n = elutasít  |  e = szerkeszt  |  q = kilép")
+    print(f"  {len(suggestions)} új kifejezés javaslat "
+          f"({certain} biztos, {len(suggestions) - certain} bizonytalan)")
+    if all_interactive:
+        print("  --all-interactive: mindegyiket végigkérdezem")
+    elif auto_yes:
+        print("  --yes: a biztosakat átveszem, a bizonytalanokat kihagyom")
+    else:
+        print("  A biztosakat átveszem, csak a bizonytalanokat kérdezem")
     print(f"{'=' * 55}\n")
 
-    approved = []
-    for i, s in enumerate(suggestions):
-        cat_label = CATEGORY_LABELS.get(s["category"], s["category"])
-        context = s.get("context", "")
-        ctx_str = f"  ({context})" if context else ""
+    approved, auto, to_ask = [], [], []
+    for s in suggestions:
+        if not all_interactive and s.get("confidence") == "biztos":
+            auto.append(s)
+            approved.append(s)
+        else:
+            to_ask.append(s)
 
-        print(f"[{i+1}/{len(suggestions)}] [{cat_label}]")
-        print(f"  EN: {s['en']}")
-        print(f"  HU: {s['hu']}{ctx_str}")
-
-        while True:
-            choice = input("  Döntés (y/n/e/q): ").strip().lower()
-            if choice == 'y':
-                approved.append(s)
-                print("  → Elfogadva")
-                break
-            elif choice == 'n':
-                print("  → Elutasítva")
-                break
-            elif choice == 'e':
-                new_hu = input(f"  Új magyar fordítás [{s['hu']}]: ").strip()
-                if new_hu:
-                    s['hu'] = new_hu
-                new_ctx = input(f"  Új kontextus [{context}]: ").strip()
-                if new_ctx:
-                    s['context'] = new_ctx
-                new_cat = input(f"  Új kategória [{s['category']}]: ").strip()
-                if new_cat and new_cat in CATEGORIES:
-                    s['category'] = new_cat
-                approved.append(s)
-                print("  → Elfogadva (szerkesztve)")
-                break
-            elif choice == 'q':
-                print("\n  Jóváhagyás megszakítva.")
-                return approved
-            else:
-                print("  Ismeretlen válasz. Használj: y / n / e / q")
+    if auto:
+        print(f"Automatikusan elfogadva ({len(auto)} biztos találat):")
+        for s in auto:
+            print(f"  - {_describe(s)}  [{s.get('occurrences', 0)}×]")
         print()
 
+    skipped = 0
+    if to_ask and auto_yes:
+        skipped = len(to_ask)
+        print(f"--yes: {skipped} bizonytalan javaslat kihagyva "
+              f"(--all-interactive vagy kapcsoló nélküli futással átnézhetők).")
+        to_ask = []
+
+    if to_ask:
+        print(f"{len(to_ask)} javaslat vár döntésre:\n")
+    for i, s in enumerate(to_ask, 1):
+        decision = _ask(s, i, len(to_ask))
+        print()
+        if decision == "q":
+            skipped += len(to_ask) - i + 1
+            print("  Jóváhagyás megszakítva — az eddig elfogadottak megmaradnak.\n")
+            break
+        if decision == "y":
+            approved.append(s)
+        else:
+            skipped += 1
+
+    print(f"Összesítés: {len(approved)} elfogadva "
+          f"({len(auto)} automatikusan), {skipped} kihagyva.")
     return approved
 
 
@@ -584,7 +779,18 @@ def main():
     parser.add_argument("--model",
                         help="Opcionális modellazonosító (codex / gemini; "
                              f"gemini default: {GEMINI_MODEL_DEFAULT})")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Csak kiírja, mi kerülne be — a szójegyzéket nem módosítja")
+    parser.add_argument("--all-interactive", action="store_true",
+                        help="Minden javaslatnál kérdezzen, ne csak a bizonytalanoknál")
+    parser.add_argument("--yes", action="store_true",
+                        help="Ne kérdezzen: csak a biztos találatokat veszi át, "
+                             "a bizonytalanokat kihagyja")
     args = parser.parse_args()
+
+    if args.all_interactive and args.yes:
+        print("HIBA: A --yes és a --all-interactive kizárja egymást.")
+        sys.exit(1)
 
     # Modell-feloldás: CLI --model > SUBTR_<P>_MODEL_GLOSSARY > SUBTR_<P>_MODEL
     # > beégetett default (Gemini-nél GEMINI_MODEL_DEFAULT, CLI-knél None).
@@ -621,16 +827,29 @@ def main():
     if existing_terms:
         print(f"Meglévő kifejezések: {len(existing_terms)}")
 
+    # A fordítóval AZONOS kontextus: teljes szabályzat + teljes szójegyzék.
+    # (Korábban a szabályzat 6000 karakterre volt vágva — a TRANSLATION.local.md
+    # így soha nem ért ide —, a szójegyzékből pedig csak az "en" kulcsok mentek át.)
+    claude_md = load_claude_md()
+    glossary_text = as_prompt_text(glossary)
+    if claude_md:
+        print(f"Szabályzat: {len(claude_md)} karakter "
+              f"(TRANSLATION.md + TRANSLATION.local.md)")
+    else:
+        print("FIGYELEM: TRANSLATION.md nem található a munkakönyvtárban — "
+              "sorozat-szabályok NÉLKÜL javaslok fordítást!")
+    if glossary_text:
+        print(f"Szójegyzék a promptban: {len(glossary_text)} karakter")
+
     # Kinyerés
     if pre_mode:
-        claude_md = load_claude_md()
-        if claude_md:
-            print(f"TRANSLATION.md betöltve a HU javaslatokhoz ({len(claude_md)} char)")
         suggestions = extract_terms_source(args.source_srt, existing_terms, claude_md,
-                                           args.timeout, args.provider, args.model, src_lang)
+                                           glossary_text, args.timeout, args.provider,
+                                           args.model, src_lang)
     else:
         suggestions = extract_terms(args.source_srt, args.hun_srt, existing_terms,
-                                    args.timeout, args.provider, args.model, src_lang)
+                                    claude_md, glossary_text, args.timeout,
+                                    args.provider, args.model, src_lang)
 
     if not suggestions:
         print("Nem találtam új kifejezést.")
@@ -638,11 +857,19 @@ def main():
 
     print(f"\n{len(suggestions)} új kifejezés javaslat érkezett.")
 
-    # Interaktív jóváhagyás
-    approved = interactive_review(suggestions)
+    # Jóváhagyás (biztos = automatikus, bizonytalan = kérdés vagy kihagyás)
+    approved = interactive_review(suggestions, auto_yes=args.yes,
+                                  all_interactive=args.all_interactive)
 
     if not approved:
         print("\nNem lett elfogadva egyetlen kifejezés sem.")
+        return
+
+    if args.dry_run:
+        print(f"\n--dry-run: a(z) {args.glossary} NEM módosul. "
+              f"Beírásra várna {len(approved)} kifejezés:")
+        for s in approved:
+            print(f"  - {_describe(s)}")
         return
 
     # Beillesztés

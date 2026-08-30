@@ -47,7 +47,12 @@ A regisztert kézzel írod. Ha első változatot szeretnél a forrásfeliratból
 4. A szögletes zárójeles megjegyzéseket fordítsd le. Karakternevet ne fordíts le.
 5. Az „episode” (és megfelelői) mindig „rész”: „1. rész”, „a következő rész”, sosem „epizód”.
 6. A tegezés/magázás a *Megszólítási regiszterből*, ennek hiányában a jelenet kontextusából következzen; kétes esetben ne találj ki biztos viszonyt. Részletes eljárás: *Tegezés/magázás* szakasz.
-7. A `glossary.json` jóváhagyott fordításai kötelezőek.
+7. A `glossary.json` jóváhagyott fordításai kötelezőek. A sorozatspecifikus
+   **terminológiai döntés helye is a `glossary.json`**, az adott bejegyzés
+   `context` mezőjében (pl. `„Sect” MINDIG „Rend”, sosem „szekta”`) — nem
+   ebben a fájlban és nem a `TRANSLATION.local.md`-ben. A `subtr.py glossary`
+   ugyanezt a szójegyzéket kapja meg, így az új, rokon kifejezéseket is a
+   már eldöntött terminológiához igazítja.
 
 ### Tegezés/magázás
 

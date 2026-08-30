@@ -575,6 +575,15 @@ python subtr.py glossary "input\eng.srt" --glossary my_glossary.json
 python subtr.py glossary "input\eng.srt" --provider codex
 python subtr.py glossary "input\eng.srt" --provider gemini
 python subtr.py glossary "input\eng.srt" --provider gemini --model gemini-3.5-flash-lite
+
+# Csak a biztos találatokat veszi át, a bizonytalanokat kihagyja (nem kérdez)
+python subtr.py glossary "input\eng.srt" --yes
+
+# Mindegyiket végigkérdezi (a --yes/auto ág kikapcsolása)
+python subtr.py glossary "input\eng.srt" --all-interactive
+
+# Csak kiírja, mi kerülne be — a glossary.json nem módosul
+python subtr.py glossary "input\eng.srt" --dry-run
 ```
 
 A Gemini ág strukturált JSON sémával dolgozik, és a `subtr.py quota`-ba
@@ -582,8 +591,35 @@ könyvel, mint a többi Gemini-ágú parancs. Hosszú feliratnál a kinyerés t�
 darabban megy — **darabonként egy API-hívás**, ezt a napi kvótánál vedd
 figyelembe (`python subtr.py quota`).
 
-Mindkét mód interaktív: a javasolt kifejezéseket egyesével hagyod jóvá
-(`y` = elfogad, `n` = elutasít, `e` = szerkeszt, `q` = kilép).
+#### Biztos / bizonytalan javaslatok
+
+A javaslatok besorolást kapnak, a `subtr.py register` mintájára. A modell maga
+is nyilatkozik (`confidence`), de az önbevallása nem szűr — tapasztalat szerint
+mindent „biztos"-nak jelöl —, ezért egy **gépi fék** felül is bírálja: ha a
+kifejezés a forrásfeliratban `MIN_OCCURRENCES`-nél (2) kevesebbszer fordul elő,
+a javaslat bizonytalan lesz, akármit is állít magáról.
+
+| kapcsoló | viselkedés |
+|---|---|
+| *(nincs)* | a biztosakat automatikusan átveszi, csak a bizonytalanokat kérdezi |
+| `--yes` | a biztosakat átveszi, a bizonytalanokat **kihagyja**, nem kérdez |
+| `--all-interactive` | mindegyiket végigkérdezi |
+| `--dry-run` | nem ír fájlba, csak kilistázza, mi kerülne be |
+
+Kérdésnél: `y` (vagy üres Enter) = elfogad, `n` = elutasít, `e` = szerkeszt,
+`q` = kilép. Az automatikusan átvett sorokat a futás végén kilistázza az
+előfordulásszámmal, hogy utólag is ellenőrizhesd őket.
+
+#### Amit a kinyerő lát
+
+A prompt a fordítóéval **azonos** kontextust kap: a teljes `TRANSLATION.md` +
+`TRANSLATION.local.md` (csonkítatlanul), és a teljes jóváhagyott szójegyzék a
+`hu` és `context` mezőkkel együtt. Ez utóbbi a fontos: a rokon kifejezéseket
+így a már eldöntött terminológiához igazítja (ha a szójegyzékben `"Sect"` =
+`"Rend"`, akkor a `"Sect Elder"` sem lesz „szekta véne").
+
+> Ebből következik, hogy a **sorozatspecifikus terminológiai döntések helye a
+> `glossary.json` `context` mezője** — onnan a kinyerő is olvassa őket.
 
 A `glossary.json`-t minden fordító- és review-provider automatikusan betölti
 és átadja a modellnek, hogy a fordítások

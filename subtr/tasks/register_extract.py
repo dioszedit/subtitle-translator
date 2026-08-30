@@ -256,7 +256,7 @@ melyik szereplő melyiket TEGEZI és melyiket MAGÁZZA a magyar fordításban.
 - A neveket úgy írd, ahogy a sorozatkontextusban szerepelnek.
 
 === SOROZAT KONTEXTUS ===
-{context.strip()[:6000]}
+{context.strip()}
 
 === MÁR JÓVÁHAGYOTT REGISZTER (ezeket ne ismételd, csak ha ELLENTMOND a felirat) ===
 {existing_txt}
