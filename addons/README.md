@@ -8,6 +8,7 @@ Mindegyiknek saját README-je van a részletekkel.
 |---|---|---|
 | [`mdl-init/`](mdl-init/README.md) | Sorozatonként **egyszer**, a legelső lépés | MyDramaList-linkből megírja a `TRANSLATION.local.md`-t (cím, szereplők, szinopszis) |
 | [`srt-preclean/`](srt-preclean/README.md) | Epizódonként, **csak SDH-forrásnál** | A nyers SRT-ből kiszedi a hang-/effekt-cue-kat, újraszámoz, blokkokra bont |
+| [`vtt2srt/`](vtt2srt/README.md) | **Csak ha van kész fordítás** `.vtt`-ben más forrásból | WebVTT → SRT (fejléc/NOTE/STYLE eldobása, újraszámozás, `.`→`,`), hogy a `glossary`/`register`/`verify`/`review` dolgozni tudjon vele |
 
 ```bash
 # 0/a — új sorozat indítása (egyszer)
@@ -15,12 +16,15 @@ python addons/mdl-init/init_local.py https://mydramalist.com/70241-ni-ye-you-jin
 
 # 0/b — SDH-forrás előtisztítása (epizódonként, ha kell)
 python addons/srt-preclean/preclean_srt.py "input/Sorozat - S01E01.eng.srt"
+
+# 0/c — meglévő .vtt fordítás átvétele (csak ha a korábbi részek már kész vannak)
+python addons/vtt2srt/vtt2srt.py "Season 01"/*.hun.vtt
 ```
 
 ## Függőségek
 
-A `srt-preclean` csak a Python standard libet használja — nem kell telepíteni
-semmit. Az `mdl-init` scrapel, ezért külön csomagok kellenek hozzá:
+A `srt-preclean` és a `vtt2srt` csak a Python standard libet használja — nem
+kell telepíteni semmit. Az `mdl-init` scrapel, ezért külön csomagok kellenek hozzá:
 
 ```bash
 pip install -e ".[addons]"
