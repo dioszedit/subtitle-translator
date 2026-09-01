@@ -18,7 +18,7 @@ except ImportError:
 
 
 TASKS = ("translate", "review", "glossary", "register")
-PROVIDERS = ("gemini", "claude", "codex")
+PROVIDERS = ("gemini", "claude", "codex", "grok")
 
 # CWD-relatív útvonalak, mint eddig is — NEM keresünk repo-gyökeret,
 # a scripteket úgyis a repo gyökeréből futtatjuk.

@@ -10,7 +10,7 @@ a forrás-párosítás és a lektor-prompt törzse két teljes másolatban. Itt:
   - a chunk-ciklus + riportírás közös, a provider csak egy "executor" closure:
     (chunk_text, i, total) -> (normalizált findings-lista | None, hibaüzenet).
 
-Belépési pont: `subtr.py review [--provider claude|gemini|codex]`.
+Belépési pont: `subtr.py review [--provider claude|gemini|codex|grok]`.
 """
 
 import argparse
@@ -27,6 +27,7 @@ from subtr.glossary import as_prompt_text
 from subtr.providers import claude_cli
 from subtr.providers import codex_cli
 from subtr.providers import gemini as gemini_provider
+from subtr.providers import grok_cli
 from subtr.srt import parse_by_index, parse_entries
 
 DEFAULT_CHUNK_SIZE = 100
@@ -37,7 +38,8 @@ CLAUDE_SYS_PROMPT_PREFIX = ".review_claude_sys_prompt_"
 
 # Beégetett modell-defaultok — a .env (SUBTR_<P>_MODEL_REVIEW / SUBTR_<P>_MODEL)
 # és a --model kapcsoló a config.resolve_model() precedenciája szerint felülbírálja.
-MODEL_BUILTIN = {"gemini": "gemini-3.6-flash", "claude": "sonnet", "codex": None}
+MODEL_BUILTIN = {"gemini": "gemini-3.6-flash", "claude": "sonnet",
+                 "codex": None, "grok": "grok-4.6"}
 
 # Codex strict séma (a Gemini-adapter ugyanennek az additionalProperties
 # nélküli változatát használná — de a Gemini-ág pydantic sémával megy)
@@ -393,6 +395,34 @@ def _make_codex_executor(codex_bin, model, instruction, timeout, retries):
     return executor
 
 
+def _make_grok_executor(grok_bin, model, instruction, timeout, retries):
+    def executor(chunk_text, i, total):
+        prompt = f"{instruction}\n\n=== REVIEW BLOKK ({i}/{total}) ===\n{chunk_text}"
+        error = None
+        for attempt in range(1, retries + 1):
+            try:
+                parsed = grok_cli.run_grok_json(prompt, CODEX_REVIEW_SCHEMA,
+                                                timeout=timeout, model=model,
+                                                grok_bin=grok_bin)
+                findings = []
+                for item in parsed.get("errors", []):
+                    if not isinstance(item, dict):
+                        continue
+                    if not isinstance(item.get("sorszam"), int):
+                        continue
+                    findings.append(
+                        {key: str(item.get(key, ""))
+                         for key in ("eredeti", "hiba", "javaslat")}
+                        | {"sorszam": item["sorszam"]})
+                return findings, None
+            except grok_cli.GrokRunError as exc:
+                error = str(exc)
+                if attempt < retries:
+                    print(f"  Grok hiba, újrapróbálás ({attempt}/{retries})...")
+        return None, error
+    return executor
+
+
 # ────────────────────────────────────────────────────────────────────────────
 # main
 # ────────────────────────────────────────────────────────────────────────────
@@ -402,7 +432,7 @@ def main(argv=None):
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(
-        description="Magyar fordítás stilisztikai review (Gemini API / Claude Code / Codex CLI)")
+        description="Magyar fordítás stilisztikai review (Gemini API / Claude Code / Codex CLI / Grok CLI)")
     parser.add_argument("srt_file", help="Az összefűzött hun.srt fájl")
     parser.add_argument("--provider", choices=PROVIDERS,
                         default=config.default_provider(builtin="gemini"),
@@ -413,12 +443,12 @@ def main(argv=None):
     parser.add_argument("--model", type=str, default=None,
                         help="Modell-azonosító. Feloldás: --model > "
                              "SUBTR_<PROVIDER>_MODEL_REVIEW > SUBTR_<PROVIDER>_MODEL > "
-                             "beégetett (gemini: gemini-3.6-flash, claude: sonnet)")
+                             "beégetett (gemini: gemini-3.6-flash, claude: sonnet, grok: grok-4.6)")
     parser.add_argument("--timeout", type=int, default=None,
-                        help="Timeout chunkonként mp-ben (default: claude 600, codex 900; "
+                        help="Timeout chunkonként mp-ben (default: claude 600, codex/grok 900; "
                              "a gemini-ágon nem használt)")
     parser.add_argument("--max-retries", type=int, default=None,
-                        help="Újrapróbálkozások (default: gemini 4, codex 2; a claude-ágon "
+                        help="Újrapróbálkozások (default: gemini 4, codex/grok 2; a claude-ágon "
                              "nem használt)")
     parser.add_argument("--start-chunk", type=int, default=1,
                         help="Csak ettől a chunktól kezdje (1-alapú). Default: 1")
@@ -442,7 +472,7 @@ def main(argv=None):
     if args.timeout is None:
         args.timeout = 600 if provider == "claude" else 900
     if args.max_retries is None:
-        args.max_retries = {"gemini": MAX_RETRIES, "codex": 2}.get(provider, 1)
+        args.max_retries = {"gemini": MAX_RETRIES, "codex": 2, "grok": 2}.get(provider, 1)
     if provider == "claude" and args.model and args.model not in ("haiku", "sonnet", "opus"):
         print(f"HIBA: a claude providernél a --model haiku|sonnet|opus lehet (kaptam: {args.model})")
         sys.exit(1)
@@ -465,7 +495,7 @@ def main(argv=None):
         sys.exit(1)
 
     # Provider-előfeltételek
-    claude_bin = codex_bin = client = None
+    claude_bin = codex_bin = grok_bin = client = None
     if provider == "gemini":
         if not gemini_provider.DEPS_OK:
             print(f"HIBA: Hiányzó Python függőség: {gemini_provider.DEPS_ERROR}")
@@ -501,6 +531,12 @@ def main(argv=None):
         codex_bin = codex_cli.find_codex()
         if not codex_bin:
             print("HIBA: A 'codex' parancs nem található a PATH-on.")
+            sys.exit(1)
+    elif provider == "grok":
+        grok_bin = grok_cli.find_grok()
+        if not grok_bin:
+            print("HIBA: A 'grok' parancs nem található a PATH-on.")
+            print("      A Grok CLI legyen a PATH-on (`grok login` vagy XAI_API_KEY).")
             sys.exit(1)
 
     entries = parse_entries(srt_path)
@@ -591,6 +627,9 @@ def main(argv=None):
             instruction, CLAUDE_SYS_PROMPT_PREFIX)
         executor = _make_claude_executor(claude_bin, sys_prompt_path, model,
                                          timeout=args.timeout)
+    elif provider == "grok":
+        executor = _make_grok_executor(grok_bin, model, instruction,
+                                       args.timeout, args.max_retries)
     else:
         executor = _make_codex_executor(codex_bin, model, instruction,
                                         args.timeout, args.max_retries)
@@ -617,6 +656,6 @@ def main(argv=None):
                           json_findings=json_findings,
                           error_chunks=error_chunks)
 
-    # A codex-review kontraktusa: hibás chunk esetén nem-nulla exit kód
-    if provider == "codex" and error_chunks:
+    # A CLI JSON-út kontraktusa: hibás chunk esetén nem-nulla exit kód
+    if provider in ("codex", "grok") and error_chunks:
         sys.exit(1)

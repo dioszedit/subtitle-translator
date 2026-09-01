@@ -73,6 +73,14 @@ def test_default_provider_valid_env(monkeypatch):
     assert config.default_provider(builtin="claude") == "codex"
 
 
+def test_grok_is_a_known_provider(monkeypatch):
+    assert "grok" in config.PROVIDERS
+    monkeypatch.setenv("SUBTR_DEFAULT_PROVIDER", "grok")
+    assert config.default_provider(builtin="claude") == "grok"
+    result = config.resolve_model(None, "grok", "translate", builtin="grok-4.5")
+    assert result == "grok-4.5"
+
+
 def test_default_provider_invalid_env_falls_back(monkeypatch):
     monkeypatch.setenv("SUBTR_DEFAULT_PROVIDER", "nem-letezo-provider")
     assert config.default_provider(builtin="claude") == "claude"

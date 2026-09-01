@@ -1,7 +1,7 @@
-# SRT Felirat Fordító — Claude, Gemini és Codex
+# SRT Felirat Fordító — Claude, Gemini, Codex és Grok
 
 SRT felirat-fordítási keretrendszer LLM-alapú fordítással és stilisztikai review-val.
-A workflow Claude Code-, Gemini API- és Codex CLI-providerrel futtatható.
+A workflow Claude Code-, Gemini API-, Codex CLI- és Grok CLI-providerrel futtatható.
 
 **Irány:** forrásnyelvből magyarra. A **célnyelv fixen magyar** — a fordító és a
 review promptok magyar nyelvre vannak megírva, ez nem paraméter. A **forrásnyelv
@@ -44,7 +44,8 @@ subtitle-translator/
 │   ├── providers/               ← Provider adapterek
 │   │   ├── gemini.py            ← Gemini API + retry + kvótakezelés
 │   │   ├── claude_cli.py        ← Claude Code wrapper
-│   │   └── codex_cli.py         ← Codex CLI wrapper
+│   │   ├── codex_cli.py         ← Codex CLI wrapper
+│   │   └── grok_cli.py          ← Grok CLI wrapper
 │   └── tasks/                   ← Egy fájl = egy subtr parancs
 │       ├── split.py             ← split: SRT → blokkok
 │       ├── translate.py         ← translate: közös fordítási prompt és feldolgozás
@@ -86,6 +87,7 @@ projektenként / epizódonként más, és gyakran szerzői jogi védettség alá
 - **Claude Code CLI** (`claude` parancs, opcionális) — a Claude providerhez
 - **Gemini API kulcs** (opcionális) — ha Gemini-vel fordítasz vagy review-zol (`subtr.py translate --provider gemini` / `subtr.py review --provider gemini`)
 - **Codex CLI** (`codex` parancs, opcionális) — a Codex providerhez. Bejelentkezett CLI-t használ; külön Python-csomag nem kell.
+- **Grok CLI** (`grok` parancs, opcionális) — a Grok providerhez. Bejelentkezett CLI (`grok login`) vagy `XAI_API_KEY`; külön Python-csomag nem kell.
 - **Git** (opcionális) — verziókezeléshez
 
 ## Telepítés
@@ -187,6 +189,8 @@ python subtr.py translate "blocks\Sorozat - S01E01.eng" --provider claude --agen
 # python subtr.py translate "blocks\Sorozat - S01E01.eng" --provider gemini --agents 3
 # vagy Codex CLI-vel — első futáskor egy blokkot, egy agenttel ellenőrizz
 # python subtr.py translate "blocks\Sorozat - S01E01.eng" --provider codex --block 1 --agents 1
+# vagy Grok CLI-vel (fordítás default: grok-4.5)
+# python subtr.py translate "blocks\Sorozat - S01E01.eng" --provider grok --block 1 --agents 1
 
 # 3. Összefűzés egy fájlba
 python subtr.py merge "blocks\Sorozat - S01E01.eng" "output\Sorozat - S01E01.hun.srt"
@@ -206,6 +210,10 @@ python subtr.py review "output\Sorozat - S01E01.hun.srt" --provider claude
 python subtr.py review "output\Sorozat - S01E01.hun.srt" --provider codex
 # Kimenet: output\Sorozat - S01E01.hun_REVIEW_CODEX.txt + .json
 
+# vagy Grok CLI-vel (review default: grok-4.6)
+python subtr.py review "output\Sorozat - S01E01.hun.srt" --provider grok
+# Kimenet: output\Sorozat - S01E01.hun_REVIEW_GROK.txt + .json
+
 # 5b. Review-javaslatok alkalmazása (a riportokat összefésüli, deduplikálja,
 #     találatonként y/n/e/q kérdéssel viszi át a fájlba, .bak mentéssel)
 python subtr.py apply "output\Sorozat - S01E01.hun.srt"
@@ -217,7 +225,7 @@ python subtr.py resegment report "output\Sorozat - S01E01.hun.srt"
 python subtr.py resegment reflow "output\Sorozat - S01E01.hun.srt" -o "output\Sorozat - S01E01.hun.reflow.srt"
 ```
 
-A review parancs **három providere** — Gemini (default), Claude, Codex —
+A review parancs **négy providere** — Gemini (default), Claude, Codex, Grok —
 **független** egymástól: futtathatod csak az egyiket vagy többet, `--provider`-rel
 váltva. A találatokat a `subtr.py apply` fésüli össze és viszi át
 interaktívan; kézzel is javíthatsz a riportok alapján.
@@ -283,8 +291,8 @@ a formalitás-jelölés leírása; `None`, ha a nyelv nem jelöli).
 
 ### Fordítás — opciók
 
-A fordításhoz **három alternatíva** van: a Claude Code-, a Gemini API- és a Codex
-CLI-provider — mindhárom a `subtr.py translate --provider <claude|gemini|codex>`
+A fordításhoz **négy alternatíva** van: a Claude Code-, a Gemini API-, a Codex
+CLI- és a Grok CLI-provider — mind a `subtr.py translate --provider <claude|gemini|codex|grok>`
 parancson keresztül érhető el. Mindegyik ugyanazon a `blocks/` mappa-szerkezeten
 dolgozik (`subtr.py split` outputja) és ugyanúgy checkpoint-ol — futtathatod
 ugyanazon a projekten akár felváltva is.
@@ -344,7 +352,20 @@ python subtr.py translate "blocks\eng" --provider codex --agents 1
 python subtr.py translate "blocks\eng" --provider codex --agents 2 --model gpt-5.6-terra
 ```
 
-A három fordító-ág ugyanazt a `TRANSLATION.md` + `glossary.json` kontextust adja át a
+#### Grok fordító (`subtr.py translate --provider grok`) — alternatíva
+```powershell
+# Default modell: grok-4.5. Előfeltétel: `grok` a PATH-on, `grok login` vagy XAI_API_KEY.
+# Első futás: egy blokk, egy agent
+python subtr.py translate "blocks\eng" --provider grok --block 1 --agents 1
+
+# Hiányzó blokkok checkpointtal
+python subtr.py translate "blocks\eng" --provider grok --agents 1
+
+# Erősebb modell, ha kell
+python subtr.py translate "blocks\eng" --provider grok --model grok-4.6
+```
+
+A fordító-ágak ugyanazt a `TRANSLATION.md` + `glossary.json` kontextust adják át a
 modellnek system promptként, így a fordítások konzisztensek maradnak akkor is,
 ha váltogatod őket. A Gemini-ág **strukturált JSON kimenetet** ad
 (Pydantic séma), és a sorszám + időbélyeg Python oldalon garantáltan
@@ -381,7 +402,14 @@ python subtr.py review "output\hun.srt" --provider claude --source "input\eng.sr
 python subtr.py review "output\hun.srt" --provider claude --no-source
 ```
 
-A review mindhárom providernél automatikusan megkeresi a **forrásnyelvi SRT-t**
+#### Grok review (`subtr.py review --provider grok`)
+```powershell
+# Default modell: grok-4.6
+python subtr.py review "output\hun.srt" --provider grok
+python subtr.py review "output\hun.srt" --provider grok --model grok-4.5
+```
+
+A review minden providernél automatikusan megkeresi a **forrásnyelvi SRT-t**
 (a `.hun.srt` névből `.eng.srt`-t, `.ger.srt`-t stb. keres az `input/`
 mappában, ill. a hun fájl mellett — az összes ismert nyelvkódot végigpróbálja),
 és minden szekció mellé odaadja a modellnek a forrás eredetit is
@@ -400,7 +428,7 @@ szúrópróba): ha a két fájl elcsúszott egymáshoz képest (pl. a magyar
 a párosítást — elcsúszott forrássorok tömeges hamis találatot adnának.
 Explicit `--source` megadással felülbírálható.
 
-A review mindhárom providernél a szöveges riport mellé **JSON riportot** is ír
+A review minden providernél a szöveges riport mellé **JSON riportot** is ír
 (`_REVIEW_*.json`) — ezt dolgozza fel a `subtr.py apply`.
 
 #### Review-javaslatok alkalmazása (`subtr.py apply`)
@@ -413,7 +441,7 @@ python subtr.py apply "output\hun.srt" "output\hun_REVIEW_GEMINI.json"
 python subtr.py apply "output\hun.srt" --dry-run
 ```
 
-A parancs a Claude-, Gemini- és Codex-riportokat szekciószám szerint összefésüli, az
+A parancs a Claude-, Gemini-, Codex- és Grok-riportokat szekciószám szerint összefésüli, az
 azonos javaslatokat deduplikálja (jelölve, hogy mindkét lektor egyetért), az
 eltérőeket variánsként kínálja fel. Találatonként kérdez: `y` = alkalmaz,
 `1..9` = adott variáns, `e` = kézi szerkesztés, `n` = kihagy, `q` = kilépés
@@ -611,6 +639,7 @@ python subtr.py glossary "input\eng.srt" --glossary my_glossary.json
 
 # Másik provider (Claude az alapértelmezett)
 python subtr.py glossary "input\eng.srt" --provider codex
+python subtr.py glossary "input\eng.srt" --provider grok
 python subtr.py glossary "input\eng.srt" --provider gemini
 python subtr.py glossary "input\eng.srt" --provider gemini --model gemini-3.5-flash-lite
 
@@ -681,6 +710,7 @@ python subtr.py register "input\S01E01.eng.srt" "input\S01E02.eng.srt"
 # Másik provider
 python subtr.py register "input\S01E01.eng.srt" --provider claude
 python subtr.py register "input\S01E01.eng.srt" --provider codex
+python subtr.py register "input\S01E01.eng.srt" --provider grok
 
 # Csak nézni akarod, nem írni
 python subtr.py register "input\S01E01.eng.srt" --dry-run
@@ -692,7 +722,7 @@ python subtr.py register "Season 01\S01E01.hun.srt" "Season 01\S01E02.hun.srt" -
 
 | Kapcsoló | Jelentés |
 |---|---|
-| `--provider gemini\|claude\|codex` | Modell-provider (default: gemini) |
+| `--provider gemini\|claude\|codex\|grok` | Modell-provider (default: gemini) |
 | `--model NÉV` | Modell-felülbírálás (a `.env` `SUBTR_<PROVIDER>_MODEL_REGISTER` is jó) |
 | `--source-lang KÓD` | A forrás nyelve, ha a fájlnév nem árulkodik (lásd *Forrásnyelv*) |
 | `--hungarian` | A bemenet(ek) kész **magyar** felirat(ok): a formát a magyar szövegből olvassa le |
@@ -733,9 +763,11 @@ Minden fordító- és review-ág átadja a **TRANSLATION.md**-t és a
 | `translate --provider claude` | `--append-system-prompt-file` (Claude Code) |
 | `translate --provider gemini` | `system_instruction` (Gemini API) |
 | `translate --provider codex` | Codex `exec --output-schema` |
+| `translate --provider grok` | Grok CLI `--json-schema` |
 | `review --provider claude` | `--append-system-prompt-file` (Claude Code) |
 | `review` (default: gemini) | `system_instruction` (Gemini API) |
 | `review --provider codex` | Codex `exec --output-schema` |
+| `review --provider grok` | Grok CLI `--json-schema` |
 
 **Következmény:** ha bővíted a TRANSLATION.md-t (új szabály) vagy a glossary-t,
 a változás a következő futáskor automatikusan érvényesül — a translate-nél
@@ -753,8 +785,9 @@ külön telepítés nélkül:
 | `/epizod <név>` | A fájlokból felismeri, hol tart egy epizód a pipeline-ban, és onnan viszi tovább a lépéseket a `steps.txt` szerint — a csapdákkal együtt (`--clean`, `.clean.srt` elleni verify, resegment-sorrend) |
 
 A skillek csak **munkafolyamatot** kódolnak — a fordítási szabályok forrása
-továbbra is a `TRANSLATION.md` és a `glossary.json`. A Codexes megfelelőik a
-`.codex/skills/epizod` és `.codex/skills/review-triage` alatt találhatók.
+továbbra is a `TRANSLATION.md` és a `glossary.json`. Ugyanez a két skill
+három helyen él: `.claude/skills/`, `.codex/skills/` és `.grok/skills/`
+(`epizod`, `review-triage`).
 
 ## Más forrásnyelv (nem angol forrásból)
 
@@ -774,10 +807,10 @@ kiesnek, a konzisztencia jórészt a szójegyzéken múlik.
 
 ## Modell-defaultok .env-ből
 
-Az összes fordítási és review parancs (Claude, Gemini, Codex ág) a `.env` fájlból
+Az összes fordítási és review parancs (Claude, Gemini, Codex, Grok ág) a `.env` fájlból
 automatikusan betölt modell-beállításokat. A definiálandó változók neve mindig
 `SUBTR_<PROVIDER>_MODEL` formátumú, ahol a `<PROVIDER>` az egyik: `GEMINI`,
-`CLAUDE` vagy `CODEX`.
+`CLAUDE`, `CODEX` vagy `GROK`.
 
 | Env-kulcs | Hatás |
 |---|---|
@@ -788,6 +821,7 @@ automatikusan betölt modell-beállításokat. A definiálandó változók neve 
 | `SUBTR_GEMINI_MODEL_REGISTER` | task-specifikus felülbírálás regiszter extractionhez |
 | `SUBTR_CLAUDE_MODEL` + `_TRANSLATE` / `_REVIEW` / `_GLOSSARY` / `_REGISTER` | ugyanez Claude CLI-hez |
 | `SUBTR_CODEX_MODEL` + `_TRANSLATE` / `_REVIEW` / `_GLOSSARY` / `_REGISTER` | ugyanez Codex CLI-hez |
+| `SUBTR_GROK_MODEL` + `_TRANSLATE` / `_REVIEW` / `_GLOSSARY` / `_REGISTER` | ugyanez Grok CLI-hez (beégetett: translate / glossary / register `grok-4.5`, review `grok-4.6`) |
 | `SUBTR_DEFAULT_PROVIDER` | fordításnál kötelező helyettesítő (`--provider` nélkül ez dönt), a `subtr.py glossary` default providere (`claude`, felülírható), a `subtr.py register` default providere (`gemini`, felülírható) |
 
 **Feloldási precedencia** (az első nem-üres érték nyer):
@@ -966,6 +1000,8 @@ befolyásolja, hogyan érdemes a kódhoz viszonyulni.
   `subtr/` csomag, a CLI, a promptok, a tesztek és ez a dokumentáció is.
 - **Codex CLI** — főleg a Codex-providerhez (`subtr/providers/codex_cli.py`)
   kapcsolódó részek, illetve egy-egy második vélemény a review-körökben.
+- **Grok CLI** — a Grok-provider (`subtr/providers/grok_cli.py`) és a
+  `.grok/skills/` munkafolyamat-skillek.
 
 Az AI-val írt commitok `Co-Authored-By` sorral vannak megjelölve, így a
 `git log`-ból utólag is látszik, mi hogyan készült.

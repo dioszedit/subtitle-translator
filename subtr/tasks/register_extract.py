@@ -20,6 +20,7 @@ Használat:
     python register_extract.py "input/Sorozat - S01E01.eng.srt"
     python register_extract.py "input/S01E01.eng.srt" "input/S01E02.eng.srt"
     python register_extract.py "input/S01E01.eng.srt" --provider codex
+    python register_extract.py "input/S01E01.eng.srt" --provider grok
     python register_extract.py "input/S01E01.eng.srt" --dry-run
 
 Provider:
@@ -27,6 +28,7 @@ Provider:
                         pip install google-genai python-dotenv pydantic
     --provider claude   Claude Code CLI (`claude` parancs)
     --provider codex    Codex CLI (`codex` parancs)
+    --provider grok     Grok CLI (`grok` parancs)
 
 Kimenet:
     A TRANSLATION.local.md "Megszólítási regiszter:" szakasza (előző állapot:
@@ -47,7 +49,9 @@ sys.stderr.reconfigure(encoding="utf-8")
 
 from subtr import config
 from subtr.providers.codex_cli import CodexRunError, find_codex, run_codex_json
+from subtr.providers.grok_cli import GrokRunError, find_grok, run_grok_json
 from subtr.providers.claude_cli import extract_json, find_claude as find_claude_cli, run_prompt
+from subtr.config import PROVIDERS
 from subtr.context import load_translation_context
 
 LOCAL_FILE_DEFAULT = "TRANSLATION.local.md"
@@ -364,6 +368,21 @@ def run_codex(prompt: str, model, timeout: int) -> list[dict]:
     return _validate(result.get("relations"))
 
 
+def run_grok(prompt: str, model, timeout: int) -> list[dict]:
+    grok_cmd = find_grok()
+    if not grok_cmd:
+        print("HIBA: A 'grok' parancs nem található a PATH-on.")
+        return []
+    print(f"Grok elemzi a feliratot... ({grok_cmd})")
+    try:
+        result = run_grok_json(prompt, RESULT_SCHEMA, timeout=timeout,
+                               model=model, grok_bin=grok_cmd)
+    except GrokRunError as exc:
+        print(f"HIBA: Grok hiba: {exc}")
+        return []
+    return _validate(result.get("relations"))
+
+
 def run_claude(prompt: str, timeout: int) -> list[dict]:
     claude_cmd = find_claude_cli()
     print(f"Claude Code elemzi a feliratot... ({claude_cmd})")
@@ -497,15 +516,15 @@ def main():
                         help="A megadott fájl(ok) a KÉSZ MAGYAR fordítás (pl. más forrásból "
                              "átvett korábbi részek): a tegezés/magázás közvetlenül a magyar "
                              "igealakból olvasódik le, a forrásnyelv nem számít")
-    parser.add_argument("--provider", choices=("gemini", "claude", "codex"),
+    parser.add_argument("--provider", choices=PROVIDERS,
                         default=config.default_provider(builtin="gemini"),
                         help="Kinyerő provider (default: gemini, "
                              "felülírható: SUBTR_DEFAULT_PROVIDER env)")
-    parser.add_argument("--model", help="Modellazonosító (gemini/codex)")
+    parser.add_argument("--model", help="Modellazonosító (gemini/codex/grok)")
     parser.add_argument("--local-file", default=LOCAL_FILE_DEFAULT,
                         help=f"A regisztert tartalmazó fájl (default: {LOCAL_FILE_DEFAULT})")
     parser.add_argument("--timeout", type=int, default=300,
-                        help="Claude/Codex timeout másodpercben (default: 300)")
+                        help="Claude/Codex/Grok timeout másodpercben (default: 300)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Csak kiírja a javasolt regisztert, nem ír fájlba")
     parser.add_argument("--all-interactive", action="store_true",
@@ -529,7 +548,8 @@ def main():
           f"({'szakasz megvan' if has_section else 'még nincs szakasz'}) — {args.local_file}")
 
     model = config.resolve_model(args.model, args.provider, "register",
-                                 builtin=GEMINI_MODEL_DEFAULT if args.provider == "gemini" else None)
+                                 builtin={"gemini": GEMINI_MODEL_DEFAULT,
+                                          "grok": "grok-4.5"}.get(args.provider))
     per_episode = []
     for path in args.srt:
         label = Path(path).stem
@@ -546,6 +566,8 @@ def main():
             rel = run_gemini(prompt, model)
         elif args.provider == "codex":
             rel = run_codex(prompt, model, args.timeout)
+        elif args.provider == "grok":
+            rel = run_grok(prompt, model, args.timeout)
         else:
             rel = run_claude(prompt, args.timeout)
         print(f"  {len(rel)} viszony")

@@ -4,7 +4,7 @@ Használat:
     py subtr.py <parancs> [argumentumok...]
     python -m subtr <parancs> [argumentumok...]
 
-A parancsok a pipeline lépései; a provider (gemini / claude / codex) ott,
+A parancsok a pipeline lépései; a provider (gemini / claude / codex / grok) ott,
 ahol értelmezett, a --provider kapcsolóval választható. Részletek:
     py subtr.py <parancs> --help
 """
