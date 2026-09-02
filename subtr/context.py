@@ -1,5 +1,6 @@
 """Közös sorozat- és fordítási szabályzat betöltése minden providerhez."""
 
+import re
 from pathlib import Path
 
 
@@ -22,3 +23,43 @@ def load_translation_context() -> str:
         if local:
             return f"{base.rstrip()}\n\n=== HELYI SOROZATKONTEXTUS ===\n{local}\n"
     return base
+
+
+# A `Country:` mezőt az addons/mdl-init generálja a MyDramaList adataiból; a
+# sablon kitöltetlenül `[Ország]`-ot tartalmaz (lásd TRANSLATION.md).
+_COUNTRY_RE = re.compile(r"^\s*Country\s*:\s*(.+?)\s*$",
+                         re.IGNORECASE | re.MULTILINE)
+
+
+def series_country() -> str | None:
+    """A sorozat országa a TRANSLATION.local.md `Country:` sorából.
+
+    None, ha a fájl, a mező vagy az érték hiányzik — a kitöltetlen `[Ország]`
+    sablon-helykitöltő is None. Olvasási hibára nem dob: a hívóknak ez csak
+    kiegészítő információ, nem futásfeltétel.
+    """
+    path = Path(LOCAL_CONTEXT_FILE)
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+
+    match = _COUNTRY_RE.search(text)
+    if not match:
+        return None
+    country = match.group(1).strip()
+    # A kitöltetlen sablon (`[Ország]`, `[Country]`) nem érték.
+    if not country or (country.startswith("[") and country.endswith("]")):
+        return None
+    return country
+
+
+def is_korean_series() -> bool:
+    """Igaz, ha a `Country` mező koreai sorozatot jelöl.
+
+    A MyDramaList „South Korea" alakot ad, de a mezőt kézzel is írhatják
+    („Korea", „South-Korea"), ezért részsztringre illesztünk. Ismeretlen
+    ország hamis — a hívó dönti el, mit kezd vele.
+    """
+    country = series_country()
+    return bool(country) and "korea" in country.lower()
