@@ -14,8 +14,8 @@ ahol fontos a karakterek, megszólítások és kulturális kifejezések konziszt
 kezelése — de a keretrendszer bármilyen videó/film/sorozat-felirathoz használható.
 
 > **AI-asszisztált projekt, MIT licenc.** A kód túlnyomó része Claude Code-dal
-> (részben Codex CLI-vel) készült, emberi irányítás és tesztelés mellett; bárki
-> szabadon használhatja. Részletek: [*Hogyan készült*](#hogyan-készült--ai-asszisztált-fejlesztés)
+> (részben Codex CLI-vel és Grok Build-del) készült, emberi irányítás és
+> tesztelés mellett; bárki szabadon használhatja. Részletek: [*Hogyan készült*](#hogyan-készült--ai-asszisztált-fejlesztés)
 > és [*Licenc*](#licenc).
 
 ## Mappaszerkezet
@@ -1000,8 +1000,10 @@ befolyásolja, hogyan érdemes a kódhoz viszonyulni.
   `subtr/` csomag, a CLI, a promptok, a tesztek és ez a dokumentáció is.
 - **Codex CLI** — főleg a Codex-providerhez (`subtr/providers/codex_cli.py`)
   kapcsolódó részek, illetve egy-egy második vélemény a review-körökben.
-- **Grok CLI** — a Grok-provider (`subtr/providers/grok_cli.py`) és a
-  `.grok/skills/` munkafolyamat-skillek.
+- **Grok Build** (a Grok CLI agentikus fejlesztői módja) — a Grok-provider
+  (`subtr/providers/grok_cli.py`), a beépítése a négy feladatba és a
+  `.grok/skills/` munkafolyamat-skillek. A provider deep review-ja és az abból
+  következő javítások már Claude Code-dal készültek.
 
 Az AI-val írt commitok `Co-Authored-By` sorral vannak megjelölve, így a
 `git log`-ból utólag is látszik, mi hogyan készült.
