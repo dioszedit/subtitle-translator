@@ -221,6 +221,29 @@ def formality_rule(src_lang: str, bullet: str = "- ") -> str:
     return "\n".join([bullet + lines[0]] + [indent + ln for ln in lines[1:]])
 
 
+def read_blocks_text(block_files) -> str:
+    """A blokkfájlok összefűzött szövege — a szójegyzék-szűrés alapja."""
+    parts = []
+    for path in block_files:
+        try:
+            parts.append(read_text(path))
+        except OSError:
+            continue
+    return "\n".join(parts)
+
+
+def describe_glossary_saving(filtered: str, source_text: str) -> str:
+    """Státuszsor a szűrés hatásáról — üres, ha nem szűkült."""
+    if not source_text:
+        return ""
+    full = as_prompt_text()
+    if not full or len(filtered) >= len(full):
+        return ""
+    return (f"{len(filtered)} char a teljes {len(full)}-ból "
+            f"(-{100 - 100 * len(filtered) // len(full)}%, csak az epizódban "
+            "előforduló terminusok)")
+
+
 def build_system_instruction(claude_md: str, glossary: str,
                              src_lang: str = config.DEFAULT_SOURCE_LANG) -> str:
     """Gemini system instruction."""
@@ -858,7 +881,12 @@ def main(argv=None):
 
     # Kontextus + provider-specifikus prompt/executor
     claude_md = load_translation_context()
-    glossary = as_prompt_text()
+    # A szójegyzék a TELJES epizód szövegére szűkül, nem a `pending`-re: így
+    # újrafuttatáskor sem változik, és a Claude-út tartalom-hash-elt system
+    # prompt fájlja is stabil marad (különben minden folytatás cache-miss).
+    episode_text = read_blocks_text(all_blocks)
+    glossary = as_prompt_text(source_text=episode_text)
+    glossary_saving = describe_glossary_saving(glossary, episode_text)
 
     extra_status = []
     if provider == "gemini":
@@ -897,6 +925,8 @@ def main(argv=None):
     if not claude_md:
         print("  FIGYELEM: TRANSLATION.md nem található a munkakönyvtárban —")
         print("     sorozat-kontextus NÉLKÜL fordítok! (rossz mappából futtatod?)")
+    if glossary_saving:
+        print(f"  Szójegyzék:     {glossary_saving}")
     if not glossary:
         print("  FIGYELEM: glossary.json üres vagy hiányzik — szójegyzék nélkül fordítok")
     print("=" * 50)

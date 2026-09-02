@@ -584,7 +584,10 @@ def main(argv=None):
 
     # Kontextus + lektor-prompt
     claude_md = load_translation_context()
-    glossary = as_prompt_text()
+    # A lektor a magyar szöveget (és ha van, a hozzá párosított forrást) látja
+    # — a szójegyzék is erre szűkül, `hu` és `en` alak szerint egyaránt.
+    reviewed_text = "\n".join("\n".join(chunk) for chunk in chunks)
+    glossary = as_prompt_text(source_text=reviewed_text)
     instruction = build_system_instruction(claude_md, glossary, has_source,
                                            json_output=(provider != "claude"),
                                            src_lang=src_lang)
