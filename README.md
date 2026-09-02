@@ -1020,7 +1020,7 @@ Amit ez a gyakorlatban jelent:
 
 ## Licenc
 
-[MIT](LICENSE) — Copyright (c) 2026 Diószegi Edit (dioszedit).
+[MIT](LICENSE) — Copyright (c) 2026 Edit Diószegi (dioszedit).
 
 Röviden: **bárki szabadon használhatja, módosíthatja és továbbadhatja**, akár
 kereskedelmi célra is; az egyetlen feltétel, hogy a szerzői jogi megjegyzés és
