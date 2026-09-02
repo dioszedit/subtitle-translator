@@ -9,7 +9,7 @@ Olvasd el a `TRANSLATION.md`-t, a `TRANSLATION.local.md`-t (ebben van a *Megszó
 
 ## Bemenet és ellenőrzés
 
-1. Keresd meg a megadott `hun.srt` melletti `_REVIEW_CLAUDE*`, `_REVIEW_GEMINI*` és `_REVIEW_CODEX*` `.json` riportokat. A JSON kanonikus; a `.txt` csak fallback.
+1. Keresd meg a megadott `hun.srt` melletti `_REVIEW_CLAUDE*`, `_REVIEW_GEMINI*`, `_REVIEW_CODEX*` és `_REVIEW_GROK*` `.json` riportokat. A JSON kanonikus; a `.txt` csak fallback.
 2. Keresd meg a forrás SRT-t az `input/` mappában vagy kérd be. Forrás nélkül csak óvatos, nem automatikus triage végezhető.
 3. A magyar SRT aktuális szövegét használd; a riport `eredeti` mezője elavulhatott.
 

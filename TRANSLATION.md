@@ -1,6 +1,6 @@
 # Feliratfordítás — közös szabályzat
 
-Ez a fájl szolgáltatófüggetlen: Claude, Gemini és Codex fordítási/review folyamatok egyaránt ezt használják.
+Ez a fájl szolgáltatófüggetlen: Claude, Gemini, Codex és Grok fordítási/review folyamatok egyaránt ezt használják.
 
 ## Aktuális sorozat adatai
 

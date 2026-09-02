@@ -4,19 +4,19 @@ A blokk-felfedezés, a --block kezelés, a checkpoint-logika, a szálkezelés é
 az összegzés EGY példányban él; a provider egy blokk-fordító closure:
 (block_path) -> {"block", "status", "message"}.
 
-A három provider vezérlési modellje szándékosan különbözik, és ez itt is
+A provider vezérlési modellek szándékosan különböznek, és ez itt is
 látszik:
   - gemini: API-hívás strukturált JSON-nal; a szerkezetet (sorszám, időbélyeg)
     Python garantálja, a modell csak szöveget kap és ad.
-  - codex: ugyanez a szöveg-transzformer minta a Codex CLI-n át.
+  - codex / grok: ugyanez a szöveg-transzformer minta a CLI-n át.
   - claude (DOKUMENTÁLT KIVÉTEL): nem szöveg-transzformer — a Claude Code
     agent maga olvassa az input fájlt és írja a _HUN.srt-t (Read,Write
     tool-okkal). Ezért itt subprocess + fájlrendszer-ellenőrzés a minta,
     sys-prompt-fájllal (tartalom-hash név, prompt-cache barát).
 
 A prompt-szövegek providerenkénti megfogalmazása változatlan (bájtra azonos
-a refaktor előttivel) — a három prompt tudatosan más, mert a három modell
-másképp kapja a feladatot.
+a refaktor előttivel) — a promptok tudatosan mások, mert a modellek
+másképp kapják a feladatot (a grok a codex-promptot használja).
 """
 
 import argparse
@@ -37,11 +37,13 @@ from subtr.glossary import as_prompt_text
 from subtr.providers import claude_cli
 from subtr.providers import codex_cli
 from subtr.providers import gemini as gemini_provider
+from subtr.providers import grok_cli
 from subtr.srt import count_sections, count_sections_text, parse_sections, read_text, write_srt
 
 TEMPERATURE = 0.3
 MAX_RETRIES = 4
-MODEL_BUILTIN = {"gemini": "gemini-3.6-flash", "claude": "sonnet", "codex": None}
+MODEL_BUILTIN = {"gemini": "gemini-3.6-flash", "claude": "sonnet",
+                 "codex": None, "grok": "grok-4.5"}
 
 CLAUDE_SYS_PROMPT_PREFIX = ".translate_sys_prompt_"
 CLAUDE_SYS_PROMPT_MAX_AGE_DAYS = 1  # ennél régebbi sys prompt fájlokat takarítjuk
@@ -217,6 +219,29 @@ def formality_rule(src_lang: str, bullet: str = "- ") -> str:
         ]
     indent = " " * len(bullet)
     return "\n".join([bullet + lines[0]] + [indent + ln for ln in lines[1:]])
+
+
+def read_blocks_text(block_files) -> str:
+    """A blokkfájlok összefűzött szövege — a szójegyzék-szűrés alapja."""
+    parts = []
+    for path in block_files:
+        try:
+            parts.append(read_text(path))
+        except OSError:
+            continue
+    return "\n".join(parts)
+
+
+def describe_glossary_saving(filtered: str, source_text: str) -> str:
+    """Státuszsor a szűrés hatásáról — üres, ha nem szűkült."""
+    if not source_text:
+        return ""
+    full = as_prompt_text()
+    if not full or len(filtered) >= len(full):
+        return ""
+    return (f"{len(filtered)} char a teljes {len(full)}-ból "
+            f"(-{100 - 100 * len(filtered) // len(full)}%, csak az epizódban "
+            "előforduló terminusok)")
 
 
 def build_system_instruction(claude_md: str, glossary: str,
@@ -528,6 +553,63 @@ def _make_codex_translator(codex_bin, model, instruction, timeout, retries):
     return translate_block
 
 
+def _make_grok_translator(grok_bin, model, instruction, timeout, retries):
+    def translate_block(block_path: str) -> dict:
+        output_path = hun_path(block_path)
+        name = os.path.basename(block_path)
+        print(f"[START] {name}")
+        try:
+            sections = parse_sections(block_path)
+            expected = {int(s["num"]) for s in sections}
+        except Exception as exc:
+            return {"block": name, "status": "fail", "message": f"Parse hiba: {exc}"}
+        if not sections:
+            return {"block": name, "status": "fail", "message": "Üres blokk vagy parse-hiba"}
+
+        error = None
+        parsed = None
+        for attempt in range(1, retries + 1):
+            try:
+                parsed = grok_cli.run_grok_json(
+                    build_codex_prompt(instruction, sections),
+                    CODEX_TRANSLATION_SCHEMA,
+                    timeout=timeout, model=model, grok_bin=grok_bin)
+                break
+            except grok_cli.GrokRunError as exc:
+                error = exc
+                if attempt < retries:
+                    print(f"  Grok hiba, újrapróbálás ({attempt}/{retries})...")
+        if parsed is None:
+            safe_remove(output_path)
+            return {"block": name, "status": "fail", "message": str(error)}
+
+        translations = {}
+        for item in parsed.get("translations", []):
+            if (isinstance(item, dict) and isinstance(item.get("sorszam"), int)
+                    and isinstance(item.get("text"), str)):
+                translations[item["sorszam"]] = item["text"]
+        missing = expected - set(translations)
+        if missing:
+            safe_remove(output_path)
+            return {"block": name, "status": "fail",
+                    "message": f"Hiányzó fordítások: {sorted(missing)[:5]}"}
+
+        write_srt(output_path, [{**section, "text": translations[int(section["num"])]}
+                                for section in sections])
+        if count_sections(output_path) != len(sections):
+            safe_remove(output_path)
+            return {"block": name, "status": "warning",
+                    "message": "Szekciószám eltérés — output törölve"}
+        stub = placeholder_warning(output_path, block_path)
+        if stub:
+            detail = placeholder_detail(output_path, block_path)
+            safe_remove(output_path)
+            return {"block": name, "status": "warning", "message": stub,
+                    "detail": detail}
+        return {"block": name, "status": "ok", "message": f"{len(sections)} szekció"}
+    return translate_block
+
+
 def _make_claude_translator(claude_bin, sys_prompt_path, model, timeout, max_turns):
     def translate_block(block_path: str) -> dict:
         output_path = hun_path(block_path)
@@ -668,26 +750,26 @@ def main(argv=None):
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(
-        description="Párhuzamos SRT blokk-fordítás (Gemini API / Claude Code / Codex CLI)")
+        description="Párhuzamos SRT blokk-fordítás (Gemini API / Claude Code / Codex CLI / Grok CLI)")
     parser.add_argument("blocks_dir", help="Blokkok mappája (a split kimenete)")
     parser.add_argument("--provider", choices=PROVIDERS,
                         default=config.default_provider(builtin="claude"),
                         help="Fordító provider (default: claude, "
                              "felülírható: SUBTR_DEFAULT_PROVIDER env)")
     parser.add_argument("--agents", type=int, default=None,
-                        help="Párhuzamos futások száma (default: gemini/claude 3, codex 1)")
+                        help="Párhuzamos futások száma (default: gemini/claude 3, codex/grok 1)")
     parser.add_argument("--block", type=str, default=None,
                         help="Csak egy konkrét blokk fordítása (pl. 003 vagy 3 — auto zero-pad)")
     config.add_source_lang_argument(parser)
     parser.add_argument("--model", type=str, default=None,
                         help="Modell-azonosító. Feloldás: --model > "
                              "SUBTR_<PROVIDER>_MODEL_TRANSLATE > SUBTR_<PROVIDER>_MODEL > "
-                             "beégetett (gemini: gemini-3.6-flash, claude: sonnet)")
+                             "beégetett (gemini: gemini-3.6-flash, claude: sonnet, grok: grok-4.5)")
     parser.add_argument("--timeout", type=int, default=None,
                         help="Timeout blokkonként mp-ben (default: 900; a gemini-ágon "
                              "nem használt — ott a retry-logika véd)")
     parser.add_argument("--max-retries", type=int, default=None,
-                        help="Újrapróbálkozások (default: gemini 4, codex 2; a claude-ágon "
+                        help="Újrapróbálkozások (default: gemini 4, codex/grok 2; a claude-ágon "
                              "nem használt)")
     parser.add_argument("--max-turns", type=int, default=20,
                         help="Maximum agent fordulók blokkonként (csak claude; default: 20)")
@@ -700,11 +782,11 @@ def main(argv=None):
 
     # Provider-függő defaultok feloldása
     if args.agents is None:
-        args.agents = 1 if provider == "codex" else 3
+        args.agents = 1 if provider in ("codex", "grok") else 3
     if args.timeout is None:
         args.timeout = 900
     if args.max_retries is None:
-        args.max_retries = {"gemini": MAX_RETRIES, "codex": 2}.get(provider, 1)
+        args.max_retries = {"gemini": MAX_RETRIES, "codex": 2, "grok": 2}.get(provider, 1)
 
     if args.agents < 1:
         print(f"HIBA: --agents legalább 1 legyen (kaptam: {args.agents})")
@@ -724,7 +806,7 @@ def main(argv=None):
     model = config.resolve_model(args.model, provider, "translate", builtin=builtin)
 
     # Provider-előfeltételek
-    claude_bin = codex_bin = client = None
+    claude_bin = codex_bin = grok_bin = client = None
     if provider == "gemini":
         if not gemini_provider.DEPS_OK:
             print(f"HIBA: Hiányzó Python függőség: {gemini_provider.DEPS_ERROR}")
@@ -765,6 +847,12 @@ def main(argv=None):
             sys.exit(1)
         if not args.no_cleanup:
             cleanup_stale_sys_prompts()
+    elif provider == "grok":
+        grok_bin = grok_cli.find_grok()
+        if not grok_bin:
+            print("HIBA: A 'grok' parancs nem található a PATH-on.")
+            print("      A Grok CLI legyen a PATH-on (`grok login` vagy XAI_API_KEY).")
+            sys.exit(1)
     else:
         codex_bin = codex_cli.find_codex()
         if not codex_bin:
@@ -793,7 +881,12 @@ def main(argv=None):
 
     # Kontextus + provider-specifikus prompt/executor
     claude_md = load_translation_context()
-    glossary = as_prompt_text()
+    # A szójegyzék a TELJES epizód szövegére szűkül, nem a `pending`-re: így
+    # újrafuttatáskor sem változik, és a Claude-út tartalom-hash-elt system
+    # prompt fájlja is stabil marad (különben minden folytatás cache-miss).
+    episode_text = read_blocks_text(all_blocks)
+    glossary = as_prompt_text(source_text=episode_text)
+    glossary_saving = describe_glossary_saving(glossary, episode_text)
 
     extra_status = []
     if provider == "gemini":
@@ -812,6 +905,7 @@ def main(argv=None):
                              f"({'új fájl' if newly_created else 'meglévő — másik process is használhatja'})"))
         extra_status.append(("   fájl", os.path.basename(sys_prompt_path)))
     else:
+        # Codex és Grok: ugyanaz a JSON-transzformer prompt
         instruction = build_codex_instruction(claude_md, glossary, src_lang)
         extra_status.append(("Timeout", f"{args.timeout // 60} perc / blokk"))
         extra_status.append(("Max retry", args.max_retries))
@@ -831,6 +925,8 @@ def main(argv=None):
     if not claude_md:
         print("  FIGYELEM: TRANSLATION.md nem található a munkakönyvtárban —")
         print("     sorozat-kontextus NÉLKÜL fordítok! (rossz mappából futtatod?)")
+    if glossary_saving:
+        print(f"  Szójegyzék:     {glossary_saving}")
     if not glossary:
         print("  FIGYELEM: glossary.json üres vagy hiányzik — szójegyzék nélkül fordítok")
     print("=" * 50)
@@ -861,6 +957,9 @@ def main(argv=None):
     elif provider == "claude":
         translator = _make_claude_translator(claude_bin, sys_prompt_path, model,
                                              args.timeout, args.max_turns)
+    elif provider == "grok":
+        translator = _make_grok_translator(grok_bin, model, instruction,
+                                           args.timeout, args.max_retries)
     else:
         translator = _make_codex_translator(codex_bin, model, instruction,
                                             args.timeout, args.max_retries)
@@ -900,6 +999,6 @@ def main(argv=None):
 
     log(f"=== RUN END — ok={ok_count} warning={warn_count} fail={fail_count}")
 
-    # A codex-út kontraktusa: hibás blokk esetén nem-nulla exit kód
-    if provider == "codex" and (warn_count or fail_count):
+    # A CLI JSON-út kontraktusa: hibás blokk esetén nem-nulla exit kód
+    if provider in ("codex", "grok") and (warn_count or fail_count):
         sys.exit(1)

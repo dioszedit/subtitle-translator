@@ -23,4 +23,7 @@ def get_provider(name: str):
     if name == "codex":
         from subtr.providers import codex_cli
         return codex_cli
-    raise ValueError(f"Ismeretlen provider: {name!r} (várt: gemini, claude, codex)")
+    if name == "grok":
+        from subtr.providers import grok_cli
+        return grok_cli
+    raise ValueError(f"Ismeretlen provider: {name!r} (várt: gemini, claude, codex, grok)")

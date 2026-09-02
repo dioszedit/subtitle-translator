@@ -9,7 +9,7 @@ mentés készül az első íráskor.
 Használat:
     python subtr.py apply "output/Sorozat - S01E01.hun.srt"
         → automatikusan megkeresi a _REVIEW_CLAUDE / _REVIEW_GEMINI /
-          _REVIEW_CODEX riportokat (.json/.txt) a fájl mellett
+          _REVIEW_CODEX / _REVIEW_GROK riportokat (.json/.txt) a fájl mellett
 
     python subtr.py apply "output/....hun.srt" riport1.json riport2.txt
         → csak a megadott riportokat használja
@@ -66,7 +66,8 @@ def load_txt_report(path):
     name = Path(path).stem
     reviewer = ("claude" if "CLAUDE" in name.upper()
                 else "gemini" if "GEMINI" in name.upper()
-                else "codex" if "CODEX" in name.upper() else name)
+                else "codex" if "CODEX" in name.upper()
+                else "grok" if "GROK" in name.upper() else name)
     out = []
     for m in TXT_FINDING_RE.finditer(content):
         out.append({"sorszam": int(m.group(1)), "eredeti": m.group(2),
@@ -81,7 +82,7 @@ def find_reports(srt_path: Path):
     stem = srt_path.stem
     found = []
     for pattern in (f"{stem}_REVIEW_CLAUDE*", f"{stem}_REVIEW_GEMINI*",
-                    f"{stem}_REVIEW_CODEX*"):
+                    f"{stem}_REVIEW_CODEX*", f"{stem}_REVIEW_GROK*"):
         for p in sorted(srt_path.parent.glob(pattern)):
             if p.suffix not in (".json", ".txt"):
                 continue
@@ -141,7 +142,7 @@ def main(argv=None):
                     else find_reports(srt_path))
     if not report_paths:
         print("Nem találtam review riportot a fájl mellett.")
-        print(f"  Keresett minták: {srt_path.stem}_REVIEW_CLAUDE* / _REVIEW_GEMINI* / _REVIEW_CODEX* (.json/.txt)")
+        print(f"  Keresett minták: {srt_path.stem}_REVIEW_CLAUDE* / _REVIEW_GEMINI* / _REVIEW_CODEX* / _REVIEW_GROK* (.json/.txt)")
         sys.exit(1)
 
     findings = []

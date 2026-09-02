@@ -10,12 +10,12 @@ Használat:
     python glossary_extract.py eredeti.eng.srt                      # (1) előzetes mód
     python glossary_extract.py eredeti.eng.srt forditott.hun.srt    # (2) utólagos mód
     python glossary_extract.py eredeti.eng.srt forditott.hun.srt --glossary glossary.json
-    python glossary_extract.py eredeti.eng.srt --provider gemini   # vagy codex / claude
+    python glossary_extract.py eredeti.eng.srt --provider gemini   # vagy codex / claude / grok
     python glossary_extract.py eredeti.eng.srt --yes                # csak a biztosakat veszi át
     python glossary_extract.py eredeti.eng.srt --all-interactive    # mindent végigkérdez
     python glossary_extract.py eredeti.eng.srt --dry-run            # nem ír fájlba
 
-A feliratot Claude Code-dal, Codex CLI-vel vagy Gemini API-val elemzi (hosszú fájlnál több darabban, szekció-
+A feliratot Claude Code-dal, Codex CLI-vel, Grok CLI-vel vagy Gemini API-val elemzi (hosszú fájlnál több darabban, szekció-
 határon vágva — párban a két nyelv ugyanazokat a szekciókat kapja), kigyűjti
 a visszatérő kifejezéseket (megszólítások, helyszínek, nevek, speciális
 fogalmak), majd a konzolon jóváhagyhatod őket.
@@ -42,7 +42,9 @@ import subprocess
 
 from subtr.glossary import CATEGORIES, as_prompt_text
 from subtr.providers.codex_cli import CodexRunError, find_codex, run_codex_json
+from subtr.providers.grok_cli import GrokRunError, find_grok, run_grok_json
 from subtr import config
+from subtr.config import PROVIDERS
 from subtr.context import load_translation_context as load_claude_md
 from subtr.providers.claude_cli import find_claude as find_claude_cli
 
@@ -554,6 +556,23 @@ def _run_extraction(prompt: str, existing_terms: set, timeout: int,
         return validate_suggestions(result.get("suggestions", []), existing_terms,
                                     source_text)
 
+    if provider == "grok":
+        grok_cmd = find_grok()
+        if not grok_cmd:
+            print("HIBA: A 'grok' parancs nem található a PATH-on.")
+            return []
+        print(f"Grok elemzi a feliratot... ({grok_cmd})")
+        try:
+            grok_prompt = (prompt + "\n\nGROK KIMENET: kizárólag egy JSON objektumot adj "
+                           "`suggestions` tömbbel: {\"suggestions\":[...]}." )
+            result = run_grok_json(grok_prompt, CODEX_GLOSSARY_SCHEMA, timeout=timeout,
+                                   model=model, grok_bin=grok_cmd)
+        except GrokRunError as exc:
+            print(f"HIBA: Grok hiba: {exc}")
+            return []
+        return validate_suggestions(result.get("suggestions", []), existing_terms,
+                                    source_text)
+
     claude_cmd = find_claude_cli()
     print(f"Claude Code elemzi a feliratot... ({claude_cmd})")
     try:
@@ -776,13 +795,13 @@ def main():
                         help="Szójegyzék fájl útvonala (alapértelmezett: glossary.json)")
     parser.add_argument("--timeout", type=int, default=300,
                         help="Provider timeout másodpercben (alapértelmezett: 300)")
-    parser.add_argument("--provider", choices=("claude", "codex", "gemini"),
+    parser.add_argument("--provider", choices=PROVIDERS,
                         default=config.default_provider(builtin="claude"),
                         help="Kinyerő provider (alapértelmezett: claude, "
                              "felülírható: SUBTR_DEFAULT_PROVIDER env)")
     parser.add_argument("--model",
-                        help="Opcionális modellazonosító (codex / gemini; "
-                             f"gemini default: {GEMINI_MODEL_DEFAULT})")
+                        help="Opcionális modellazonosító (codex / gemini / grok; "
+                             f"gemini default: {GEMINI_MODEL_DEFAULT}, grok: grok-4.5)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Csak kiírja, mi kerülne be — a szójegyzéket nem módosítja")
     parser.add_argument("--all-interactive", action="store_true",
@@ -800,7 +819,7 @@ def main():
     # > beégetett default (Gemini-nél GEMINI_MODEL_DEFAULT, CLI-knél None).
     args.model = config.resolve_model(
         args.model, args.provider, "glossary",
-        builtin=GEMINI_MODEL_DEFAULT if args.provider == "gemini" else None)
+        builtin={"gemini": GEMINI_MODEL_DEFAULT, "grok": "grok-4.5"}.get(args.provider))
 
     pre_mode = args.hun_srt is None  # fordítás előtti, forrás-only mód
     src_lang = config.resolve_source_lang(args.source_lang, args.source_srt)

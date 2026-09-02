@@ -81,3 +81,65 @@ def test_as_prompt_text_loads_from_path_when_glossary_none(tmp_path):
         encoding="utf-8",
     )
     assert glossary.as_prompt_text(path=str(path)) == '  "Sir" = "Uram"'
+
+
+# ── szójegyzék-szűrés a forrásszöveghez ─────────────────────────────────────
+
+def _sample_glossary():
+    return {
+        "honorifics": [{"en": "Mentor", "hu": "Mester", "context": ""}],
+        "place_names": [{"en": "Ascendance Sect", "hu": "Felemelkedés Rendje"}],
+        "character_names": [{"en": "Li Changshou", "hu": "Li Csang-sou"}],
+        "special_terms": [
+            {"en": "Paper Daoist", "hu": "papírtaoista"},
+            {"en": "Golden Immortal", "hu": "Aranyhalhatatlan"},
+        ],
+        "phrases": [{"en": "advance by leaps and bounds", "hu": "óriásit lép előre"}],
+    }
+
+
+def test_filter_keeps_identity_categories_untouched():
+    g = _sample_glossary()
+    out = glossary.filter_for_source(g, "semmi releváns szöveg")
+    for category in glossary.IDENTITY_CATEGORIES:
+        assert out[category] == g[category]
+    # a filterezhetők viszont kiürülnek
+    assert out["special_terms"] == [] and out["phrases"] == []
+
+
+def test_filter_matches_english_source():
+    out = glossary.filter_for_source(_sample_glossary(),
+                                     "He sent a Paper Daoist to the gate.")
+    assert [e["en"] for e in out["special_terms"]] == ["Paper Daoist"]
+
+
+def test_filter_matches_hungarian_side_too():
+    # a review a magyar szöveget nézi — a `hu` alaknak is találnia kell
+    out = glossary.filter_for_source(_sample_glossary(),
+                                     "A papírtaoista elindult a kapu felé.")
+    assert [e["en"] for e in out["special_terms"]] == ["Paper Daoist"]
+
+
+def test_filter_normalizes_typographic_punctuation():
+    g = {"special_terms": [{"en": "Dragon King’s heir", "hu": "a Sárkánykirály örököse"}]}
+    assert glossary.filter_for_source(g, "the dragon king's heir arrived")["special_terms"]
+
+
+def test_filter_without_source_returns_everything():
+    g = _sample_glossary()
+    assert glossary.filter_for_source(g, "") == g
+    assert glossary.filter_for_source(g, "   \n  ") == g
+
+
+def test_filter_ignores_missing_categories():
+    g = {"honorifics": [{"en": "Mentor", "hu": "Mester"}]}
+    assert glossary.filter_for_source(g, "Mentor") == g
+
+
+def test_as_prompt_text_source_text_shrinks_output():
+    g = _sample_glossary()
+    full = glossary.as_prompt_text(g)
+    filtered = glossary.as_prompt_text(g, source_text="a Paper Daoist appears")
+    assert len(filtered) < len(full)
+    assert "Paper Daoist" in filtered and "Golden Immortal" not in filtered
+    assert "Mentor" in filtered  # az azonosítók bent maradnak

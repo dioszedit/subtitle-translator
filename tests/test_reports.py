@@ -15,7 +15,7 @@ def test_report_paths_kontraktus():
     txt, js = reports.report_paths(p, "gemini", "_part2")
     assert txt.name == "Sorozat - S01E01.hun_REVIEW_GEMINI_part2.txt"
     assert js.name == "Sorozat - S01E01.hun_REVIEW_GEMINI_part2.json"
-    for reviewer, tag in (("claude", "CLAUDE"), ("codex", "CODEX")):
+    for reviewer, tag in (("claude", "CLAUDE"), ("codex", "CODEX"), ("grok", "GROK")):
         txt, _ = reports.report_paths(p, reviewer)
         assert txt.name.endswith(f"_REVIEW_{tag}.txt")
 
