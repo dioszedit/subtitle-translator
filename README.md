@@ -297,7 +297,7 @@ sáv"). De a kettő **nem ugyanaz a döntés**, és nem is kell egyszerre meghoz
 
 > Fordíts angolból — a regisztert viszont az **eredeti nyelvű sávból** olvasd ki.
 
-A vízvezeték ehhez kész: a `register` egy útvonalat kap, a forrásnyelvet a
+A pipeline ehhez készen áll: a `register` egy útvonalat kap, a forrásnyelvet a
 fájlnév tagjából ismeri fel, tehát egy kicsomagolt `Sorozat - S01E01.jpn.srt`
 magától a keigo-ágra fut, függetlenül attól, hogy a `translate` közben angolból
 dolgozik.
