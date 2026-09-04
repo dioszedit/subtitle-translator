@@ -19,6 +19,9 @@ Olvasd el a `TRANSLATION.md`-t, a `TRANSLATION.local.md`-t (ebben van a *Megszó
 - Ha a riport `eredeti` mezője eltér az aktuálistól: kihagyás; valószínűleg már javított vagy elcsúszott.
 - Glossary-val ellentétes, nem létező magyar szóalakú vagy a forrástól hűtlen javaslat: dobd el.
 - Tegezés/magázás: ha a *Megszólítási regiszter* alátámasztja a találatot, fogadd el; ha a `hiba` mező nem nevez meg regiszter-sort, forrás-jelet vagy ütköző sorszámot, dobd el. Egyéb esetben — és stilisztikánál — kételykor dobd el.
+- A `hiba` hivatkozását is ellenőrizd, ne csak a javaslatot: ha regiszter-sorra vagy glossary-bejegyzésre hivatkozik, de az ott nincs úgy, dobd el. A regiszter `kivétel:` sorával ütköző találat is elesik — a jelölt kilépés szándékos.
+- **Regiszter-találat = sweep-trigger, nem egysoros javítás.** A lektorok egy rendszerszintű regiszterhibának csak a töredékét jelzik, és a félig átállított jelenet rosszabb, mint bármelyik véglet. Elfogadott regiszter-találat után nézd végig az adott karakterpár összes sorát a jelenetben; a riporton kívül felvett tételeket az összegzésben külön jelöld, hogy a felhasználó vétózhasson.
+- Regiszter-ügyben előbb tisztázd, **ki beszél kihez** — a leggyakoribb néma hiba a téves beszélő-hozzárendelés, mert az eredménye konzisztensnek látszik. Ha a videó visz eredeti nyelvű feliratsávot (`addons/mkv-subs`), annak beszélőcímkéi és formalitás-alakjai egy lépésben eldöntik mindkettőt.
 - A jó, de pontatlan javaslatot írd át a végleges szövegre.
 - Két provider azonos javaslata nagyobb bizalom, de nem helyettesíti a forrásellenőrzést.
 

@@ -61,7 +61,8 @@ subtitle-translator/
 ├── addons/                      ← Opcionális segédscriptek (saját READMÉ-kkel)
 │   ├── mdl-init/                ← 0/a: új sorozat — TRANSLATION.local.md + glossary-címek MyDramaList-linkből
 │   ├── srt-preclean/            ← 0/b: SDH-forrás előtisztítása
-│   └── vtt2srt/                 ← 0/d: meglévő .vtt felirat átvétele (WebVTT → SRT)
+│   ├── vtt2srt/                 ← 0/d: meglévő .vtt felirat átvétele (WebVTT → SRT)
+│   └── mkv-subs/                ← 0/e: feliratsávok a videóból, nyelvcímke szerint (ffmpeg)
 
 ├── input/                       ← Ide tedd a forrásnyelvi SRT fájlokat
 ├── blocks/                      ← Auto-generált blokk-fájlok
@@ -288,6 +289,59 @@ python subtr.py register "input\Sorozat - S01E02.ger.srt"
 
 Új nyelv felvétele: `subtr/config.py` → `SOURCE_LANGS` (magyar név +
 a formalitás-jelölés leírása; `None`, ha a nyelv nem jelöli).
+
+#### A regiszter forrása lehet MÁS, mint a fordításé
+
+A forrásnyelv-váltás fent úgy szerepel, mint kényszermegoldás („nincs angol
+sáv"). De a kettő **nem ugyanaz a döntés**, és nem is kell egyszerre meghozni:
+
+> Fordíts angolból — a regisztert viszont az **eredeti nyelvű sávból** olvasd ki.
+
+A pipeline ehhez készen áll: a `register` egy útvonalat kap, a forrásnyelvet a
+fájlnév tagjából ismeri fel, tehát egy kicsomagolt `Sorozat - S01E01.jpn.srt`
+magától a keigo-ágra fut, függetlenül attól, hogy a `translate` közben angolból
+dolgozik.
+
+```powershell
+# 1) az eredeti nyelvű sáv kicsomagolása a videóból (nyelvcímke szerint!)
+python addons\mkv-subs\extract_subs.py "Season 01\Sorozat - S01E01.mkv" --lang jpn
+
+# 2) a regiszter ebből áll össze — a fordítás marad angolból
+python subtr.py register "Season 01\Sorozat - S01E01.jpn.srt"
+python subtr.py translate "blocks\Sorozat - S01E01.eng" --provider claude
+```
+
+Két nyeresége van, és a második legalább annyit ér, mint az első:
+
+1. **A formalitás-alak közvetlen bizonyíték** — nem következtetés.
+2. **Az eredeti nyelvű CC gyakran beszélőcímkés** (`（緑）`, `（伸子）`). A
+   regiszter-kinyerés ezeket szándékosan bennhagyja a promptban, mert ez az
+   elsődleges támpont ahhoz, hogy **ki beszél kihez**. Egy regiszter-hiba
+   sokszor nem abból ered, hogy a formalitást olvastuk félre, hanem hogy a
+   beszélőt — és az ilyen hiba *konzisztensnek* látszik, tehát magától nem
+   bukik ki.
+
+**Mennyit ér nyelvenként?** Nem egyformát — érdemes tudni, mennyire lehet
+ráhagyatkozni:
+
+| Forrásnyelv | Jel | Mennyire dönt |
+|---|---|---|
+| koreai | `-습니다`/`-요` vs. banmal, `-씨`/`-님` | **legerősebb** — szinte minden mondatvégen ott van |
+| japán | `です`/`ます` vs. plain, tiszteleti alakok | **erős** — de lásd a monológ-csapdát alább |
+| német, orosz, francia, spanyol, olasz | `Sie`/`du`, `вы`/`ты`, `vous`/`tu`, `Lei`/`tu` | erős, névmás-szintű |
+| kínai | `您`/`你` | **gyenge** — a `您` a mai köznyelvben ritka, délen/Tajvanon alig; a hiánya nem bizonyít tegezést |
+| angol | — | nincs |
+
+**Monológ-csapda:** a japánban (és a koreaiban) a **belső monológ alapból plain
+alakú**, akkor is, ha a szereplő az adott személyt magázza. Egy ilyen sorból
+tehát NEM következik tegezés — a `register` promptja ezért csak a
+megszólító mondatot fogadja el bizonyítéknak.
+
+**Jelölt kivétel:** ha egy szereplő egy jelenet erejéig szándékosan kilép a
+saját regiszteréből (a japán plain alak dramaturgiai csúcsponton), az **nem
+következetlenség és nem is VÁLTÁS** — nem fordul meg tartósan a viszony. Ezt a
+`TRANSLATION.local.md` regiszterében `kivétel:` sorként rögzítsd, különben a
+következő review „kijavítja".
 
 ### Fordítás — opciók
 

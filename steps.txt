@@ -60,6 +60,15 @@
 #         nem következtetés, hanem leolvasás:
 # py subtr.py register "Season 01\Sorozat - S01E30.hun.srt" "Season 01\Sorozat - S01E32.hun.srt" --hungarian
 
+# 0/e. (HA A FELIRAT A VIDEÓBAN VAN, VAGY KELL AZ EREDETI NYELVŰ SÁV) feliratsávok
+#      kicsomagolása mkv-ből, NYELVCÍMKE szerint (ffmpeg kell hozzá):
+# py addons\mkv-subs\extract_subs.py "Season 01\Sorozat - S01E01.mkv"            # listáz
+# py addons\mkv-subs\extract_subs.py "Season 01"\*.mkv --lang eng --out-dir input
+#      A kimenet a névkonvenciót követi (Sorozat - S01E01.eng.srt), így a split /
+#      translate / glossary / register a fájlnévből felismeri a forrásnyelvet.
+#      AZ EREDETI NYELVŰ SÁV a megszólítási regiszterhez kell — lásd 1.6.
+#      Részletek: addons\mkv-subs\README.md
+
 # 1. SRT szétvágás (ezt TE futtatod, nem kell hozzá Claude)
 py subtr.py split "input\Sorozat - S01E01.eng.srt"
 # Újra-splitnél (pl. más --block-size) a régi blokkok törléséhez: --clean
@@ -93,6 +102,29 @@ py subtr.py glossary "input\Sorozat - S01E01.eng.srt"
 #     forrásfeliratból — a javaslatot te hagyod jóvá, a fájl kézzel bármikor javítható.
 #     Nem angol forrásnál ez PONTOSABB: a német Sie/du, kínai 您/你 stb. közvetlen
 #     bizonyíték, nem következtetés.
+#
+#     >>> HA A VIDEÓBAN VAN EREDETI NYELVŰ FELIRATSÁV, A REGISZTERT ABBÓL VEDD KI —
+#         AKKOR IS, HA ANGOLBÓL FORDÍTASZ. A kettő nem ugyanaz a döntés: a translate
+#         maradhat angolon, a register meg kap egy .jpn/.kor fájlt, és a fájlnév
+#         tagjából magától átvált a "leolvasás" ágra.
+# py addons\mkv-subs\extract_subs.py "Season 01\Sorozat - S01E01.mkv"           # mi van benne
+# py addons\mkv-subs\extract_subs.py "Season 01\Sorozat - S01E01.mkv" --lang jpn
+# py subtr.py register "Season 01\Sorozat - S01E01.jpn.srt"
+#         MIÉRT ÉRI MEG: (1) a formalitás-alak közvetlen bizonyíték; (2) az eredeti
+#         nyelvű CC gyakran BESZÉLŐCÍMKÉS (（緑）, （伸子）) — a regiszter-hiba sokszor
+#         nem a formalitás félreolvasása, hanem az, hogy KI BESZÉL; az ilyen hiba
+#         konzisztensnek látszik, tehát magától nem bukik ki.
+#         FIGYELEM: a sávok sorrendje fájlonként változik (ugyanabban a sorozatban a
+#         japán az egyik részben a 3., a másikban az 5. stream) — ezért NYELVCÍMKE
+#         szerint válassz, a beégetett -map 0:5 némán rossz nyelvet csomagol ki.
+#         Nyelvenként nem egyforma az erő: koreai a legerősebb, japán erős, kínai
+#         (您/你) gyenge. Részletek: README.md → Forrásnyelv.
+#     KÉT CSAPDA A REGISZTER OLVASÁSAKOR:
+#       - a japán/koreai BELSŐ MONOLÓG alapból plain alakú, akkor is, ha a szereplő
+#         magázza az illetőt — ebből nem következik tegezés;
+#       - ha valaki egy jelenet erejéig szándékosan kilép a saját regiszteréből
+#         (dramaturgiai csúcspont), az nem VÁLTÁS: 'kivétel:' sorként rögzítsd,
+#         különben a következő review "kijavítja".
 # py subtr.py register "input\Sorozat - S01E01.eng.srt"
 #     Több rész pontosabb (a részek közti eltérés VÁLTÁS-jelöltként jön fel):
 # py subtr.py register "input\S01E01.eng.srt" "input\S01E02.eng.srt"
