@@ -16,6 +16,13 @@ Mit csinál:
     az ütközőket megkérdezi.
   - Az egyértelmű sorokat magától elfogadja, a bizonytalanoknál kérdez.
 
+A forrás NEM kell, hogy a fordítás forrása legyen: fordíthatsz angolból úgy,
+hogy a regisztert az eredeti nyelvű (japán/koreai/…) sávból olvasod ki — a
+nyelvet a fájlnév tagjából ismerjük fel, tehát egy `Sorozat - S01E01.jpn.srt`
+magától a "leolvasás" ágra fut. A sávot az `addons/mkv-subs` csomagolja ki a
+videóból. Két nyeresége van: a formalitás-alak közvetlen bizonyíték, és az
+eredeti nyelvű CC gyakran beszélőcímkés.
+
 Használat:
     python register_extract.py "input/Sorozat - S01E01.eng.srt"
     python register_extract.py "input/S01E01.eng.srt" "input/S01E02.eng.srt"
@@ -100,8 +107,13 @@ RESULT_SCHEMA = {
 
 def srt_dialogue(path: str) -> str:
     """Az SRT-ből '#sorszám szöveg' sorok — időbélyeg nélkül, hogy a prompt
-    rövidebb legyen. A beszélőcímkék ([Anna], (Hagi)) SZÁNDÉKOSAN maradnak:
-    ezek az elsődleges támpont ahhoz, hogy ki beszél kihez."""
+    rövidebb legyen. A beszélőcímkék ([Anna], (Hagi), （緑）) SZÁNDÉKOSAN
+    maradnak: ezek az elsődleges támpont ahhoz, hogy ki beszél kihez.
+
+    Ezért éri meg az EREDETI NYELVŰ CC-sávot használni akkor is, ha a fordítás
+    angolból megy: a kiadói angol felirat ritkán címkéz, az eredeti nyelvű CC
+    gyakran igen. A regiszterhiba sokszor nem a formalitás félreolvasása,
+    hanem téves beszélő-hozzárendelés — és az konzisztensnek látszik."""
     raw = Path(path).read_text(encoding="utf-8-sig", errors="replace")
     out = []
     for block in re.split(r"\n\s*\n", raw.strip()):
@@ -250,7 +262,11 @@ sort idézd. Ne javíts és ne bírálj felül semmit: ha a fordítás egy párn
 következetlen, azt VÁLTÁS-ként vagy bizonytalanként jelezd, ne átlagold el —
 a felhasználó dönti el, melyik alak a helyes.
 A kikerülő (nem döntő) mondatok — főnévi igenév, többes szám első személy,
-megszólítás nélküli felkiáltás — NEM bizonyítékok."""
+megszólítás nélküli felkiáltás — NEM bizonyítékok.
+Ha egy páros egyetlen jeleneten belül lép ki az egyébként végig tartott
+formájából, az jelölt kivétel lehet, nem VÁLTÁS: a "relation" mező végén nevezd
+meg a sorszámmal (pl. "legjobb barátnők; kivétel: #212 tegez"), a pár
+alapformáját ne írd át miatta."""
     elif marker:
         intro = f"""A magyar nyelv megköveteli a tegezés/magázás döntést — és szerencsére
 {the_src} forrás EZT MAGA IS JELÖLI: {marker}.
@@ -263,8 +279,17 @@ látszik, ott ne mérlegelj mást, és az "evidence" mezőbe ezt idézd.
 Csak ott támaszkodj közvetett jelekre (titulus, megszólítási forma, emelt
 regiszter, első találkozás, alá-fölérendeltség), ahol a szereplőpár között
 egyetlen explicit alak sem hangzik el.
+CSAK MEGSZÓLÍTÓ MONDAT BIZONYÍT. A belső monológ, a narráció és az önmagához
+beszélés sok nyelvben (japán, koreai) ALAPBÓL a közvetlen alakot használja,
+akkor is, ha a szereplő az illetőt egyébként magázza — ilyen sorból NE
+következtess tegezésre, és ne tedd "evidence"-nek.
 FIGYELEM: a formalitás-váltás önmagában is információ — ha egy páros a felirat
-folyamán vált, azt VÁLTÁS-ként jelezd, ne átlagold el."""
+folyamán vált, azt VÁLTÁS-ként jelezd, ne átlagold el. De különböztesd meg a
+TARTÓS váltást (innentől más a viszony) az EGYSZERI kilépéstől: ha valaki egy
+jelenet erejéig lép ki a saját regiszteréből (érzelmi csúcspont, révület,
+felismerés), az jelölt kivétel — a "relation" mező végén nevezd meg a sorszámmal
+(pl. "gondnok→vendég; kivétel: #169 közvetlen alak, felismerés-jelenet"), de a
+pár alapformáját NE írd át miatta."""
     else:
         intro = f"""A magyar nyelv megköveteli a tegezés/magázás döntést, {the_src} felirat
 viszont ezt nem jelöli (`you` mindenre). A feladatod: {the_src} szövegből kikövetkeztetni,

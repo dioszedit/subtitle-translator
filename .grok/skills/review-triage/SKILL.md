@@ -51,6 +51,8 @@ A riportok találatait szekciószám szerint fésüld össze. Találatonként:
 | a javaslat ellentmond a glossary.json-nak | **eldob** (a glossary kötelező) |
 | tegezés/magázás-riasztás, amit a *Megszólítási regiszter* alátámaszt | **elfogad** — a regiszter kötelező, a fordító tévedett |
 | tegezés/magázás-riasztás indoklás nélkül (a `hiba` mező nem nevez meg regiszter-sort, forrás-jelet vagy ütköző sorszámot) | **eldob** |
+| a `hiba` hivatkozik valamire (regiszter-sor, glossary-bejegyzés, szabály), de az ott NINCS úgy | **eldob** — a hivatkozást is ellenőrizd, ne csak a javaslatot |
+| a riport a *Megszólítási regiszter* `kivétel:` sorával ütközik | **eldob** — a jelölt kilépés szándékos |
 | egyéb tegezés/magázás-riasztás | a forrás + a jelenet kontextusa alapján ítélj (ki beszél kihez); kétes esetben **eldob** |
 | a javaslat mást mond, mint a forrás | **eldob** — a "javítás" nem lehet hűtlenebb az eredetinél |
 | jó irányú, de pontatlan javaslat | **átírva elfogad** — a végleges szöveget te adod meg |
@@ -58,6 +60,28 @@ A riportok találatait szekciószám szerint fésüld össze. Találatonként:
 
 Kétely esetén az eldobás a biztonságos irány: egy kihagyott jó javítás olcsóbb,
 mint egy átvezetett rossz.
+
+### Tegezés/magázás: a találat SWEEP-TRIGGER, nem egysoros javítás
+
+A lektorok egy rendszerszintű regiszterhibának jellemzően csak a töredékét
+jelzik (mért eset: egy jelenet 9 tegező sorából 3-at). Ha csak a jelzett
+sorokat vezeted át, a jelenet FÉLIG marad átállítva — ez rosszabb, mint bármelyik
+véglet. Ezért egy elfogadott regiszter-találat után:
+
+1. Nézd végig az ADOTT KARAKTERPÁR összes sorát a jelenetben (és ha az epizód
+   más pontján is beszélnek, ott is), ne csak a jelzetteket.
+2. A hiányzókat vedd fel a decisions.json-ba, és az összegzésben KÜLÖN jelöld
+   őket „riporton kívüli, konzisztencia" tételként — a felhasználó vétózhat.
+3. Előbb tisztázd, **ki beszél kihez**. A leggyakoribb néma hiba nem a
+   formalitás félreolvasása, hanem a téves beszélő-hozzárendelés: az így
+   keletkezett javítás konzisztensnek látszik, tehát magától nem bukik ki.
+   Ha a videó visz eredeti nyelvű feliratsávot (`addons/mkv-subs`), annak a
+   beszélőcímkéi (`（緑）`, `（伸子）`) és formalitás-alakjai (keigo, beszédszint)
+   egy lépésben eldöntik mindkettőt — érdemes ezt megnézni, mielőtt regiszter-
+   ügyben döntesz.
+4. Ne „javítsd ki" a jelölt kivételt: ha egy szereplő egy jelenet erejéig
+   szándékosan lép ki a regiszteréből, az megtartandó. Ha ilyet találsz, és a
+   `TRANSLATION.local.md`-ben nincs `kivétel:` sora, javasold a felvételét.
 
 ## 4. decisions.json írása
 

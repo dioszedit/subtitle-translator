@@ -62,25 +62,45 @@ A magyar megköveteli a tegezés/magázás döntést. Hogy mennyire nehéz, az a
 - **Angol forrásnál** a `you` nem jelöli a formalitást — a döntés közvetett jelekből
   következtetés, és sokszor jobb kikerülni.
 - **A legtöbb más forrásnyelvnél** viszont a felirat MAGA JELÖLI: német `Sie`/`du`,
-  kínai `您`/`你`, olasz `Lei`/`tu`, japán keigo, koreai beszédszintek. Ilyenkor a 2.
+  kínai `您`/`你`, olasz `Lei`/`tu`, japán keigo, koreai beszédszintek. Ilyenkor a 3.
   lépés nem következtetés, hanem **leolvasás** — és erősebb, mint bármelyik közvetett jel.
   (A pipeline ezt automatikusan tudja: lásd `README.md` → *Forrásnyelv*.)
+- **A regiszter forrása lehet más, mint a fordításé.** Ha a videó visz eredeti
+  nyelvű sávot, a regisztert abból érdemes kiolvasni akkor is, ha angolból
+  fordítasz. Nyelvenként nem egyforma az erő: koreai a legerősebb, japán erős,
+  a kínai `您`/`你` gyenge (a `您` ritka, a hiánya nem bizonyít tegezést).
+
+Két csapda a formalitás-alak olvasásakor:
+
+- **Belső monológ.** A japán és a koreai monológ alapból közvetlen alakú, akkor
+  is, ha a szereplő az illetőt magázza — ebből NEM következik tegezés. Csak
+  megszólító mondat bizonyít.
+- **Jelölt kivétel.** Ha valaki egy jelenet erejéig szándékosan kilép a saját
+  regiszteréből (érzelmi csúcspont, révület, felismerés), az nem
+  következetlenség és nem is tartós váltás — a fordításban meg kell tartani.
+  A regiszterben `kivétel:` sorként rögzítendő, különben a következő review
+  „következetlenségként” kijavítja.
 
 A sorrend kötött — ne ugorj lépést:
 
-1. **Regiszter először.** Ha a szereplőpár szerepel a *Megszólítási regiszterben*, az
+1. **Ki beszél kihez.** Ez előfeltétel, nem részletkérdés: a regiszterhiba sokszor
+   nem a formalitás félreolvasása, hanem téves beszélő-hozzárendelés — a rossz
+   szereplőnek tulajdonított sor tökéletesen következetesnek látszik, ezért magától
+   nem bukik ki. Ha a jelenetben több szereplő van és a forrás nem címkéz, az
+   eredeti nyelvű CC beszélőcímkéi (`（緑）`, `（伸子）`) döntenek.
+2. **Regiszter.** Ha a szereplőpár szerepel a *Megszólítási regiszterben*, az
    kötelező — akkor is, ha az adott sor önmagában mást sugallna.
-2. **Formalitás-jelek a forrásban.** Regiszter hiányában a forrásszöveg explicit
+3. **Formalitás-jelek a forrásban.** Regiszter hiányában a forrásszöveg explicit
    formalitás-jeleiből indulj ki. Ha a forrásnyelv grammatikailag jelöli a formalitást
    (`Sie`/`du`, `您`/`你`, keigo…), az a **döntő** bizonyíték — ne mérlegelj mást.
    Egyébként: megszólítási forma, rang/titulus, udvariassági fordulatok, névhasználat.
    A konkrét jeleket lásd a következő két alszakaszban.
-3. **Kétes eset → kerüld ki a döntést.** A magyar sokszor megengedi, hogy a mondat ne
+4. **Kétes eset → kerüld ki a döntést.** A magyar sokszor megengedi, hogy a mondat ne
    döntsön: főnévi igenév („Bejöhetek?” → „Szabad?”), többes szám első személy
    („Indulunk?”), személytelen szerkezet, felkiáltás, megszólítás nélküli mondat.
    Példa: *„Are you coming?”* → ne „Jössz?” és ne „Jön?”, hanem „Indulunk?” / „Mehetünk?”.
    Ez az elsődleges stratégia, nem a végszükség.
-4. **Ha a kikerülés erőltetett lenne**, a jelenet legvalószínűbb viszonya szerint dönts,
+5. **Ha a kikerülés erőltetett lenne**, a jelenet legvalószínűbb viszonya szerint dönts,
    és a jeleneten belül maradj következetes. Az epizód egészére vonatkozó konzisztenciát a
    regiszter biztosítja — a fordító csak a saját blokkját látja, ezért ott, ahol tartós
    viszonyról van szó, a regisztert kell bővíteni, nem a jelenetből következtetni.
