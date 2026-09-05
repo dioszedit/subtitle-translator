@@ -32,10 +32,8 @@ from subtr.config import PROVIDERS
 from subtr.blocks import get_all_blocks, get_pending_blocks, hun_path, safe_remove
 from subtr.context import load_translation_context
 from subtr.glossary import as_prompt_text
-from subtr.providers import claude_cli
-from subtr.providers import codex_cli
+from subtr.providers import claude_cli, get_provider
 from subtr.providers import gemini as gemini_provider
-from subtr.providers import grok_cli
 from subtr.srt import count_sections, count_sections_text, parse_sections, read_text, write_srt
 
 TEMPERATURE = 0.3
@@ -452,7 +450,9 @@ def _make_gemini_translator(client, model, system_instruction, max_retries,
     return translate_block
 
 
-def _make_codex_translator(codex_bin, model, instruction, timeout, retries):
+def _make_cli_translator(adapter, cli_bin, model, instruction, timeout, retries):
+    """Codex és Grok: ugyanaz a JSON-transzformer minta, az `adapter` a
+    subtr.providers közös CLI-felülete (run_json / RunError / LABEL)."""
     def translate_block(block_path: str) -> dict:
         output_path = hun_path(block_path)
         name = os.path.basename(block_path)
@@ -469,72 +469,15 @@ def _make_codex_translator(codex_bin, model, instruction, timeout, retries):
         parsed = None
         for attempt in range(1, retries + 1):
             try:
-                parsed = codex_cli.run_codex_json(
+                parsed = adapter.run_json(
                     build_codex_prompt(instruction, sections),
                     CODEX_TRANSLATION_SCHEMA,
-                    timeout=timeout, model=model, codex_bin=codex_bin)
+                    timeout=timeout, model=model, cli_bin=cli_bin)
                 break
-            except codex_cli.CodexRunError as exc:
+            except adapter.RunError as exc:
                 error = exc
                 if attempt < retries:
-                    print(f"  Codex hiba, újrapróbálás ({attempt}/{retries})...")
-        if parsed is None:
-            safe_remove(output_path)
-            return {"block": name, "status": "fail", "message": str(error)}
-
-        translations = {}
-        for item in parsed.get("translations", []):
-            if (isinstance(item, dict) and isinstance(item.get("sorszam"), int)
-                    and isinstance(item.get("text"), str)):
-                translations[item["sorszam"]] = item["text"]
-        missing = expected - set(translations)
-        if missing:
-            safe_remove(output_path)
-            return {"block": name, "status": "fail",
-                    "message": f"Hiányzó fordítások: {sorted(missing)[:5]}"}
-
-        write_srt(output_path, [{**section, "text": translations[int(section["num"])]}
-                                for section in sections])
-        if count_sections(output_path) != len(sections):
-            safe_remove(output_path)
-            return {"block": name, "status": "warning",
-                    "message": "Szekciószám eltérés — output törölve"}
-        stub = placeholder_warning(output_path, block_path)
-        if stub:
-            detail = placeholder_detail(output_path, block_path)
-            safe_remove(output_path)
-            return {"block": name, "status": "warning", "message": stub,
-                    "detail": detail}
-        return {"block": name, "status": "ok", "message": f"{len(sections)} szekció"}
-    return translate_block
-
-
-def _make_grok_translator(grok_bin, model, instruction, timeout, retries):
-    def translate_block(block_path: str) -> dict:
-        output_path = hun_path(block_path)
-        name = os.path.basename(block_path)
-        print(f"[START] {name}")
-        try:
-            sections = parse_sections(block_path)
-            expected = {int(s["num"]) for s in sections}
-        except Exception as exc:
-            return {"block": name, "status": "fail", "message": f"Parse hiba: {exc}"}
-        if not sections:
-            return {"block": name, "status": "fail", "message": "Üres blokk vagy parse-hiba"}
-
-        error = None
-        parsed = None
-        for attempt in range(1, retries + 1):
-            try:
-                parsed = grok_cli.run_grok_json(
-                    build_codex_prompt(instruction, sections),
-                    CODEX_TRANSLATION_SCHEMA,
-                    timeout=timeout, model=model, grok_bin=grok_bin)
-                break
-            except grok_cli.GrokRunError as exc:
-                error = exc
-                if attempt < retries:
-                    print(f"  Grok hiba, újrapróbálás ({attempt}/{retries})...")
+                    print(f"  {adapter.LABEL} hiba, újrapróbálás ({attempt}/{retries})...")
         if parsed is None:
             safe_remove(output_path)
             return {"block": name, "status": "fail", "message": str(error)}
@@ -762,7 +705,7 @@ def main(argv=None):
     model = config.resolve_model(args.model, provider, "translate", builtin=builtin)
 
     # Provider-előfeltételek
-    claude_bin = codex_bin = grok_bin = client = None
+    claude_bin = cli_bin = adapter = client = None
     if provider == "gemini":
         if not gemini_provider.DEPS_OK:
             print(f"HIBA: Hiányzó Python függőség: {gemini_provider.DEPS_ERROR}")
@@ -803,16 +746,11 @@ def main(argv=None):
             sys.exit(1)
         if not args.no_cleanup:
             claude_cli.cleanup_stale_sys_prompts(CLAUDE_SYS_PROMPT_PREFIX)
-    elif provider == "grok":
-        grok_bin = grok_cli.find_grok()
-        if not grok_bin:
-            print("HIBA: A 'grok' parancs nem található a PATH-on.")
-            print("      A Grok CLI legyen a PATH-on (`grok login` vagy XAI_API_KEY).")
-            sys.exit(1)
     else:
-        codex_bin = codex_cli.find_codex()
-        if not codex_bin:
-            print("HIBA: A 'codex' parancs nem található a PATH-on.")
+        adapter = get_provider(provider)  # codex / grok — közös felület
+        cli_bin = adapter.find_cli()
+        if not cli_bin:
+            print(f"HIBA: {adapter.MISSING_HINT}")
             sys.exit(1)
 
     # Blokk-felfedezés + --block kezelés (auto zero-pad: 3 → 003)
@@ -914,12 +852,9 @@ def main(argv=None):
     elif provider == "claude":
         translator = _make_claude_translator(claude_bin, sys_prompt_path, model,
                                              args.timeout, args.max_turns)
-    elif provider == "grok":
-        translator = _make_grok_translator(grok_bin, model, instruction,
-                                           args.timeout, args.max_retries)
     else:
-        translator = _make_codex_translator(codex_bin, model, instruction,
-                                            args.timeout, args.max_retries)
+        translator = _make_cli_translator(adapter, cli_bin, model, instruction,
+                                          args.timeout, args.max_retries)
 
     results = []
     with ThreadPoolExecutor(max_workers=args.agents) as executor:

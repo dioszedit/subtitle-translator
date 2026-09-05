@@ -7,8 +7,13 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+from subtr.providers import CliRunError
 
-class CodexRunError(RuntimeError):
+LABEL = "Codex"
+MISSING_HINT = "A 'codex' parancs nem található a PATH-on."
+
+
+class CodexRunError(CliRunError):
     """A Codex CLI nem futott le vagy nem adott érvényes JSON választ."""
 
 
@@ -77,3 +82,14 @@ def run_codex_json(prompt: str, schema: dict, *, timeout: int,
             return json.loads(raw)
         except json.JSONDecodeError as exc:
             raise CodexRunError(f"A Codex válasza nem érvényes JSON: {exc}") from exc
+
+
+# A közös CLI-adapter felület (lásd subtr.providers docstring).
+RunError = CodexRunError
+find_cli = find_codex
+
+
+def run_json(prompt: str, schema: dict, *, timeout: int,
+             model: str | None = None, cli_bin: str | None = None):
+    return run_codex_json(prompt, schema, timeout=timeout, model=model,
+                          codex_bin=cli_bin or "codex")

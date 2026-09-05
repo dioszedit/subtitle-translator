@@ -17,8 +17,14 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+from subtr.providers import CliRunError
 
-class GrokRunError(RuntimeError):
+LABEL = "Grok"
+MISSING_HINT = ("A 'grok' parancs nem található a PATH-on.\n"
+                "      A Grok CLI legyen a PATH-on (`grok login` vagy XAI_API_KEY).")
+
+
+class GrokRunError(CliRunError):
     """A Grok CLI nem futott le vagy nem adott érvényes JSON választ."""
 
 
@@ -214,3 +220,14 @@ def run_grok_json(prompt: str, schema: dict, *, timeout: int,
             raise GrokRunError(f"Grok hiba (exit {proc.returncode}): {tail}")
 
         return parse_grok_response(proc.stdout)
+
+
+# A közös CLI-adapter felület (lásd subtr.providers docstring).
+RunError = GrokRunError
+find_cli = find_grok
+
+
+def run_json(prompt: str, schema: dict, *, timeout: int,
+             model: str | None = None, cli_bin: str | None = None):
+    return run_grok_json(prompt, schema, timeout=timeout, model=model,
+                         grok_bin=cli_bin or "grok")

@@ -9,7 +9,7 @@ import re
 import sys
 
 from subtr import context
-from subtr.srt import parse_sections
+from subtr.srt import parse_sections, read_text
 import argparse
 
 sys.stdout.reconfigure(encoding='utf-8')
@@ -20,8 +20,7 @@ def extract_numbers(filepath: str) -> list[str]:
     """Sorszámok kinyerése — strukturálisan: csak az a csupa-számjegy sor
     számít, amit időbélyeg-sor követ. Így a csak számot tartalmazó
     felirat-SZÖVEG (pl. "3") nem csúsztatja el az összehasonlítást."""
-    with open(filepath, 'r', encoding='utf-8-sig') as f:
-        lines = f.read().split('\n')
+    lines = read_text(filepath).split('\n')
     return [line.strip() for i, line in enumerate(lines)
             if re.match(r'^\d+$', line.strip())
             and i + 1 < len(lines)
@@ -31,8 +30,8 @@ def extract_numbers(filepath: str) -> list[str]:
 def extract_timestamps(filepath: str) -> list[str]:
     """Időbélyegek kinyerése — szigorú SRT/WebVTT formátum (--> arrow kötelező),
     hogy ne akadjon be dialógusban szereplő óra-formátumokba (pl. '14:30:00')."""
-    with open(filepath, 'r', encoding='utf-8-sig') as f:
-        return [line.strip() for line in f if re.match(r'^\d{2}:\d{2}:\d{2}[,.]\d{3}\s*-->', line.strip())]
+    return [line.strip() for line in read_text(filepath).split('\n')
+            if re.match(r'^\d{2}:\d{2}:\d{2}[,.]\d{3}\s*-->', line.strip())]
 
 
 # A kötőjeles névminta hamis riasztásai ellen: ha a kötőjel utáni rész magyar

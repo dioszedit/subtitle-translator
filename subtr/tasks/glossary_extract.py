@@ -38,15 +38,14 @@ import json
 import re
 import argparse
 import shutil
-import subprocess
 
 from subtr.glossary import CATEGORIES, as_prompt_text
-from subtr.providers.codex_cli import CodexRunError, find_codex, run_codex_json
-from subtr.providers.grok_cli import GrokRunError, find_grok, run_grok_json
+from subtr.providers import get_provider
 from subtr import config
 from subtr.config import PROVIDERS
 from subtr.context import load_translation_context as load_claude_md
-from subtr.providers.claude_cli import find_claude as find_claude_cli
+from subtr.providers.claude_cli import (find_claude as find_claude_cli,
+                                        json_candidates, run_prompt)
 
 sys.stdout.reconfigure(encoding='utf-8')
 sys.stderr.reconfigure(encoding='utf-8')
@@ -539,105 +538,59 @@ def _run_extraction(prompt: str, existing_terms: set, timeout: int,
     if provider == "gemini":
         return _run_gemini(prompt, existing_terms, model, source_text)
 
-    if provider == "codex":
-        codex_cmd = find_codex()
-        if not codex_cmd:
-            print("HIBA: A 'codex' parancs nem található a PATH-on.")
+    if provider in ("codex", "grok"):
+        adapter = get_provider(provider)  # közös CLI-felület
+        cli_cmd = adapter.find_cli()
+        if not cli_cmd:
+            print(f"HIBA: {adapter.MISSING_HINT}")
             return []
-        print(f"Codex elemzi a feliratot... ({codex_cmd})")
+        print(f"{adapter.LABEL} elemzi a feliratot... ({cli_cmd})")
         try:
-            codex_prompt = (prompt + "\n\nCODEX KIMENET: kizárólag egy JSON objektumot adj "
-                            "`suggestions` tömbbel: {\"suggestions\":[...]}." )
-            result = run_codex_json(codex_prompt, CODEX_GLOSSARY_SCHEMA, timeout=timeout,
-                                    model=model, codex_bin=codex_cmd)
-        except CodexRunError as exc:
-            print(f"HIBA: Codex hiba: {exc}")
-            return []
-        return validate_suggestions(result.get("suggestions", []), existing_terms,
-                                    source_text)
-
-    if provider == "grok":
-        grok_cmd = find_grok()
-        if not grok_cmd:
-            print("HIBA: A 'grok' parancs nem található a PATH-on.")
-            return []
-        print(f"Grok elemzi a feliratot... ({grok_cmd})")
-        try:
-            grok_prompt = (prompt + "\n\nGROK KIMENET: kizárólag egy JSON objektumot adj "
-                           "`suggestions` tömbbel: {\"suggestions\":[...]}." )
-            result = run_grok_json(grok_prompt, CODEX_GLOSSARY_SCHEMA, timeout=timeout,
-                                   model=model, grok_bin=grok_cmd)
-        except GrokRunError as exc:
-            print(f"HIBA: Grok hiba: {exc}")
+            cli_prompt = (prompt + f"\n\n{adapter.LABEL.upper()} KIMENET: kizárólag egy "
+                          "JSON objektumot adj `suggestions` tömbbel: "
+                          '{"suggestions":[...]}.')
+            result = adapter.run_json(cli_prompt, CODEX_GLOSSARY_SCHEMA,
+                                      timeout=timeout, model=model, cli_bin=cli_cmd)
+        except adapter.RunError as exc:
+            print(f"HIBA: {adapter.LABEL} hiba: {exc}")
             return []
         return validate_suggestions(result.get("suggestions", []), existing_terms,
                                     source_text)
 
     claude_cmd = find_claude_cli()
     print(f"Claude Code elemzi a feliratot... ({claude_cmd})")
-    try:
-        proc = subprocess.run(
-            [claude_cmd, "-p", "-"],
-            input=prompt,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            encoding='utf-8'
-        )
+    raw, err = run_prompt(prompt, timeout, claude_bin=claude_cmd)
+    if err:
+        print(f"HIBA: {err}")
+        return []
+    raw = raw.strip()
 
-        if proc.returncode != 0:
-            print(f"HIBA: Claude Code hiba (exit code: {proc.returncode})")
-            print(f"  stderr: {proc.stderr[:500]}" if proc.stderr else "")
-            return []
-
-        raw = proc.stdout.strip()
-
-        # JSON kinyerése — több stratégia
-        candidates = []
-        json_match = re.search(r'```(?:json)?\s*(\[.*?\])\s*```', raw, re.DOTALL)
-        if json_match:
-            candidates.append(json_match.group(1))
-        # Mohó: első '['-tól utolsó ']'-ig
-        first = raw.find('[')
-        last = raw.rfind(']')
-        if first != -1 and last != -1 and last > first:
-            candidates.append(raw[first:last+1])
-        candidates.append(raw)
-
-        suggestions = None
-        last_err = None
-        for cand in candidates:
-            for variant in (cand, sanitize_inner_quotes(cand)):
-                try:
-                    suggestions = json.loads(variant)
-                    break
-                except json.JSONDecodeError as e:
-                    last_err = e
-                    continue
-            if suggestions is not None:
+    # JSON kinyerése: a közös jelölt-lista (fence → mohó span → nyers), minden
+    # jelölt a belső idézőjelek javításával is megpróbálva — a modell a magyar
+    # szövegbe gyakran ASCII "-t ír, ami lezárná a stringet.
+    suggestions = None
+    last_err = None
+    for cand in json_candidates(raw):
+        for variant in (cand, sanitize_inner_quotes(cand)):
+            try:
+                suggestions = json.loads(variant)
                 break
+            except json.JSONDecodeError as e:
+                last_err = e
+        if suggestions is not None:
+            break
 
-        if suggestions is None:
-            # Debug dump
-            debug_path = ".glossary_extract_debug.txt"
-            with open(debug_path, 'w', encoding='utf-8') as df:
-                df.write(raw)
-            print(f"HIBA: JSON parse hiba: {last_err}")
-            print(f"  Nyers válasz mentve: {debug_path}")
-            print(f"  Válasz hossza: {len(raw)} karakter")
-            print(f"  Első 300 karakter:\n  {raw[:300]!r}")
-            return []
-
-        return validate_suggestions(suggestions, existing_terms, source_text)
-
-    except subprocess.TimeoutExpired:
-        print(f"HIBA: Timeout ({timeout} mp)")
+    if suggestions is None:
+        debug_path = ".glossary_extract_debug.txt"
+        with open(debug_path, 'w', encoding='utf-8') as df:
+            df.write(raw)
+        print(f"HIBA: JSON parse hiba: {last_err}")
+        print(f"  Nyers válasz mentve: {debug_path}")
+        print(f"  Válasz hossza: {len(raw)} karakter")
+        print(f"  Első 300 karakter:\n  {raw[:300]!r}")
         return []
-    except FileNotFoundError:
-        print(f"HIBA: A 'claude' parancs nem található! (keresett: {claude_cmd})")
-        print("  Megoldás: telepítsd a Claude Code CLI-t, vagy add hozzá a PATH-hoz.")
-        print(f"  Tipp: ellenőrizd, hogy létezik-e: {os.path.join(os.path.expanduser('~'), '.local', 'bin', 'claude.exe')}")
-        return []
+
+    return validate_suggestions(suggestions, existing_terms, source_text)
 
 
 def _describe(s: dict) -> str:

@@ -14,29 +14,19 @@ import subprocess
 
 
 def find_claude() -> str:
-    """A Claude CLI elérési útjának feloldása.
-
-    Sorrend: PATH (shutil.which), majd a Windows-os tipikus telepítési
-    helyek (~/.local/bin/claude.exe, ill. az npm globális claude.cmd),
-    végül fallback a puszta "claude" string — ha egyik se található,
-    hadd kapja el a hívó a FileNotFoundError-t a subprocess.run-ból.
-    """
-    found = shutil.which("claude")
-    if found:
-        return found
-    local_bin = os.path.join(os.path.expanduser("~"), ".local", "bin", "claude.exe")
-    if os.path.isfile(local_bin):
-        return local_bin
-    npm_global = os.path.join(os.environ.get("APPDATA", ""), "npm", "claude.cmd")
-    if os.path.isfile(npm_global):
-        return npm_global
-    return "claude"  # fallback, hadd kapja el a FileNotFoundError
+    """A Claude CLI elérési útja, vagy a puszta "claude" string, ha sehol
+    nem található — hadd kapja el a hívó a FileNotFoundError-t a
+    subprocess.run-ból. A keresés: which_claude()."""
+    return which_claude() or "claude"
 
 
 def which_claude() -> str | None:
-    """Mint find_claude(), csak None-t ad vissza, ha sehol nem található
-    (nincs erőltetett "claude" fallback). Olyan hívóknak, akik a hiányt
-    maguk akarják jelezni, mielőtt subprocess-et indítanának."""
+    """A Claude CLI elérési útjának feloldása, vagy None, ha nem található.
+
+    Sorrend: PATH (shutil.which), majd a Windows-os tipikus telepítési
+    helyek (~/.local/bin/claude.exe, ill. az npm globális claude.cmd).
+    Olyan hívóknak, akik a hiányt maguk akarják jelezni, mielőtt
+    subprocess-et indítanának."""
     found = shutil.which("claude")
     if found:
         return found
@@ -80,18 +70,13 @@ def run_prompt(prompt: str, timeout: int, claude_bin: str | None = None) -> tupl
     return proc.stdout, None
 
 
-def extract_json(raw: str):
-    """Robusztus JSON-kinyerés a Claude CLI válaszából.
-
-    Stratégia: (1) ```json ... ``` fence belseje, (2) az első '{' vagy '['
-    és az utolsó '}' vagy ']' közötti rész, (3) a nyers szöveg egészben.
-    Mindegyiket megpróbálja json.loads-szal; None, ha egyik se parse-olható.
-    Objektumot és tömböt egyaránt kinyer.
-    """
-    if raw is None:
-        return None
+def json_candidates(raw: str) -> list[str]:
+    """A Claude CLI válaszából a JSON-nak látszó részek, próbálási sorrendben:
+    (1) ```json ... ``` fence belseje, (2) az első '{' vagy '[' és az utolsó
+    '}' vagy ']' közötti rész, (3) a nyers szöveg egészben. Az extract_json
+    ezeket próbálja végig; a hívó akkor kéri külön, ha a jelölteket még
+    javítani is akarja parse előtt (glossary_extract: belső idézőjelek)."""
     raw = raw.strip()
-
     candidates = []
 
     fence_match = re.search(r"```(?:json)?\s*([\[{].*?[\]}])\s*```", raw, re.S)
@@ -111,8 +96,16 @@ def extract_json(raw: str):
         candidates.append(span)
 
     candidates.append(raw)
+    return candidates
 
-    for cand in candidates:
+
+def extract_json(raw: str):
+    """Robusztus JSON-kinyerés a Claude CLI válaszából — a json_candidates()
+    jelöltjeit próbálja json.loads-szal; None, ha egyik se parse-olható.
+    Objektumot és tömböt egyaránt kinyer."""
+    if raw is None:
+        return None
+    for cand in json_candidates(raw):
         try:
             return json.loads(cand)
         except json.JSONDecodeError:

@@ -8,7 +8,21 @@ rétegben él, provider-függetlenül.
 
 Kivétel (dokumentált): a Claude fordítási útja nem szöveg-transzformer —
 az agent maga írja a kimeneti fájlt (lásd claude_cli.translate_block_to_file).
+
+A KÉT HEADLESS CLI-ADAPTER (codex_cli, grok_cli) AZONOS FELÜLETET AD, hogy a
+tasks réteg egyetlen ággal kezelhesse őket (korábban minden task két, csak a
+függvénynevekben eltérő másolatot hordozott):
+    LABEL          "Codex" / "Grok" — kiírásokhoz
+    MISSING_HINT   a "nem található" hibaüzenet
+    find_cli()     a parancs útvonala vagy None
+    RunError       a hívás hibája (CliRunError leszármazott)
+    run_json(prompt, schema, *, timeout, model=None, cli_bin=None) -> dict
 """
+
+
+class CliRunError(RuntimeError):
+    """Egy headless CLI (Codex, Grok) nem futott le, vagy nem adott érvényes
+    JSON választ. A konkrét adapterek ebből származtatnak."""
 
 
 def get_provider(name: str):

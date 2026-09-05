@@ -322,7 +322,9 @@ def main(argv=None):
     lang = LANG.get(a.lang, LANG['generic'])
     cfg = dict(max_chars=a.max_chars, max_lines=a.max_lines, target_cps=a.target_cps,
                min_dur=a.min_dur, max_dur=a.max_dur, min_gap=a.min_gap)
-    cues = parse(open(a.input, encoding='utf-8').read())
+    # utf-8-sig: a Windows-os szerkesztők BOM-ja különben az első cue
+    # fejlécébe kerülne, és a reflow visszaírná a fájl közepére.
+    cues = parse(open(a.input, encoding='utf-8-sig').read())
 
     if a.mode == 'report':
         report(cues, cfg)

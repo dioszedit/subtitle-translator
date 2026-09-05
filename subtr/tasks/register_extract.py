@@ -44,7 +44,6 @@ Kimenet:
 """
 
 import argparse
-import json
 import os
 import re
 import shutil
@@ -55,8 +54,7 @@ sys.stdout.reconfigure(encoding="utf-8")
 sys.stderr.reconfigure(encoding="utf-8")
 
 from subtr import config
-from subtr.providers.codex_cli import CodexRunError, find_codex, run_codex_json
-from subtr.providers.grok_cli import GrokRunError, find_grok, run_grok_json
+from subtr.providers import get_provider
 from subtr.providers.claude_cli import extract_json, find_claude as find_claude_cli, run_prompt
 from subtr.config import PROVIDERS
 from subtr.context import load_translation_context
@@ -378,32 +376,18 @@ def run_gemini(prompt: str, model: str) -> list[dict]:
     return _validate(parsed.get("relations"))
 
 
-def run_codex(prompt: str, model, timeout: int) -> list[dict]:
-    codex_cmd = find_codex()
-    if not codex_cmd:
-        print("HIBA: A 'codex' parancs nem található a PATH-on.")
+def run_cli(adapter, prompt: str, model, timeout: int) -> list[dict]:
+    """Codex / Grok ág — az `adapter` a subtr.providers közös CLI-felülete."""
+    cli_cmd = adapter.find_cli()
+    if not cli_cmd:
+        print(f"HIBA: {adapter.MISSING_HINT}")
         return []
-    print(f"Codex elemzi a feliratot... ({codex_cmd})")
+    print(f"{adapter.LABEL} elemzi a feliratot... ({cli_cmd})")
     try:
-        result = run_codex_json(prompt, RESULT_SCHEMA, timeout=timeout,
-                                model=model, codex_bin=codex_cmd)
-    except CodexRunError as exc:
-        print(f"HIBA: Codex hiba: {exc}")
-        return []
-    return _validate(result.get("relations"))
-
-
-def run_grok(prompt: str, model, timeout: int) -> list[dict]:
-    grok_cmd = find_grok()
-    if not grok_cmd:
-        print("HIBA: A 'grok' parancs nem található a PATH-on.")
-        return []
-    print(f"Grok elemzi a feliratot... ({grok_cmd})")
-    try:
-        result = run_grok_json(prompt, RESULT_SCHEMA, timeout=timeout,
-                               model=model, grok_bin=grok_cmd)
-    except GrokRunError as exc:
-        print(f"HIBA: Grok hiba: {exc}")
+        result = adapter.run_json(prompt, RESULT_SCHEMA, timeout=timeout,
+                                  model=model, cli_bin=cli_cmd)
+    except adapter.RunError as exc:
+        print(f"HIBA: {adapter.LABEL} hiba: {exc}")
         return []
     return _validate(result.get("relations"))
 
@@ -589,10 +573,8 @@ def main():
                               hungarian=args.hungarian)
         if args.provider == "gemini":
             rel = run_gemini(prompt, model)
-        elif args.provider == "codex":
-            rel = run_codex(prompt, model, args.timeout)
-        elif args.provider == "grok":
-            rel = run_grok(prompt, model, args.timeout)
+        elif args.provider in ("codex", "grok"):
+            rel = run_cli(get_provider(args.provider), prompt, model, args.timeout)
         else:
             rel = run_claude(prompt, args.timeout)
         print(f"  {len(rel)} viszony")

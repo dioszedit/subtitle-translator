@@ -9,8 +9,8 @@ import os
 import sys
 
 from subtr.blocks import HUN_SUFFIX, get_all_blocks, hun_path
+from subtr.srt import parse_sections
 import glob
-import re
 import argparse
 
 sys.stdout.reconfigure(encoding='utf-8')
@@ -70,33 +70,18 @@ def main(argv=None):
                 content = block.read().strip()
                 out.write(content + '\n\n')
 
-    # Eredmény — strukturális számlálás: csak az a szám-sor szekció,
-    # amit időbélyeg követ (a csak számot tartalmazó felirat-szöveg nem az)
-    sections = 0
-    with open(args.output, 'r', encoding='utf-8') as f:
-        out_lines = f.read().split('\n')
-    for i, line in enumerate(out_lines):
-        if re.match(r'^\d+$', line.strip()) and i + 1 < len(out_lines) \
-                and re.match(r'^\d{2}:\d{2}:\d{2}', out_lines[i + 1].strip()):
-            sections += 1
+    # Eredmény — strukturális számlálás: csak az a szám-sor szekció, amit
+    # időbélyeg követ (a csak számot tartalmazó felirat-szöveg nem az).
+    nums = [int(s["num"]) for s in parse_sections(args.output)
+            if s["num"].isdigit() and "-->" in s["timestamp"]]
+    sections = len(nums)
 
     size = os.path.getsize(args.output)
     size_kb = size / 1024
 
     # Szekciószám folytonosság ellenőrzése
-    continuity_errors = []
-    prev_num = None
-    with open(args.output, 'r', encoding='utf-8') as f:
-        lines_list = f.readlines()
-    for i, line in enumerate(lines_list):
-        stripped = line.strip()
-        # Szekciószám: csak szám, és utána időbélyeg sor jön
-        if re.match(r'^\d+$', stripped):
-            if i + 1 < len(lines_list) and re.match(r'^\d{2}:\d{2}:\d{2}', lines_list[i + 1].strip()):
-                num = int(stripped)
-                if prev_num is not None and num != prev_num + 1:
-                    continuity_errors.append((prev_num, num))
-                prev_num = num
+    continuity_errors = [(prev, cur) for prev, cur in zip(nums, nums[1:])
+                         if cur != prev + 1]
 
     print(f"Összefűzve: {args.output}")
     print(f"Szekciók:   {sections}")

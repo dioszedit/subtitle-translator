@@ -14,8 +14,6 @@ Belépési pont: `subtr.py review [--provider claude|gemini|codex|grok]`.
 """
 
 import argparse
-import json
-import re
 import subprocess
 import sys
 from pathlib import Path
@@ -24,10 +22,8 @@ from subtr import config, reports
 from subtr.config import PROVIDERS
 from subtr.context import load_translation_context
 from subtr.glossary import as_prompt_text
-from subtr.providers import claude_cli
-from subtr.providers import codex_cli
+from subtr.providers import claude_cli, get_provider
 from subtr.providers import gemini as gemini_provider
-from subtr.providers import grok_cli
 from subtr.srt import parse_by_index, parse_entries
 
 DEFAULT_CHUNK_SIZE = 100
@@ -277,13 +273,13 @@ def parse_json_findings(result):
     értelmezhető — azt a hívó hibás chunkként kezeli, a nyers szöveg
     megőrzésével, hogy találat ne veszhessen el.
     """
-    m = re.search(r"\[.*\]", result, re.S)
-    if not m:
-        return [] if result.strip() in ("[]", "") else None
-    try:
-        data = json.loads(m.group(0))
-    except json.JSONDecodeError:
-        return None
+    data = claude_cli.extract_json(result)
+    if data is None:
+        return [] if not result.strip() else None
+    # Ha a modell mégis a strukturált ág objektumát adja ({"errors": [...]}),
+    # a lista onnan is kinyerhető — ne vesszen el a chunk.
+    if isinstance(data, dict) and isinstance(data.get("errors"), list):
+        data = data["errors"]
     if not isinstance(data, list):
         return None
     findings = []
@@ -367,15 +363,17 @@ def _make_claude_executor(claude_bin, sys_prompt_path, model,
     return executor
 
 
-def _make_codex_executor(codex_bin, model, instruction, timeout, retries):
+def _make_cli_executor(adapter, cli_bin, model, instruction, timeout, retries):
+    """Codex és Grok: ugyanaz a strukturált JSON-minta, az `adapter` a
+    subtr.providers közös CLI-felülete (run_json / RunError / LABEL)."""
     def executor(chunk_text, i, total):
         prompt = f"{instruction}\n\n=== REVIEW BLOKK ({i}/{total}) ===\n{chunk_text}"
         error = None
         for attempt in range(1, retries + 1):
             try:
-                parsed = codex_cli.run_codex_json(prompt, CODEX_REVIEW_SCHEMA,
-                                                  timeout=timeout, model=model,
-                                                  codex_bin=codex_bin)
+                parsed = adapter.run_json(prompt, CODEX_REVIEW_SCHEMA,
+                                          timeout=timeout, model=model,
+                                          cli_bin=cli_bin)
                 findings = []
                 for item in parsed.get("errors", []):
                     if not isinstance(item, dict):
@@ -387,38 +385,10 @@ def _make_codex_executor(codex_bin, model, instruction, timeout, retries):
                          for key in ("eredeti", "hiba", "javaslat")}
                         | {"sorszam": item["sorszam"]})
                 return findings, None
-            except codex_cli.CodexRunError as exc:
+            except adapter.RunError as exc:
                 error = str(exc)
                 if attempt < retries:
-                    print(f"  Codex hiba, újrapróbálás ({attempt}/{retries})...")
-        return None, error
-    return executor
-
-
-def _make_grok_executor(grok_bin, model, instruction, timeout, retries):
-    def executor(chunk_text, i, total):
-        prompt = f"{instruction}\n\n=== REVIEW BLOKK ({i}/{total}) ===\n{chunk_text}"
-        error = None
-        for attempt in range(1, retries + 1):
-            try:
-                parsed = grok_cli.run_grok_json(prompt, CODEX_REVIEW_SCHEMA,
-                                                timeout=timeout, model=model,
-                                                grok_bin=grok_bin)
-                findings = []
-                for item in parsed.get("errors", []):
-                    if not isinstance(item, dict):
-                        continue
-                    if not isinstance(item.get("sorszam"), int):
-                        continue
-                    findings.append(
-                        {key: str(item.get(key, ""))
-                         for key in ("eredeti", "hiba", "javaslat")}
-                        | {"sorszam": item["sorszam"]})
-                return findings, None
-            except grok_cli.GrokRunError as exc:
-                error = str(exc)
-                if attempt < retries:
-                    print(f"  Grok hiba, újrapróbálás ({attempt}/{retries})...")
+                    print(f"  {adapter.LABEL} hiba, újrapróbálás ({attempt}/{retries})...")
         return None, error
     return executor
 
@@ -483,7 +453,7 @@ def main(argv=None):
     if args.source and args.no_source:
         print("HIBA: --source és --no-source együtt nem használható.")
         sys.exit(1)
-    if getattr(args, "max_retries", 1) < 1:
+    if args.max_retries < 1:
         print(f"HIBA: --max-retries legalább 1 legyen (kaptam: {args.max_retries})")
         sys.exit(1)
 
@@ -495,7 +465,7 @@ def main(argv=None):
         sys.exit(1)
 
     # Provider-előfeltételek
-    claude_bin = codex_bin = grok_bin = client = None
+    claude_bin = cli_bin = adapter = client = None
     if provider == "gemini":
         if not gemini_provider.DEPS_OK:
             print(f"HIBA: Hiányzó Python függőség: {gemini_provider.DEPS_ERROR}")
@@ -527,16 +497,11 @@ def main(argv=None):
             print("HIBA: A 'claude' parancs nem található a PATH-on!")
             print("      Telepítés: npm install -g @anthropic-ai/claude-code")
             sys.exit(1)
-    elif provider == "codex":
-        codex_bin = codex_cli.find_codex()
-        if not codex_bin:
-            print("HIBA: A 'codex' parancs nem található a PATH-on.")
-            sys.exit(1)
-    elif provider == "grok":
-        grok_bin = grok_cli.find_grok()
-        if not grok_bin:
-            print("HIBA: A 'grok' parancs nem található a PATH-on.")
-            print("      A Grok CLI legyen a PATH-on (`grok login` vagy XAI_API_KEY).")
+    else:
+        adapter = get_provider(provider)  # codex / grok — közös felület
+        cli_bin = adapter.find_cli()
+        if not cli_bin:
+            print(f"HIBA: {adapter.MISSING_HINT}")
             sys.exit(1)
 
     entries = parse_entries(srt_path)
@@ -633,12 +598,9 @@ def main(argv=None):
             instruction, CLAUDE_SYS_PROMPT_PREFIX)
         executor = _make_claude_executor(claude_bin, sys_prompt_path, model,
                                          timeout=args.timeout)
-    elif provider == "grok":
-        executor = _make_grok_executor(grok_bin, model, instruction,
-                                       args.timeout, args.max_retries)
     else:
-        executor = _make_codex_executor(codex_bin, model, instruction,
-                                        args.timeout, args.max_retries)
+        executor = _make_cli_executor(adapter, cli_bin, model, instruction,
+                                      args.timeout, args.max_retries)
 
     finding_blocks, json_findings, error_chunks = [], [], []
     for i in range(start, end + 1):
