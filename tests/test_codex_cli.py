@@ -45,3 +45,47 @@ def test_long_prompt_goes_via_stdin(monkeypatch):
 
 def test_windows_limit_is_below_createprocess_max():
     assert 30000 <= codex_cli.PROMPT_ARGV_LIMIT <= 131072
+
+
+# ── hibautak ────────────────────────────────────────────────────────────────
+
+def _run_returning(rc, stdout="", stderr=""):
+    def run(cmd, **kw):
+        return subprocess.CompletedProcess(cmd, rc, stdout=stdout, stderr=stderr)
+    return run
+
+
+def test_nonzero_exit_raises_with_tail(monkeypatch):
+    monkeypatch.setattr(codex_cli.subprocess, "run",
+                        _run_returning(2, stderr="valami\nbaj történt"))
+    with pytest.raises(codex_cli.CodexRunError, match="exit 2.*baj történt"):
+        codex_cli.run_codex_json("p", {}, timeout=5)
+
+
+def test_empty_and_invalid_response(monkeypatch):
+    monkeypatch.setattr(codex_cli.subprocess, "run", _run_returning(0, stdout=""))
+    with pytest.raises(codex_cli.CodexRunError, match="üres"):
+        codex_cli.run_codex_json("p", {}, timeout=5)
+    monkeypatch.setattr(codex_cli.subprocess, "run", _run_returning(0, stdout="nem json"))
+    with pytest.raises(codex_cli.CodexRunError, match="nem érvényes JSON"):
+        codex_cli.run_codex_json("p", {}, timeout=5)
+
+
+def test_timeout_and_missing_binary(monkeypatch):
+    def timeout(cmd, **kw):
+        raise subprocess.TimeoutExpired(cmd, kw["timeout"])
+    monkeypatch.setattr(codex_cli.subprocess, "run", timeout)
+    with pytest.raises(codex_cli.CodexRunError, match="Timeout"):
+        codex_cli.run_codex_json("p", {}, timeout=120)
+
+    def missing(cmd, **kw):
+        raise FileNotFoundError(cmd[0])
+    monkeypatch.setattr(codex_cli.subprocess, "run", missing)
+    with pytest.raises(codex_cli.CodexRunError, match="nem található"):
+        codex_cli.run_codex_json("p", {}, timeout=5)
+
+
+def test_stdout_fallback_when_no_response_file(monkeypatch):
+    monkeypatch.setattr(codex_cli.subprocess, "run",
+                        _run_returning(0, stdout='{"errors": []}'))
+    assert codex_cli.run_codex_json("p", {}, timeout=5) == {"errors": []}
