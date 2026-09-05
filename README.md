@@ -44,8 +44,8 @@ subtitle-translator/
 │   ├── providers/               ← Provider adapterek
 │   │   ├── gemini.py            ← Gemini API + retry + kvótakezelés
 │   │   ├── claude_cli.py        ← Claude Code wrapper
-│   │   ├── codex_cli.py         ← Codex CLI wrapper
-│   │   └── grok_cli.py          ← Grok CLI wrapper
+│   │   ├── codex_cli.py         ← Codex CLI wrapper   ┐ azonos felület (run_json /
+│   │   └── grok_cli.py          ← Grok CLI wrapper    ┘ RunError), a taskok egy ággal kezelik
 │   └── tasks/                   ← Egy fájl = egy subtr parancs
 │       ├── split.py             ← split: SRT → blokkok
 │       ├── translate.py         ← translate: közös fordítási prompt és feldolgozás
