@@ -115,6 +115,21 @@ def scan_warn_patterns(sections, *, include_korean_names: bool
     return hits
 
 
+def find_empty_sections(orig_sections, trans_sections):
+    """A fordításban üres szekciók, amik a forrásban NEM üresek.
+
+    A legitim üres forrás-cue (a srt.py érvényes szekciónak tekinti, a
+    translate placeholder-detektora pedig szándékosan engedi) itt sem hiba —
+    különben a pipeline önmagával mondana ellent: a translate átengedné, a
+    verify meg hibával leállna rajta. Ha a sorszám a forrásban nincs meg
+    (elcsúszott fájl), az üres szekció hiba marad.
+    """
+    orig_text = {s["num"]: (s.get("text") or "") for s in orig_sections}
+    return [s for s in trans_sections
+            if not (s.get("text") or "").strip()
+            and orig_text.get(s["num"], "x").strip()]
+
+
 def calc_cps(text: str, timestamp: str) -> float | None:
     """Karakter/másodperc (HTML tagek és daljelek nélkül, szóköz nélkül)."""
     m = re.match(r'(\d{2}):(\d{2}):(\d{2})[,.](\d{3})\s*-->\s*(\d{2}):(\d{2}):(\d{2})[,.](\d{3})', timestamp)
@@ -203,9 +218,9 @@ def main(argv=None):
     print()
     print("Üres szekciók:")
     trans_sections = parse_sections(args.translated)
-    empty_sections = [s for s in trans_sections if not s["text"].strip()]
+    empty_sections = find_empty_sections(parse_sections(args.original), trans_sections)
     if not empty_sections:
-        print("  ✓ Nincs üres szekció")
+        print("  ✓ Nincs üres szekció (a forrásban is üres cue nem számít)")
     else:
         print(f"  ✗ {len(empty_sections)} üres szekció!")
         for s in empty_sections[:10]:

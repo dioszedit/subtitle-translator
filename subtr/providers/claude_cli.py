@@ -178,27 +178,63 @@ def strip_read_line_numbers(content: str) -> str | None:
     return "\n".join(out) + ("\n" if trailing_newline else "")
 
 
-def write_sys_prompt_file(content: str, prefix: str) -> str:
-    """Sys prompt mentése tartalom-hash alapú névvel — két párhuzamos futás
-    azonos tartalommal ugyanazt a fájlt használja, eltérővel külön fájlt.
-    A régi (más hash-ű) fájlokat kitakarítja, hogy ne halmozódjanak a repo
-    gyökerében."""
-    import glob
+SYS_PROMPT_MAX_AGE_DAYS = 1  # ennél régebbi sys prompt fájlokat takarítjuk
+
+
+def write_sys_prompt_file(content: str, prefix: str) -> tuple[str, bool]:
+    """Sys prompt fájl tartalom-hash alapú névvel — (útvonal, újonnan_készült).
+
+    Két párhuzamos process azonos tartalommal ugyanazt a fájlt használja
+    (atomi rename), eltérő tartalommal külön fájlt kap. A MÁS hash-ű fájlokat
+    itt szándékosan NEM töröljük: egy párhuzamosan futó translate/review (más
+    epizód = más szűrt szójegyzék = más hash) még használja őket, és a
+    `claude --append-system-prompt-file` minden blokknál/chunknál újra
+    megnyitja — a törlés futás közben hibára vinné. A takarítás kor alapján
+    megy: cleanup_stale_sys_prompts().
+    """
     import hashlib
 
     h = hashlib.sha256(content.encode("utf-8")).hexdigest()[:12]
-    path = os.path.abspath(f"{prefix}{h}.txt")
-    for stale in glob.glob(f"{prefix}*.txt"):
-        if os.path.abspath(stale) != path:
-            try:
-                os.remove(stale)
-            except OSError:
-                pass
-    if os.path.isfile(path):
-        return path
-    with open(path, "w", encoding="utf-8") as f:
+    sys_path = os.path.abspath(f"{prefix}{h}.txt")
+
+    if os.path.isfile(sys_path):
+        return sys_path, False
+
+    tmp_path = sys_path + f".tmp.{os.getpid()}"
+    with open(tmp_path, "w", encoding="utf-8") as f:
         f.write(content)
-    return path
+    try:
+        os.replace(tmp_path, sys_path)  # atomi op
+        return sys_path, True
+    except Exception:
+        if os.path.isfile(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
+        if os.path.isfile(sys_path):
+            return sys_path, False  # másik process megírta — használhatjuk
+        raise RuntimeError(f"Nem sikerült létrehozni a sys prompt fájlt: {sys_path}")
+
+
+def cleanup_stale_sys_prompts(prefix: str,
+                              max_age_days: int = SYS_PROMPT_MAX_AGE_DAYS) -> int:
+    """A `prefix`-szel kezdődő, `max_age_days`-nél régebbi sys prompt fájlok
+    törlése — a hash-nevű fájlok másképp halmozódnának. Visszaadja a törölt
+    fájlok számát."""
+    import glob
+    import time
+
+    cutoff = time.time() - max_age_days * 86400
+    removed = 0
+    for f in glob.glob(f"{prefix}*.txt"):
+        try:
+            if os.path.getmtime(f) < cutoff:
+                os.remove(f)
+                removed += 1
+        except Exception:
+            pass
+    return removed
 
 
 def kill_process_tree(proc):

@@ -626,7 +626,10 @@ def main(argv=None):
         executor = _make_gemini_executor(client, model, instruction,
                                          max_retries=args.max_retries)
     elif provider == "claude":
-        sys_prompt_path = claude_cli.write_sys_prompt_file(
+        # A más hash-ű (párhuzamos futás által használt) fájlokat nem bántjuk,
+        # csak a kor szerint elavultakat — lásd claude_cli.write_sys_prompt_file.
+        claude_cli.cleanup_stale_sys_prompts(CLAUDE_SYS_PROMPT_PREFIX)
+        sys_prompt_path, _ = claude_cli.write_sys_prompt_file(
             instruction, CLAUDE_SYS_PROMPT_PREFIX)
         executor = _make_claude_executor(claude_bin, sys_prompt_path, model,
                                          timeout=args.timeout)
@@ -659,6 +662,7 @@ def main(argv=None):
                           json_findings=json_findings,
                           error_chunks=error_chunks)
 
-    # A CLI JSON-út kontraktusa: hibás chunk esetén nem-nulla exit kód
-    if provider in ("codex", "grok") and error_chunks:
+    # Hibás/kihagyott chunk esetén nem-nulla exit kód — MINDEN providernél,
+    # hogy a hívó ne csak a riport végéből tudja meg, hogy hiányos.
+    if error_chunks:
         sys.exit(1)

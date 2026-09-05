@@ -69,6 +69,7 @@ def write_reports(srt_path: Path, report_path: Path, json_path: Path, *,
         print(f"Találatok: {len(finding_blocks)} chunkban, hibás chunkok: {len(error_chunks)}")
     else:
         print("\nNincs hiba egyik chunkban sem!")
+        _remove_stale(report_path)
 
     if json_findings:
         json_path.write_text(json.dumps({
@@ -78,3 +79,17 @@ def write_reports(srt_path: Path, report_path: Path, json_path: Path, *,
             "findings": json_findings,
         }, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"JSON riport mentve: {json_path}")
+    else:
+        _remove_stale(json_path)
+
+
+def _remove_stale(path: Path) -> None:
+    """Egy korábbi futás riportja, amire a mostani nem hozott találatot.
+
+    Ha maradna, a `subtr apply` a már javított (vagy elvetett) találatokat
+    ajánlaná fel újra — a mostani futás eredménye az, hogy NINCS találat, és
+    a fájloknak ezt kell tükrözniük.
+    """
+    if path.exists():
+        path.unlink()
+        print(f"Elavult riport törölve (a mostani futásban nincs találat): {path.name}")

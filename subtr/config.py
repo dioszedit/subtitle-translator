@@ -10,9 +10,14 @@ import os
 import sys
 
 try:
-    from dotenv import load_dotenv
+    from dotenv import find_dotenv, load_dotenv
 
-    load_dotenv()
+    # A CWD-ből felfelé keresünk: a pipeline a sorozat mappájából fut, és
+    # minden más út is CWD-relatív. A paraméter nélküli find_dotenv() a
+    # csomag mappájából indulna — editable telepítés + sorozat-másolat esetén
+    # a MÁSIK mappa .env-jét töltené be. Ha a CWD fölött nincs .env, marad a
+    # régi, csomag-relatív keresés.
+    load_dotenv(find_dotenv(usecwd=True) or None)
 except ImportError:
     pass
 

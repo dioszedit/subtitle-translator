@@ -53,3 +53,28 @@ def test_write_reports_ures(tmp_path, capsys):
                           finding_blocks=[], json_findings=[], error_chunks=[])
     assert not txt.exists() and not js.exists()
     assert "Nincs hiba" in capsys.readouterr().out
+
+
+def test_write_reports_removes_stale_reports_when_no_findings(tmp_path):
+    """Találat nélküli újrafutás: a korábbi .txt/.json nem maradhat, különben a
+    `subtr apply` a már javított találatokat ajánlaná fel újra."""
+    srt = tmp_path / "x.hun.srt"
+    srt.write_text("1\n00:00:01,000 --> 00:00:02,000\nSzia\n", encoding="utf-8")
+    txt, js = reports.report_paths(srt, "gemini")
+    txt.write_text("régi riport", encoding="utf-8")
+    js.write_text('{"findings": [{"sorszam": 1}]}', encoding="utf-8")
+    reports.write_reports(srt, txt, js, reviewer="gemini", model_label="m",
+                          finding_blocks=[], json_findings=[], error_chunks=[])
+    assert not txt.exists() and not js.exists()
+
+
+def test_write_reports_keeps_txt_but_removes_json_on_error_only(tmp_path):
+    """Csak hibás chunk van: a .txt (hibalista) készül, a régi .json megy."""
+    srt = tmp_path / "x.hun.srt"
+    srt.write_text("1\n00:00:01,000 --> 00:00:02,000\nSzia\n", encoding="utf-8")
+    txt, js = reports.report_paths(srt, "codex")
+    js.write_text("{}", encoding="utf-8")
+    reports.write_reports(srt, txt, js, reviewer="codex", model_label="m",
+                          finding_blocks=[], json_findings=[],
+                          error_chunks=["--- Chunk 1/1 ---\nTimeout\n"])
+    assert txt.exists() and not js.exists()

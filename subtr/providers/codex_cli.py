@@ -1,6 +1,7 @@
 """Kis, stdlib-alapú adapter a Codex CLI strukturált futtatásaihoz."""
 
 import json
+import os
 import shutil
 import subprocess
 import tempfile
@@ -14,6 +15,22 @@ class CodexRunError(RuntimeError):
 def find_codex() -> str | None:
     """A Codex CLI elérési útja, vagy None ha nincs telepítve."""
     return shutil.which("codex")
+
+
+# A prompt alapból ARGUMENTUMKÉNT megy (a stdin-es `-` mód egyes
+# host-környezetekben nem adta vissza megbízhatóan a --output-schema
+# kimenetet). A parancssornak viszont van hossza: Windows-on a CreateProcess
+# 32 767 karakternél elhasal ("The filename or extension is too long"),
+# Linuxon egy argumentum legfeljebb 128 KB. A review-prompt (szabályzat +
+# szójegyzék + 100 cue + [FORRÁS] sorok) a Windows-limitet könnyen átlépi —
+# ott a biztos hiba helyett a stdin-es utat választjuk. A limit alatt marad
+# egy kis tartalék a `codex exec` saját kapcsolóinak és az útvonalaknak.
+PROMPT_ARGV_LIMIT = 30000 if os.name == "nt" else 100000
+
+
+def prompt_via_stdin(prompt: str) -> bool:
+    """Igaz, ha a prompt túl hosszú ahhoz, hogy argumentumként átadjuk."""
+    return len(prompt) > PROMPT_ARGV_LIMIT
 
 
 def run_codex_json(prompt: str, schema: dict, *, timeout: int,
@@ -33,16 +50,14 @@ def run_codex_json(prompt: str, schema: dict, *, timeout: int,
         ]
         if model:
             cmd.extend(["--model", model])
-        # A Codex CLI stdin-es `-` módja egyes host-környezetekben nem adja
-        # vissza megbízhatóan a --output-schema kimenetet. A feliratblokkok
-        # promptja jóval a macOS parancshossz-korlátja alatt marad, ezért a
-        # promptot közvetlen argumentumként adjuk át.
-        cmd.append(prompt)
+        use_stdin = prompt_via_stdin(prompt)
+        cmd.append("-" if use_stdin else prompt)  # lásd PROMPT_ARGV_LIMIT
 
         try:
             proc = subprocess.run(
                 cmd, capture_output=True, text=True,
                 encoding="utf-8", timeout=timeout,
+                input=prompt if use_stdin else None,
             )
         except subprocess.TimeoutExpired as exc:
             raise CodexRunError(f"Timeout ({timeout // 60} perc)") from exc

@@ -21,7 +21,6 @@ dist/
 # Auto-generated system prompt files
 .translate_sys_prompt_*.txt
 .review_claude_sys_prompt_*.txt
-.review_gemini_sys_prompt.txt
 
 # Munkamenet-fájlok — projektenként / epizódonként mások
 input/*.srt

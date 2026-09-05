@@ -6,6 +6,8 @@ függetlenek: nem nyúlnak a GEMINI_API_KEY-hez, csak a SUBTR_* kulcsokat
 állítják/takarítják monkeypatch-csel.
 """
 
+import os
+
 import pytest
 
 from subtr import config
@@ -222,3 +224,17 @@ def test_source_lang_origin(monkeypatch):
     monkeypatch.delenv("SUBTR_SOURCE_LANG")
     assert config.source_lang_origin(None, "blocks/x.ger") == "a fájl-/mappanévből"
     assert config.source_lang_origin(None, "blocks/x") == "alapértelmezés"
+
+
+def test_dotenv_a_munkakonyvtarbol_toltodik(tmp_path, monkeypatch):
+    """A .env-et a CWD-ből felfelé keressük (a pipeline a sorozat mappájából
+    fut), nem a csomag mappájából — különben egy editable telepítés a másik
+    sorozat-másolat .env-jét töltené be."""
+    pytest.importorskip("dotenv")
+    import importlib
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("SUBTR_TEST_DOTENV_MARKER", raising=False)
+    (tmp_path / ".env").write_text("SUBTR_TEST_DOTENV_MARKER=cwd\n", encoding="utf-8")
+    importlib.reload(config)
+    assert os.environ.get("SUBTR_TEST_DOTENV_MARKER") == "cwd"
+    monkeypatch.delenv("SUBTR_TEST_DOTENV_MARKER", raising=False)

@@ -20,8 +20,6 @@ másképp kapják a feladatot (a grok a codex-promptot használja).
 """
 
 import argparse
-import glob
-import hashlib
 import os
 import subprocess
 import sys
@@ -46,7 +44,6 @@ MODEL_BUILTIN = {"gemini": "gemini-3.6-flash", "claude": "sonnet",
                  "codex": None, "grok": "grok-4.5"}
 
 CLAUDE_SYS_PROMPT_PREFIX = ".translate_sys_prompt_"
-CLAUDE_SYS_PROMPT_MAX_AGE_DAYS = 1  # ennél régebbi sys prompt fájlokat takarítjuk
 
 # Futási napló. A konzol-kimenet elszáll a scrollbackkel, a hibák oka viszont
 # (megtagadás, timeout, szekció-eltérés) csak utólag derül ki — ezért minden
@@ -355,47 +352,6 @@ természetes, beszélt magyar nyelvre. NEM tükörfordítasz.
         )
 
     return "\n\n".join(parts)
-
-
-def write_claude_sys_prompt_file(content: str) -> tuple[str, bool]:
-    """Sys prompt fájl tartalom-hash alapú névvel — (útvonal, újonnan_készült).
-
-    Két párhuzamos Python process azonos tartalommal ugyanazt a fájlt használja
-    (atomi rename), eltérő tartalommal külön fájlt kap. A régi fájlokat NEM
-    töröljük itt (másik process használhatja) — azt a kor-alapú takarítás végzi.
-    """
-    h = hashlib.sha256(content.encode("utf-8")).hexdigest()[:12]
-    sys_path = os.path.abspath(f"{CLAUDE_SYS_PROMPT_PREFIX}{h}.txt")
-
-    if os.path.isfile(sys_path):
-        return sys_path, False
-
-    tmp_path = sys_path + f".tmp.{os.getpid()}"
-    with open(tmp_path, "w", encoding="utf-8") as f:
-        f.write(content)
-    try:
-        os.replace(tmp_path, sys_path)  # atomi op
-        return sys_path, True
-    except Exception:
-        if os.path.isfile(tmp_path):
-            try:
-                os.remove(tmp_path)
-            except Exception:
-                pass
-        if os.path.isfile(sys_path):
-            return sys_path, False  # másik process megírta — használhatjuk
-        raise RuntimeError(f"Nem sikerült létrehozni a sys prompt fájlt: {sys_path}")
-
-
-def cleanup_stale_sys_prompts(max_age_days: int = CLAUDE_SYS_PROMPT_MAX_AGE_DAYS):
-    """Régebbi sys prompt fájlok törlése — biztonsági takarítás."""
-    cutoff = time.time() - max_age_days * 86400
-    for f in glob.glob(f"{CLAUDE_SYS_PROMPT_PREFIX}*.txt"):
-        try:
-            if os.path.getmtime(f) < cutoff:
-                os.remove(f)
-        except Exception:
-            pass
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -846,7 +802,7 @@ def main(argv=None):
             print("      Telepítés: npm install -g @anthropic-ai/claude-code")
             sys.exit(1)
         if not args.no_cleanup:
-            cleanup_stale_sys_prompts()
+            claude_cli.cleanup_stale_sys_prompts(CLAUDE_SYS_PROMPT_PREFIX)
     elif provider == "grok":
         grok_bin = grok_cli.find_grok()
         if not grok_bin:
@@ -897,7 +853,8 @@ def main(argv=None):
                              f"glossary: {len(glossary)})"))
     elif provider == "claude":
         sys_prompt_content = build_claude_system_prompt(claude_md, glossary, src_lang)
-        sys_prompt_path, newly_created = write_claude_sys_prompt_file(sys_prompt_content)
+        sys_prompt_path, newly_created = claude_cli.write_sys_prompt_file(
+            sys_prompt_content, CLAUDE_SYS_PROMPT_PREFIX)
         extra_status.append(("Max turns", args.max_turns))
         extra_status.append(("Timeout", f"{args.timeout // 60} perc / blokk"))
         extra_status.append(("System prompt",
@@ -999,6 +956,8 @@ def main(argv=None):
 
     log(f"=== RUN END — ok={ok_count} warning={warn_count} fail={fail_count}")
 
-    # A CLI JSON-út kontraktusa: hibás blokk esetén nem-nulla exit kód
-    if provider in ("codex", "grok") and (warn_count or fail_count):
+    # Hibás/eltérő blokk esetén nem-nulla exit kód — MINDEN providernél, hogy
+    # egy hívó script vagy orchestrator ne csak a konzolból tudja meg, hogy
+    # maradt fordítatlan blokk.
+    if warn_count or fail_count:
         sys.exit(1)

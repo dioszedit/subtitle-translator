@@ -107,3 +107,22 @@ def test_hianyzo_fajl(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     assert context.series_country() is None
     assert context.is_korean_series() is False
+
+
+# ── üres szekció: csak akkor hiba, ha a forrás cue-ja nem üres ─────────────
+
+def test_ures_szekcio_csak_nem_ures_forrasnal_hiba():
+    orig = [{"num": "1", "timestamp": "t", "text": "Hello"},
+            {"num": "2", "timestamp": "t", "text": ""},       # legitim üres cue
+            {"num": "3", "timestamp": "t", "text": "Bye"}]
+    trans = [{"num": "1", "timestamp": "t", "text": "Szia"},
+             {"num": "2", "timestamp": "t", "text": ""},      # a forrás is üres → OK
+             {"num": "3", "timestamp": "t", "text": "  "}]    # a forrásban van szöveg → hiba
+    hits = verify.find_empty_sections(orig, trans)
+    assert [s["num"] for s in hits] == ["3"]
+
+
+def test_ures_szekcio_ismeretlen_sorszamnal_hiba():
+    """Ha a sorszám a forrásban nincs meg (elcsúszott fájl), az üres cue hiba."""
+    trans = [{"num": "9", "timestamp": "t", "text": ""}]
+    assert verify.find_empty_sections([], trans) == trans
