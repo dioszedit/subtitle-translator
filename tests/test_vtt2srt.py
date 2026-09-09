@@ -16,7 +16,7 @@ UNNUMBERED = (
     "00:00:05.739 --> 00:00:11.119\r\n"
     "<i>♪ Nincs összehasonlítás,\r\nnincs egyenlőség ♪</i>\r\n\r\n"
     "00:01:00.280 --> 00:01:03.600\r\n"
-    "<i>[Koronaherceg, Zhu Yousheng]</i>\r\n"
+    "<i>[Koronaherceg, Li Chengxuan]</i>\r\n"
 )
 
 NUMBERED = (
@@ -35,7 +35,7 @@ def test_unnumbered_cues_get_sequential_numbers_and_comma_ms():
         "1\n00:00:05,739 --> 00:00:11,119\n"
         "<i>♪ Nincs összehasonlítás,\nnincs egyenlőség ♪</i>\n\n"
         "2\n00:01:00,280 --> 00:01:03,600\n"
-        "<i>[Koronaherceg, Zhu Yousheng]</i>\n"
+        "<i>[Koronaherceg, Li Chengxuan]</i>\n"
     )
     assert "\r" not in out
 
@@ -58,7 +58,7 @@ def test_cue_count_is_preserved_and_srt_parser_reads_it(tmp_path):
     from subtr.srt import parse_sections
     sections = parse_sections(str(dst))
     assert [s["num"] for s in sections] == ["1", "2"]
-    assert sections[1]["text"] == "<i>[Koronaherceg, Zhu Yousheng]</i>"
+    assert sections[1]["text"] == "<i>[Koronaherceg, Li Chengxuan]</i>"
 
 
 def test_existing_target_needs_force(tmp_path):

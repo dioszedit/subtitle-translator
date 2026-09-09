@@ -52,16 +52,16 @@ Javított szöveg
 
 **#40** – *(41.5 c/s – kritikus)*
 ```
-A Jani Birodalom császára szívélyes.
-Nem utasíthattam vissza a meghívást...
+A Nyugati Udvar követe igen szívélyes volt.
+Nem mondhattam nemet a meghívására...
 ```
 
 **#222** – *(elírás: „hilvest" → „hitvest")*
 ```
-Én hívtam ide Shu hitvest.
+Én hívtam ide Lin hitvest.
 ```
 
-**#280** – *(redundáns: „búsulhatok bánatban")*
+**#280** – *(redundáns: „bánkódhatok bánatban")*
 ```
-és csak magamban búsulhatok.
+és csak magamban bánkódhatok.
 ```

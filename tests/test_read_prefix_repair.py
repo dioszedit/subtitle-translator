@@ -8,37 +8,37 @@ törlésre került.
 from subtr.providers.claude_cli import strip_read_line_numbers
 from subtr.srt import count_sections_text
 
-# Ahogy a hibás kimenet tényleg kinézett (Pull Strings S01E06, 001-es blokk)
+# Ahogy a hibás kimenet tényleg kinézett (egy epizód 001-es blokkja; a szöveg kitalált)
 BROKEN = (
     "1\t1\n"
     "2\t00:00:12,530 --> 00:00:20,580\n"
-    "3\t♪Az őskáoszból a csillagos égig♪\n"
+    "3\t♪Hajnali ködből a hegytetőre♪\n"
     "4\n"
     "5\t2\n"
     "6\t00:00:20,580 --> 00:00:28,340\n"
-    "7\t♪Az egész világban\n"
-    "mi tartjuk fenn az egyensúlyt♪\n"
+    "7\t♪Ezer folyó partján\n"
+    "mi őrizzük a csendet♪\n"
     "8\n"
     "9\t3\n"
     "10\t00:00:44,920 --> 00:00:46,940\n"
-    "11\t[Az óvatos halhatatlan]\n"
-    "[Pull Strings]\n"
+    "11\t[A hallgatag őrző]\n"
+    "[Silent Keeper]\n"
 )
 
 CLEAN = (
     "1\n"
     "00:00:12,530 --> 00:00:20,580\n"
-    "♪Az őskáoszból a csillagos égig♪\n"
+    "♪Hajnali ködből a hegytetőre♪\n"
     "\n"
     "2\n"
     "00:00:20,580 --> 00:00:28,340\n"
-    "♪Az egész világban\n"
-    "mi tartjuk fenn az egyensúlyt♪\n"
+    "♪Ezer folyó partján\n"
+    "mi őrizzük a csendet♪\n"
     "\n"
     "3\n"
     "00:00:44,920 --> 00:00:46,940\n"
-    "[Az óvatos halhatatlan]\n"
-    "[Pull Strings]\n"
+    "[A hallgatag őrző]\n"
+    "[Silent Keeper]\n"
 )
 
 
@@ -56,8 +56,8 @@ def test_multiline_cue_continuation_is_kept_verbatim():
     """A többsoros felirat folytatássora nem kap sorszámot — nem szabad
     hozzányúlni, és nem szabad elcsúsztatnia a számlálót."""
     out = strip_read_line_numbers(BROKEN)
-    assert "♪Az egész világban\nmi tartjuk fenn az egyensúlyt♪" in out
-    assert "[Az óvatos halhatatlan]\n[Pull Strings]" in out
+    assert "♪Ezer folyó partján\nmi őrizzük a csendet♪" in out
+    assert "[A hallgatag őrző]\n[Silent Keeper]" in out
 
 
 def test_healthy_srt_is_left_alone():

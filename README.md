@@ -59,7 +59,7 @@ subtitle-translator/
 │       └── register_extract.py  ← register: regiszter kinyerés
 │
 ├── addons/                      ← Opcionális segédscriptek (saját READMÉ-kkel)
-│   ├── mdl-init/                ← 0/a: új sorozat — TRANSLATION.local.md + glossary-címek MyDramaList-linkből
+│   ├── tmdb-init/               ← 0/a: új sorozat — TRANSLATION.local.md + glossary-címek TMDB-linkből
 │   ├── srt-preclean/            ← 0/b: SDH-forrás előtisztítása
 │   ├── vtt2srt/                 ← 0/d: meglévő .vtt felirat átvétele (WebVTT → SRT)
 │   └── mkv-subs/                ← 0/e: feliratsávok a videóból, nyelvcímke szerint (ffmpeg)
@@ -135,21 +135,21 @@ copy .env.example .env
 1. A clone-olt mappát használhatod közvetlenül, vagy másolhatod egy új mappába
    sorozatonként (ha külön repóként akarsz több sorozatot vezetni).
 2. Hozd létre a gitignore-os `TRANSLATION.local.md` fájlt. Ha a sorozat fent
-   van a MyDramaList-en, ezt megcsinálja helyetted az `mdl-init` add-on
-   (részletek: [`addons/mdl-init/README.md`](addons/mdl-init/README.md)):
+   van a [TMDB](https://www.themoviedb.org/)-n, ezt megcsinálja helyetted a
+   `tmdb-init` add-on a hivatalos API-val — egy ingyenes `TMDB_API_KEY` kell
+   hozzá a `.env`-ben (részletek: [`addons/tmdb-init/README.md`](addons/tmdb-init/README.md)):
 
    ```powershell
-   pip install -e ".[addons]"
-   py addons\mdl-init\init_local.py https://mydramalist.com/70241-ni-ye-you-jin-tian
+   py addons\tmdb-init\init_local.py https://www.themoviedb.org/tv/12345-sorozat-cime
    ```
 
    Enélkül másold a `TRANSLATION.md` „Aktuális sorozat adatai” sablonját a
-   fájlba kézzel. Mindkét esetben neked kell kitöltened a magyar címet, a
-   *Megszólítási regisztert* és a speciális kifejezéseket — a scraper ezeket
-   `TODO:` sorként hagyja benne.
+   fájlba kézzel. Mindkét esetben neked kell kitöltened a *Megszólítási
+   regisztert* és a speciális kifejezéseket — a script ezeket `TODO:` sorként
+   hagyja benne; a magyar címet a TMDB-ről átveszi, ha ott fel van véve.
 
-   Az add-on a `glossary.json`-ba is felveszi a **sorozat és a forrásmű címét**,
-   hogy a fordító ne próbálkozzon a lefordításukkal. Szereplőneveket
+   Az add-on a `glossary.json`-ba is felveszi a **sorozat címét**, hogy a
+   fordító ne próbálkozzon a lefordításával. Szereplőneveket
    szándékosan nem — azokat a 1.5 lépés (`subtr.py glossary`) szedi ki magából
    a feliratból, a tényleges írásmódjukkal.
 3. Tedd a forrásnyelvi SRT fájlt az `input/` mappába, `.eng.srt` végződéssel
@@ -1044,6 +1044,17 @@ nyelvileg jó lehet, de a néző-élmény nem lesz az.
 - `addons/` — opcionális segédscriptek (lásd: [`addons/README.md`](addons/README.md))
 - `LICENSE` — MIT licenc
 
+## Fejlesztés — tesztek futtatása
+
+```bash
+pip install -e .              # a csomag és a három futásidejű függőség
+pytest                        # a tests/ mappa, ~350 teszt, néhány másodperc
+```
+
+A tesztek nem hívnak külső API-t vagy CLI-t — a providereket és a TMDB-hívást
+mockolják, API-kulcs nélkül is futnak. Az `addons/` scriptjeinek nincs külső
+függősége.
+
 ## Hogyan készült — AI-asszisztált fejlesztés
 
 **Ez a projekt kódjának túlnyomó része AI-asszisztensekkel készült**, emberi
@@ -1088,3 +1099,6 @@ fordítasz — feliratfájlok, sorozat-adatok, glossary-tartalom — nem tartozi
 ide: azok jogi helyzetéért (szerzői jog, terjesztés) a felhasználó felel. A
 `.gitignore` szándékosan kizárja az `input/`, `output/` és `blocks/` mappák
 tartalmát, hogy ilyesmi ne kerüljön véletlenül a repóba.
+
+A `tmdb-init` add-on a [TMDB](https://www.themoviedb.org/) API-ját használja.
+This product uses the TMDB API but is not endorsed or certified by TMDB.

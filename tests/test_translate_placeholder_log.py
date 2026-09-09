@@ -1,6 +1,6 @@
 """Részleges megtagadás felismerése + a futási napló.
 
-Valós hiba (Pull Strings S01E12, 007-es blokk): az agent megtagadta a
+Valós hiba (egy epizód 007-es blokkja): az agent megtagadta a
 dalszövegek fordítását, de a fájlt kiírta — a dalsorok helyére `[DAL]`
 placeholder került. A szerkezeti ellenőrzés (szekciószám, sorszám,
 időbélyeg) ezt nem fogta meg, így a hiányos blokk `ok`-ként ment a merge-be.
@@ -24,7 +24,7 @@ SRT = (
     "1\n00:00:01,000 --> 00:00:02,000\nSzia!\n\n"
     "2\n00:00:03,000 --> 00:00:04,000\n[DAL]\n\n"
     "3\n00:00:05,000 --> 00:00:06,000\n[NEM FORDÍTHATÓ]\n\n"
-    "4\n00:00:07,000 --> 00:00:08,000\n[Az óvatos halhatatlan]\n\n"
+    "4\n00:00:07,000 --> 00:00:08,000\n[A hallgatag őrző]\n\n"
     "5\n00:00:09,000 --> 00:00:10,000\n\n"
 )
 
@@ -45,7 +45,7 @@ def test_cimkartya_nem_placeholder(tmp_path):
     """A szögletes zárójel önmagában NEM gyanús — a név-/helyszínkártyák
     ilyenek, és a TRANSLATION.md szerint fordítandók."""
     path = write_srt_file(
-        tmp_path, "1\n00:00:01,000 --> 00:00:02,000\n[Az óvatos halhatatlan]\n\n")
+        tmp_path, "1\n00:00:01,000 --> 00:00:02,000\n[A hallgatag őrző]\n\n")
     assert find_placeholder_sections(path) == []
     assert placeholder_warning(path) is None
 

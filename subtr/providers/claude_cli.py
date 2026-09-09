@@ -126,7 +126,7 @@ def strip_read_line_numbers(content: str) -> str | None:
 
         1\t1
         2\t00:00:12,530 --> 00:00:20,580
-        3\t♪Az őskáoszból a csillagos égig♪
+        3\t♪Hajnali ködből a hegytetőre♪
         4                     <- az üres sor csak a sorszámot kapja
         5\t2
 

@@ -3,8 +3,9 @@
 TRANSLATION.local.md inicializáló — új sorozat indításához futtatandó add-on.
 
 Mit csinál?
-  A megadott MyDramaList-adatlapról letölti a sorozat adatait (cím, ország,
-  epizódszám, hossz, műfajok, tagek, szinopszis, szereplők), és ebből
+  A megadott TMDB-linkről (themoviedb.org/tv/<id>) a hivatalos API-n lekéri a
+  sorozat adatait (cím, ország, epizódszám, hossz, műfajok, kulcsszavak,
+  szinopszis, szereplők — és a magyar címet, ha a TMDB-n fel van véve), és ebből
   megírja a projekt gyökerében a `TRANSLATION.local.md` fájlt — abban a
   formában, amit a `TRANSLATION.md` "Aktuális sorozat adatai" szakasza vár.
 
@@ -12,22 +13,24 @@ Mit csinál?
   később ne próbálkozzon a lefordításukkal (`--no-glossary` kikapcsolja).
 
   Amit a script NEM tud kitölteni, azt `TODO:` jelöléssel hagyja benne:
-    - a magyar cím (LLM-mel vagy kézzel fordítandó, vagy add meg: --hu-title)
+    - a magyar cím, ha a TMDB-n nincs (kézzel fordítandó, vagy add meg: --hu-title)
     - a megszólítási regiszter (nézés/olvasás alapján, kézzel)
   A regiszterhez a főszereplők neveit példasorként beleírja, hogy legyen
   miből indulni — de szándékosan nem talál ki viszonyokat.
 
 Használat:
-  python addons/mdl-init/init_local.py https://mydramalist.com/70241-ni-ye-you-jin-tian
-  python addons/mdl-init/init_local.py <url> --hu-title "A főnököm"
-  python addons/mdl-init/init_local.py <url> --force        # meglévő fájl felülírása
-  python addons/mdl-init/init_local.py <url> --stdout       # csak kiírja, nem ír fájlt
+  python addons/tmdb-init/init_local.py https://www.themoviedb.org/tv/12345-sorozat-cime
+  python addons/tmdb-init/init_local.py <url> --hu-title "Irodai szikrák"
+  python addons/tmdb-init/init_local.py <url> --force        # meglévő fájl felülírása
+  python addons/tmdb-init/init_local.py <url> --stdout       # csak kiírja, nem ír fájlt
 
 Kimenet (a munkakönyvtárhoz képest):
   ./TRANSLATION.local.md   (gitignore-olt, a --out felülbírálja)
   ./glossary.json          (a sorozat- és forrásmű-cím bekerül; --no-glossary kikapcsolja)
 
-Függőségek: cloudscraper, beautifulsoup4  →  pip install -e ".[addons]"
+Kulcs: TMDB_API_KEY a .env-ben (https://www.themoviedb.org/settings/api).
+Függőség nincs (standard lib). This product uses the TMDB API but is not
+endorsed or certified by TMDB.
 """
 
 import argparse
@@ -39,7 +42,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from mdl_scrape import scrape  # noqa: E402
+from tmdb_fetch import (  # noqa: E402
+    DEFAULT_MAIN_LIMIT, TmdbError, fetch_series, map_series, parse_tmdb_url,
+)
 
 
 # A kimenetek CWD-relatívak — ugyanaz a konvenció, mint a `subtr/config.py`-ban:
@@ -71,7 +76,7 @@ SOURCE_NOTE_RE = re.compile(r"^\s*(\(Source:.*?\)|~~.*)\s*$", re.IGNORECASE)
 #
 # Miért ide: a `glossary.json` a fordítónak KÖTELEZŐ, ezért a legbiztosabb hely
 # annak rögzítésére, hogy egy nevet/címet nem szabad lefordítani. Enélkül a
-# fordító epizódonként másképp dönt — a The Early Spring (2026)-nál a négy rész
+# fordító epizódonként másképp dönt — a The Quiet Harbor (2026)-nál a négy rész
 # adaptációs kártyáján négyféle cím szerepelt, kettőben lefordítva.
 
 TITLE_CONTEXT = (
@@ -85,8 +90,8 @@ SOURCE_WORK_CONTEXT = (
     "azonosan. A sorozat magyar címe ettől FÜGGETLEN."
 )
 
-# Az MDL-szinopszis végén álló adaptációs lábjegyzet:
-#   ~~ Adapted from the web novel "Zao Chun Qing Lang" (早春晴朗) by Gu Niang Bie Ku
+# A szinopszis végén (a TMDB-overview-ban ritkán) álló adaptációs lábjegyzet:
+#   ~~ Adapted from the web novel "Jing Gang Ye Hua" (静港夜话) by Bai Yun Ke
 # A minta nem futhat át mondat-/bekezdéshatáron ([^"“”\n.]*): a szinopszis
 # törzsében álló »adapted from real events. He said "hello"« különben "hello"-t
 # tenne a KÖTELEZŐ szójegyzékbe. Több találatnál az utolsó (a lábjegyzet) nyer.
@@ -117,21 +122,21 @@ def parse_adapted_from(synopsis: str) -> dict:
     return out
 
 
-# A MyDramaList oldalcíme az évszámot is tartalmazza („My Boss (2024)”), a
+# A címet évszámmal képezzük („Office Sparks (2024)”, mint a TMDB oldalcíme), a
 # felirat viszont sosem — évszámmal a bejegyzés soha nem illeszkedne.
 YEAR_SUFFIX_RE = re.compile(r"\s*\((?:19|20)\d{2}\)\s*$")
 
 
 def strip_year(title: str) -> str:
-    """A cím végéről leszedi az MDL évszám-toldalékát."""
+    """A cím végéről leszedi az évszám-toldalékot."""
     return YEAR_SUFFIX_RE.sub("", (title or "").strip()).strip()
 
 
 def build_glossary_seed(data: dict, hu_title: str) -> list[dict]:
     """A glossary.json-ba felvehető bejegyzések: sorozatcímek + forrásmű címe.
 
-    Szereplőneveket SZÁNDÉKOSAN nem vesz fel: a MyDramaList írásmódja gyakran
-    eltér a feliratétól („Shang Zhi Tao” vs. a feliratbeli „Shang Zhitao”), és
+    Szereplőneveket SZÁNDÉKOSAN nem vesz fel: a TMDB írásmódja gyakran
+    eltér a feliratétól („Lin Wan Er” vs. a feliratbeli „Lin Waner”), és
     egy kötelező szójegyzékbe rossz alakot tenni rosszabb, mint nem tenni bele
     semmit. A neveket a `subtr.py glossary` szedi ki magából a feliratból.
     """
@@ -218,7 +223,7 @@ def clean_synopsis(text: str) -> str:
         return "TODO: szinopszis"
     paragraphs = [p.strip() for p in text.split("\n") if p.strip()]
     paragraphs = [p for p in paragraphs if not SOURCE_NOTE_RE.match(p)]
-    # A lábjegyzet nem mindig áll külön sorban (a scrapelt HTML-ben lehet
+    # A lábjegyzet nem mindig áll külön sorban (a forrás szövegében lehet
     # <br> vagy szimpla újsor előtte, ami a get_text-ben összeolvad) — a
     # bekezdésen BELÜLI "~~ ..." farok és "(Source: ...)" jelölés is menjen.
     cleaned = []
@@ -267,7 +272,7 @@ def build_document(data: dict, hu_title: str, url: str, max_cast: int, include_g
                 parts.append(f" ({role_type})")
             lines.append("".join(parts))
     else:
-        lines.append("- TODO: szereplők (a scraper nem talált cast-adatot)")
+        lines.append("- TODO: szereplők (a TMDB-n nincs cast-adat)")
 
     lines += [
         "",
@@ -295,7 +300,7 @@ def build_document(data: dict, hu_title: str, url: str, max_cast: int, include_g
         "Previous episodes:",
         "",
         f"# Forrás: {url}",
-        "# Generálta: addons/mdl-init/init_local.py — a TODO sorokat töltsd ki,",
+        "# Generálta: addons/tmdb-init/init_local.py — a TODO sorokat töltsd ki,",
         "# a maradékot töröld, mielőtt fordításba kezdesz.",
         "",
     ]
@@ -304,15 +309,17 @@ def build_document(data: dict, hu_title: str, url: str, max_cast: int, include_g
 
 def main():
     parser = argparse.ArgumentParser(
-        description="TRANSLATION.local.md generálása MyDramaList-adatlapból.",
+        description="TRANSLATION.local.md generálása a TMDB API-ból.",
     )
-    parser.add_argument("url", help="MyDramaList sorozat-URL")
+    parser.add_argument("url", help="TMDB sorozat-link (themoviedb.org/tv/<id>) vagy puszta id")
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT, help="Kimeneti fájl")
     parser.add_argument("--hu-title", default="", help="Magyar cím (különben TODO marad)")
     parser.add_argument("--force", action="store_true", help="Meglévő fájl felülírása (.bak mentéssel)")
     parser.add_argument("--stdout", action="store_true", help="Csak kiírja, nem ír fájlt")
     parser.add_argument("--max-cast", type=int, default=12, help="Legfeljebb ennyi szereplő (alap: 12)")
     parser.add_argument("--include-guests", action="store_true", help="Vendégszereplők is kerüljenek bele")
+    parser.add_argument("--main-cast", type=int, default=DEFAULT_MAIN_LIMIT,
+                        help=f"Legfeljebb ennyi főszereplő a TMDB sorrendjéből (alap: {DEFAULT_MAIN_LIMIT})")
     parser.add_argument("--glossary", type=Path, default=DEFAULT_GLOSSARY,
                         help=f"Szójegyzék útvonala (alap: {DEFAULT_GLOSSARY.name})")
     parser.add_argument("--no-glossary", action="store_true",
@@ -322,8 +329,10 @@ def main():
                              "ne nyúljon (már futó sorozat utólagos kiegészítéséhez)")
     args = parser.parse_args()
 
-    if "mydramalist.com" not in args.url:
-        parser.error("érvényes mydramalist.com URL kell")
+    try:
+        tmdb_id = parse_tmdb_url(args.url)
+    except ValueError as e:
+        parser.error(str(e))
     if args.glossary_only and args.no_glossary:
         parser.error("--glossary-only és --no-glossary kizárja egymást")
     if args.glossary_only and args.stdout:
@@ -335,22 +344,29 @@ def main():
         print(f"HIBA: {args.out} már létezik. Felülíráshoz: --force (a régit .bak-ba menti).")
         sys.exit(1)
 
-    print(f"Letöltés: {args.url}")
+    print(f"Lekérés: TMDB tv/{tmdb_id}")
     try:
-        data = scrape(args.url)
-    except Exception as e:
-        print(f"HIBA a letöltésnél: {e}")
+        data = map_series(fetch_series(tmdb_id), args.main_cast)
+    except TmdbError as e:
+        print(f"HIBA a lekérésnél: {e}")
         sys.exit(1)
+
+    # Magyar cím: a kapcsoló > a TMDB magyar fordítása > TODO. A TMDB-s alak
+    # nem feltétlenül a forgalmazói cím, ezért kiírjuk, honnan jött.
+    hu_title = args.hu_title
+    if not hu_title and data.get("hu_title"):
+        hu_title = data["hu_title"]
+        print(f"Magyar cím a TMDB-ről: {hu_title}  (ellenőrizd — --hu-title felülírja)")
 
     doc = build_document(
         data,
-        args.hu_title or "TODO: magyar cím",
+        hu_title or "TODO: magyar cím",
         args.url,
         args.max_cast,
         args.include_guests,
     )
 
-    seed = build_glossary_seed(data, args.hu_title)
+    seed = build_glossary_seed(data, hu_title)
 
     series_title = strip_year(data.get("title"))
 

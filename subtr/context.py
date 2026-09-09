@@ -25,7 +25,7 @@ def load_translation_context() -> str:
     return base
 
 
-# A `Country:` mezőt az addons/mdl-init generálja a MyDramaList adataiból; a
+# A `Country:` mezőt az addons/tmdb-init generálja a TMDB adataiból; a
 # sablon kitöltetlenül `[Ország]`-ot tartalmaz (lásd TRANSLATION.md).
 _COUNTRY_RE = re.compile(r"^\s*Country\s*:\s*(.+?)\s*$",
                          re.IGNORECASE | re.MULTILINE)
@@ -57,7 +57,7 @@ def series_country() -> str | None:
 def is_korean_series() -> bool:
     """Igaz, ha a `Country` mező koreai sorozatot jelöl.
 
-    A MyDramaList „South Korea" alakot ad, de a mezőt kézzel is írhatják
+    A tmdb-init „South Korea" alakot ír, de a mezőt kézzel is írhatják
     („Korea", „South-Korea"), ezért részsztringre illesztünk. Ismeretlen
     ország hamis — a hívó dönti el, mit kezd vele.
     """
