@@ -1,0 +1,16 @@
+# Másold .copyright-blocklist néven (gitignore-olt, NEM kerül a repóba).
+#
+# A scripts/check_copyright.py commit előtt ezeket a terminusokat keresi a
+# stage-elt fájlokban és fájlnevekben — egész szóra, kis-/nagybetű nélkül.
+# Az AKTUÁLIS sorozat címét és szereplőit nem kell ide írni: azokat a
+# TRANSLATION.local.md-ből és a glossary.json-ból automatikusan veszi.
+# Ide a KORÁBBI sorozatok kerülnek, meg bármi, amit még sosem akarsz látni
+# a nyilvános repóban. Egy sor = egy terminus, legalább 4 karakter; a # után
+# megjegyzés.
+
+# Példa (kitalált):
+# Office Sparks              # sorozatcím
+# Irodai szikrák             # magyar cím
+# 职场火花                    # natív cím
+# Lu Yan                     # szereplő
+# Shen Qing

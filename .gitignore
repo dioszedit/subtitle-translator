@@ -2,6 +2,8 @@
 .env
 .env.local
 TRANSLATION.local.md
+# A commit előtti jogvédett-tartalom szűrő helyi terminus-listája (korábbi sorozatok)
+.copyright-blocklist
 
 # Python
 __pycache__/

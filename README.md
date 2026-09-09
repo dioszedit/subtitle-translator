@@ -1062,16 +1062,55 @@ nyelvileg jó lehet, de a néző-élmény nem lesz az.
 - `addons/` — opcionális segédscriptek (lásd: [`addons/README.md`](addons/README.md))
 - `LICENSE` — MIT licenc
 
-## Fejlesztés — tesztek futtatása
+## Fejlesztés
+
+Ez a szakasz annak szól, aki **a kódhoz nyúl** — javít, bővít, forkol. Sima
+használathoz (fordítás, review) egyik beállítás sem kell, a fenti Telepítés elég.
+
+### Fejlesztői beállítás egy új clone-ban
 
 ```bash
-pip install -e .              # a csomag és a három futásidejű függőség
-pytest                        # a tests/ mappa, ~350 teszt, néhány másodperc
+pip install -e .                          # a csomag és a három futásidejű függőség
+git config core.hooksPath .githooks       # a commit előtti szűrő bekapcsolása (lent)
+pytest                                    # a tests/ mappa, ~400 teszt, néhány másodperc
 ```
 
 A tesztek nem hívnak külső API-t vagy CLI-t — a providereket és a TMDB-hívást
 mockolják, API-kulcs nélkül is futnak. Az `addons/` scriptjeinek nincs külső
 függősége.
+
+### Commit előtti szűrő — jogvédett tartalom és titok
+
+A repo nyilvános, és a fejlesztés közben kéznél vannak valódi feliratok,
+sorozat-adatok és API-kulcsok — ezek könnyen belecsúsznak egy tesztfixture-be
+vagy egy doksi-példába. Ezért van egy pre-commit hook, ami a **stage-elt**
+fájlokat átnézi, mielőtt a commit létrejön (`scripts/check_copyright.py`). A
+fenti `git config core.hooksPath .githooks` kapcsolja be; a hook a repóval
+együtt verziózott, tehát egy fork is örökli.
+
+Mit fog meg — csak determinisztikus szabályokkal, LLM nélkül:
+
+- **tiltott útvonal**: `.env`, `TRANSLATION.local.md`, az `input/` `output/`
+  `blocks/` tartalma, felirat- és médiafájlok, review-riportok — akkor is, ha
+  `git add -f`-fel kerültek be;
+- **titok**: API-kulcs minták és kitöltött `*_API_KEY=` sorok (a placeholder
+  rendben van);
+- **felirat-tömeg**: túl sok SRT-időbélyeg vagy ♪-sor egy fájlban — egy-két cue
+  tesztfixture-nek jó, egy teljes blokk nem;
+- **sorozat-terminus**: az aktuális sorozat címei és szereplői **automatikusan** a
+  `TRANSLATION.local.md`-ből és a `glossary.json`-ból, plusz a gitignore-olt
+  `.copyright-blocklist` sorai (korábbi sorozatok; sablon:
+  `.copyright-blocklist.example`). Egész szóra, kis-/nagybetű nélkül, fájlnévben is.
+
+```bash
+python3 scripts/check_copyright.py --terms   # mit keres most
+python3 scripts/check_copyright.py --all     # az egész verziózott fa átvizsgálása
+SKIP_COPYRIGHT_CHECK=1 git commit …          # hamis riasztásnál egyszeri kihagyás
+```
+
+Amit **nem** tud: a felirat mondatait mint mondatokat nem ismeri fel. Ha egy
+valódi feliratsort másolsz egy tesztbe cím és szereplőnév nélkül, azt csak te
+veszed észre — ezért a fixture-ök kitalált szövegek.
 
 ## Hogyan készült — AI-asszisztált fejlesztés
 

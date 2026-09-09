@@ -129,7 +129,7 @@ def test_adaptacios_labjegyzet_kiolvasasa(text, expected):
 
 
 def _seed(title="The Quiet Harbor", native="静港夜话", synopsis=ADAPTED_NOTE,
-          hu="Derűs kora tavasz"):
+          hu="A csendes kikötő"):
     return init_local.build_glossary_seed(
         {"title": title, "native_title": native, "synopsis": synopsis}, hu)
 
@@ -153,7 +153,7 @@ def test_seed_context_kimondja_a_cimkartya_kivetelt():
     címet. A context ezért nevezi meg a kivételt."""
     series = _seed()[0]
     assert "Címkártya" in series["context"]
-    assert "Derűs kora tavasz" in series["context"]
+    assert "A csendes kikötő" in series["context"]
 
 
 def test_seed_todo_magyar_cimet_nem_hivatkozza():
