@@ -1,5 +1,23 @@
 # SRT Felirat Fordító — Claude, Gemini, Codex és Grok
 
+> **In English.** A command-line pipeline for translating SRT subtitles **into
+> Hungarian** with LLMs, built for TV series (Korean, Chinese and other Asian
+> dramas in particular) where consistent names, honorifics and the formal/informal
+> address (*tegez/magáz*) matter more than raw speed. One CLI, `subtr.py`, runs the
+> whole chain: split into blocks → translate with checkpointing → merge →
+> structural verify → stylistic review by a second model → triage and apply the
+> accepted fixes → re-segment long lines. Terminology lives in a mandatory
+> `glossary.json`; the address register is extracted from the original-language
+> track, not guessed. Four interchangeable providers: Claude Code, Gemini API,
+> Codex CLI and Grok CLI. 18 source languages are recognised from the file name
+> (`.eng`, `.ger`, `.kor`, …); the **target language is fixed to Hungarian** — the
+> prompts are written in Hungarian and this is a design decision, not a
+> parameter. Add-ons cover new-series setup from the TMDB API, SDH pre-cleaning,
+> WebVTT import and subtitle-track extraction from video. ~350 tests, no network
+> in the test suite. The documentation below is in Hungarian. MIT licensed;
+> most of the code was written with AI assistants under human direction — see
+> *Hogyan készült* at the end.
+
 SRT felirat-fordítási keretrendszer LLM-alapú fordítással és stilisztikai review-val.
 A workflow Claude Code-, Gemini API-, Codex CLI- és Grok CLI-providerrel futtatható.
 
