@@ -509,7 +509,8 @@ def _make_cli_translator(adapter, cli_bin, model, instruction, timeout, retries)
     return translate_block
 
 
-def _make_claude_translator(claude_bin, sys_prompt_path, model, timeout, max_turns):
+def _make_claude_translator(claude_bin, sys_prompt_path, model, timeout, max_turns,
+                            effort=None):
     def translate_block(block_path: str) -> dict:
         output_path = hun_path(block_path)
         block_name = os.path.basename(block_path)
@@ -526,7 +527,7 @@ def _make_claude_translator(claude_bin, sys_prompt_path, model, timeout, max_tur
             claude_bin, "-p", prompt,
             "--append-system-prompt-file", sys_prompt_path,
             "--allowedTools", "Read,Write",
-            "--model", model,
+            *claude_cli.model_effort_args(model, effort),
             "--max-turns", str(max_turns),
         ]
 
@@ -664,6 +665,7 @@ def main(argv=None):
                         help="Modell-azonosító. Feloldás: --model > "
                              "SUBTR_<PROVIDER>_MODEL_TRANSLATE > SUBTR_<PROVIDER>_MODEL > "
                              "beégetett (gemini: gemini-3.6-flash, claude: sonnet, grok: grok-4.5)")
+    config.add_effort_argument(parser, "translate")
     parser.add_argument("--timeout", type=int, default=None,
                         help="Timeout blokkonként mp-ben (default: 900; a gemini-ágon "
                              "nem használt — ott a retry-logika véd)")
@@ -703,6 +705,15 @@ def main(argv=None):
         sys.exit(1)
 
     model = config.resolve_model(args.model, provider, "translate", builtin=builtin)
+    effort = None
+    if provider == "claude":
+        try:
+            effort = config.resolve_effort(args.effort, provider, "translate")
+        except ValueError as e:
+            print(f"HIBA: {e}")
+            sys.exit(1)
+    elif args.effort:
+        print(f"FIGYELEM: az --effort csak a claude providernél hat, a(z) {provider} ágon kimarad.")
 
     # Provider-előfeltételek
     claude_bin = cli_bin = adapter = client = None
@@ -813,6 +824,8 @@ def main(argv=None):
     print(f"  Fordítandó:     {len(pending)}")
     print(f"  Agent-ek:       {args.agents}")
     print(f"  Modell:         {model or 'provider-alapértelmezés'}")
+    if provider == "claude":
+        print(f"  Effort:         {effort or 'a Claude Code alapértelmezése'}")
     print(f"  Forrásnyelv:    {config.source_lang_name(src_lang)} ({src_lang})"
           f"  [{config.source_lang_origin(args.source_lang, args.blocks_dir)}]")
     for label, value in extra_status:
@@ -842,6 +855,7 @@ def main(argv=None):
 
     rotate_log()
     log(f"=== RUN START — provider={provider} model={model or 'default'} "
+        f"effort={effort or 'default'} "
         f"src_lang={src_lang} "
         f"agents={args.agents} blocks_dir={os.path.abspath(args.blocks_dir)} "
         f"pending={len(pending)}/{total}")
@@ -851,7 +865,7 @@ def main(argv=None):
                                              args.max_retries, src_lang)
     elif provider == "claude":
         translator = _make_claude_translator(claude_bin, sys_prompt_path, model,
-                                             args.timeout, args.max_turns)
+                                             args.timeout, args.max_turns, effort)
     else:
         translator = _make_cli_translator(adapter, cli_bin, model, instruction,
                                           args.timeout, args.max_retries)

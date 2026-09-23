@@ -83,6 +83,45 @@ def resolve_model(cli_value, provider: str, task: str, builtin=None):
     return builtin
 
 
+# ────────────────────────────────────────────────────────────────────────────
+# Effort (csak a claude provider)
+# ────────────────────────────────────────────────────────────────────────────
+#
+# A Claude Code CLI `--effort` kapcsolója a gondolkodás mélységét és ezzel a
+# tokenfogyást szabályozza. Ha nincs megadva, a CLI a saját alapértelmezését
+# használja — ez modellenként más, és a Claude Code alapértéke magasabb lehet,
+# mint amire egy feliratfordításnak szüksége van. A beégetett default ezért
+# None (nem adunk át kapcsolót, a viselkedés változatlan); a költséghatékony
+# beállítást a README ajánlja a .env-be.
+
+EFFORT_LEVELS = ("low", "medium", "high", "xhigh", "max")
+
+
+def resolve_effort(cli_value, provider: str, task: str, builtin=None):
+    """Mint a resolve_model, csak effortra:
+
+      --effort > SUBTR_<PROVIDER>_EFFORT_<TASK> > SUBTR_<PROVIDER>_EFFORT > builtin
+
+    Érvénytelen szintnél ValueError — egy elgépelt .env-érték ne némán
+    essen vissza a drágább CLI-alapértelmezésre.
+    """
+    _validate(provider, task)
+    value = cli_value or os.environ.get(
+        f"SUBTR_{provider.upper()}_EFFORT_{task.upper()}", "") or os.environ.get(
+        f"SUBTR_{provider.upper()}_EFFORT", "") or builtin
+    if value and value not in EFFORT_LEVELS:
+        raise ValueError(f"Érvénytelen effort: {value!r} (várt: {', '.join(EFFORT_LEVELS)})")
+    return value or None
+
+
+def add_effort_argument(parser, task: str) -> None:
+    parser.add_argument(
+        "--effort", choices=EFFORT_LEVELS, default=None,
+        help=f"Gondolkodási szint (csak claude). Feloldás: --effort > "
+             f"SUBTR_CLAUDE_EFFORT_{task.upper()} > SUBTR_CLAUDE_EFFORT > "
+             f"a Claude Code saját alapértelmezése")
+
+
 def default_provider(builtin: str = "claude") -> str:
     """A SUBTR_DEFAULT_PROVIDER env értéke, ha az egy érvényes provider-név.
 

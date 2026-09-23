@@ -559,7 +559,15 @@ def _run_extraction(prompt: str, existing_terms: set, timeout: int,
 
     claude_cmd = find_claude_cli()
     print(f"Claude Code elemzi a feliratot... ({claude_cmd})")
-    raw, err = run_prompt(prompt, timeout, claude_bin=claude_cmd)
+    # A modell a main()-ben feloldott érték (SUBTR_CLAUDE_MODEL_GLOSSARY /
+    # SUBTR_CLAUDE_MODEL); az effort csak env-ből jön (rövid, egyszeri hívás).
+    try:
+        effort = config.resolve_effort(None, "claude", "glossary")
+    except ValueError as e:
+        print(f"HIBA: {e}")
+        return []
+    raw, err = run_prompt(prompt, timeout, claude_bin=claude_cmd,
+                          model=model, effort=effort)
     if err:
         print(f"HIBA: {err}")
         return []

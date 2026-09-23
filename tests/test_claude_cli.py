@@ -69,3 +69,32 @@ def test_cleanup_stale_sys_prompts_only_old(tmp_path, monkeypatch):
     os.utime(old, (two_days_ago, two_days_ago))
     assert cleanup_stale_sys_prompts(".review_claude_sys_prompt_", max_age_days=1) == 1
     assert not os.path.isfile(old) and os.path.isfile(fresh)
+
+
+# --- model_effort_args / run_prompt --------------------------------------------
+
+def test_model_effort_args():
+    from subtr.providers.claude_cli import model_effort_args
+    assert model_effort_args() == []
+    assert model_effort_args("opus") == ["--model", "opus"]
+    assert model_effort_args(None, "medium") == ["--effort", "medium"]
+    assert model_effort_args("opus", "low") == ["--model", "opus", "--effort", "low"]
+
+
+def test_run_prompt_atadja_a_modellt_es_az_effortot(monkeypatch):
+    import subprocess
+    from subtr.providers import claude_cli
+    seen = {}
+
+    class Done:
+        returncode, stdout, stderr = 0, "ok", ""
+
+    def fake_run(cmd, **kw):
+        seen["cmd"] = cmd
+        return Done()
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    assert claude_cli.run_prompt("x", 5, claude_bin="claude",
+                                 model="opus", effort="medium") == ("ok", None)
+    assert seen["cmd"] == ["claude", "-p", "-", "--model", "opus", "--effort", "medium"]
+    claude_cli.run_prompt("x", 5, claude_bin="claude")
+    assert seen["cmd"] == ["claude", "-p", "-"]            # default: nincs kapcsoló

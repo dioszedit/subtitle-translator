@@ -333,7 +333,7 @@ def _make_gemini_executor(client, model, instruction, max_retries=MAX_RETRIES):
 
 
 def _make_claude_executor(claude_bin, sys_prompt_path, model,
-                          timeout=CLAUDE_TIMEOUT_PER_CHUNK):
+                          timeout=CLAUDE_TIMEOUT_PER_CHUNK, effort=None):
     def executor(chunk_text, i, total):
         prompt = _claude_chunk_prompt(chunk_text, i, total)
         # A prompt STDIN-en megy át, nem argumentumként: Windows-on a
@@ -343,7 +343,7 @@ def _make_claude_executor(claude_bin, sys_prompt_path, model,
                 [claude_bin, "-p",
                  "--append-system-prompt-file", sys_prompt_path,
                  "--allowedTools", "",
-                 "--model", model],
+                 *claude_cli.model_effort_args(model, effort)],
                 input=prompt, capture_output=True, text=True,
                 timeout=timeout, encoding="utf-8")
         except subprocess.TimeoutExpired:
@@ -414,6 +414,7 @@ def main(argv=None):
                         help="Modell-azonosító. Feloldás: --model > "
                              "SUBTR_<PROVIDER>_MODEL_REVIEW > SUBTR_<PROVIDER>_MODEL > "
                              "beégetett (gemini: gemini-3.6-flash, claude: sonnet, grok: grok-4.6)")
+    config.add_effort_argument(parser, "review")
     parser.add_argument("--timeout", type=int, default=None,
                         help="Timeout chunkonként mp-ben (default: claude 600, codex/grok 900; "
                              "a gemini-ágon nem használt)")
@@ -458,6 +459,15 @@ def main(argv=None):
         sys.exit(1)
 
     model = config.resolve_model(args.model, provider, "review", builtin=builtin)
+    effort = None
+    if provider == "claude":
+        try:
+            effort = config.resolve_effort(args.effort, provider, "review")
+        except ValueError as e:
+            print(f"HIBA: {e}")
+            sys.exit(1)
+    elif args.effort:
+        print(f"FIGYELEM: az --effort csak a claude providernél hat, a(z) {provider} ágon kimarad.")
 
     srt_path = Path(args.srt_file)
     if not srt_path.exists():
@@ -546,6 +556,8 @@ def main(argv=None):
     total_chunks = len(chunks)
     print(f"Chunkok: {total_chunks} db (chunkonként {args.chunk_size} felirat)")
     print(f"Modell: {model or 'provider-alapértelmezés'}")
+    if provider == "claude":
+        print(f"Effort: {effort or 'a Claude Code alapértelmezése'}")
 
     # Kontextus + lektor-prompt
     claude_md = load_translation_context()
@@ -597,7 +609,7 @@ def main(argv=None):
         sys_prompt_path, _ = claude_cli.write_sys_prompt_file(
             instruction, CLAUDE_SYS_PROMPT_PREFIX)
         executor = _make_claude_executor(claude_bin, sys_prompt_path, model,
-                                         timeout=args.timeout)
+                                         timeout=args.timeout, effort=effort)
     else:
         executor = _make_cli_executor(adapter, cli_bin, model, instruction,
                                       args.timeout, args.max_retries)

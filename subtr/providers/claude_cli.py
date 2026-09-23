@@ -39,7 +39,20 @@ def which_claude() -> str | None:
     return None
 
 
-def run_prompt(prompt: str, timeout: int, claude_bin: str | None = None) -> tuple[str | None, str | None]:
+def model_effort_args(model: str | None = None, effort: str | None = None) -> list[str]:
+    """A `--model` / `--effort` kapcsolók, csak ha van értékük — None esetén a
+    Claude Code saját alapértelmezése marad érvényben."""
+    args: list[str] = []
+    if model:
+        args += ["--model", model]
+    if effort:
+        args += ["--effort", effort]
+    return args
+
+
+def run_prompt(prompt: str, timeout: int, claude_bin: str | None = None,
+               model: str | None = None,
+               effort: str | None = None) -> tuple[str | None, str | None]:
     """A `claude -p -` közös subprocess-váza: a promptot stdin-en küldi,
     és a nyers stdoutot adja vissza.
 
@@ -49,7 +62,7 @@ def run_prompt(prompt: str, timeout: int, claude_bin: str | None = None) -> tupl
     claude_cmd = claude_bin or find_claude()
     try:
         proc = subprocess.run(
-            [claude_cmd, "-p", "-"],
+            [claude_cmd, "-p", "-", *model_effort_args(model, effort)],
             input=prompt,
             capture_output=True,
             text=True,

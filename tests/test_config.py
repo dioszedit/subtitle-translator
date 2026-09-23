@@ -238,3 +238,50 @@ def test_dotenv_a_munkakonyvtarbol_toltodik(tmp_path, monkeypatch):
     importlib.reload(config)
     assert os.environ.get("SUBTR_TEST_DOTENV_MARKER") == "cwd"
     monkeypatch.delenv("SUBTR_TEST_DOTENV_MARKER", raising=False)
+
+
+# --- resolve_effort precedencia ------------------------------------------------
+
+@pytest.fixture
+def no_effort_env(monkeypatch):
+    for key in ("SUBTR_CLAUDE_EFFORT", "SUBTR_CLAUDE_EFFORT_TRANSLATE",
+                "SUBTR_CLAUDE_EFFORT_REVIEW"):
+        monkeypatch.delenv(key, raising=False)
+    return monkeypatch
+
+
+def test_resolve_effort_nincs_semmi_none(no_effort_env):
+    """Nincs kapcsoló, nincs env: None — a CLI saját alapértelmezése marad."""
+    assert config.resolve_effort(None, "claude", "translate") is None
+
+
+def test_resolve_effort_precedencia(no_effort_env):
+    no_effort_env.setenv("SUBTR_CLAUDE_EFFORT", "low")
+    assert config.resolve_effort(None, "claude", "translate") == "low"
+    no_effort_env.setenv("SUBTR_CLAUDE_EFFORT_TRANSLATE", "medium")
+    assert config.resolve_effort(None, "claude", "translate") == "medium"
+    assert config.resolve_effort(None, "claude", "review") == "low"   # task-specifikus csak a sajátjára
+    assert config.resolve_effort("high", "claude", "translate") == "high"
+
+
+def test_resolve_effort_ures_env_kimarad(no_effort_env):
+    no_effort_env.setenv("SUBTR_CLAUDE_EFFORT_TRANSLATE", "")
+    no_effort_env.setenv("SUBTR_CLAUDE_EFFORT", "medium")
+    assert config.resolve_effort(None, "claude", "translate") == "medium"
+
+
+def test_resolve_effort_elgepelt_ertek_hiba(no_effort_env):
+    """Egy elgépelt .env-érték ne essen vissza némán a drágább alapértelmezésre."""
+    no_effort_env.setenv("SUBTR_CLAUDE_EFFORT", "medum")
+    with pytest.raises(ValueError, match="medum"):
+        config.resolve_effort(None, "claude", "translate")
+
+
+def test_add_effort_argument_choices():
+    import argparse
+    p = argparse.ArgumentParser()
+    config.add_effort_argument(p, "translate")
+    assert p.parse_args(["--effort", "xhigh"]).effort == "xhigh"
+    assert p.parse_args([]).effort is None
+    with pytest.raises(SystemExit):
+        p.parse_args(["--effort", "turbo"])

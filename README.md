@@ -374,9 +374,12 @@ ugyanazon a projekten akár felváltva is.
 # Egyedi blokk méret szétvágáshoz
 python subtr.py split "input\eng.srt" --block-size 100
 
-# Claude modell-választás (default: sonnet)
+# Claude modell-választás (default: sonnet; ajánlott: opus — lásd „Claude — ajánlott modell és effort")
 python subtr.py translate "blocks\eng" --provider claude --model haiku    # olcsóbb
 python subtr.py translate "blocks\eng" --provider claude --model opus     # alaposabb
+
+# Gondolkodási szint (csak claude): low | medium | high | xhigh | max
+python subtr.py translate "blocks\eng" --provider claude --model opus --effort medium
 
 # Csak egy konkrét blokk újrafordítása
 python subtr.py translate "blocks\eng" --provider claude --agents 1 --block 003
@@ -919,6 +922,47 @@ SUBTR_DEFAULT_PROVIDER=claude
 # Claude fordító: Opus minden fordítási jobhoz
 SUBTR_CLAUDE_MODEL_TRANSLATE=opus
 ```
+
+### Claude — ajánlott modell és effort
+
+A Claude-ág a Claude Code CLI **aliasait** adja át (`haiku`, `sonnet`, `opus`),
+és a CLI ezeket mindig a legfrissebb modellre oldja fel — 2026 szeptemberében az
+`opus` a Claude Opus 5.5-öt, a `sonnet` a Claude Sonnet 5-öt jelenti. A
+beégetett default a `sonnet`; ezen szándékosan nem változtatunk, mert az Opus
+tokenenként kétszer annyiba kerül (API-áron 4 / 20 USD vs. 2 / 10 USD millió
+bemeneti / kimeneti tokenenként), előfizetésnél pedig gyorsabban fogyasztja a
+keretet.
+
+**Ajánlás: az Opus fordítson, minden más maradjon olcsóbb.** A fordításnál
+számít a legtöbbet a minőség (regiszter, nevek, hosszú kontextus), és egy jobb
+első fordítás kevesebb review-kört és javítást jelent. A review-ra a Gemini a
+jó ár-érték (lásd *Tippek*), a glossary és a register pedig rövid, egyszeri hívás.
+
+A `SUBTR_CLAUDE_MODEL` sor azért kell, mert a glossary és a register
+Claude-ágának nincs beégetett modellje: beállítás nélkül a Claude Code **saját
+mentett alapértelmezése** fut, ami könnyen éppen a legdrágább modell.
+
+A második költségkar a **gondolkodási szint** (`--effort`). Ha nincs megadva, a
+Claude Code a saját alapértelmezésével fut, ami modellenként más, és magasabb
+lehet, mint amire egy jól specifikált fordítási feladatnak szüksége van — a
+minőséget itt a `TRANSLATION.md`, a regiszter és a szójegyzék adja, nem a
+modell hosszú töprengése. Ugyanaz a precedencia, mint a modellnél:
+`--effort` > `SUBTR_CLAUDE_EFFORT_<TASK>` > `SUBTR_CLAUDE_EFFORT` > a CLI
+alapértelmezése. Elgépelt értéknél a parancs hibával leáll — a CLI maga
+csendben visszaállna az alapértelmezésre.
+
+```bash
+SUBTR_CLAUDE_MODEL=sonnet            # minden Claude-hívás alapból Sonnet 5 …
+SUBTR_CLAUDE_MODEL_TRANSLATE=opus    # … kivéve a fordítást: Opus 5.5
+SUBTR_CLAUDE_EFFORT=medium           # minden Claude-hívás: közepes gondolkodás
+SUBTR_CLAUDE_EFFORT_GLOSSARY=low     # a szójegyzék-javaslathoz elég az alacsony
+```
+
+Ez kiindulópont, nem mért optimum. Érdemes egy epizódon kipróbálni: ha a
+review sok regiszter- vagy név-hibát talál, a fordításnál emeld `high`-ra
+(`SUBTR_CLAUDE_EFFORT_TRANSLATE=high`); ha tiszta, maradhat `medium`, vagy
+kipróbálható a `low` is. A `--agents` szám a költséget nem, csak a
+futásidőt és a párhuzamos terhelést befolyásolja.
 
 ## Tippek
 

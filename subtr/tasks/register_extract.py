@@ -392,13 +392,19 @@ def run_cli(adapter, prompt: str, model, timeout: int) -> list[dict]:
     return _validate(result.get("relations"))
 
 
-def run_claude(prompt: str, timeout: int) -> list[dict]:
+def run_claude(prompt: str, timeout: int, model: str | None = None) -> list[dict]:
     claude_cmd = find_claude_cli()
     print(f"Claude Code elemzi a feliratot... ({claude_cmd})")
     prompt += ('\n\nKIMENET: kizárólag egy JSON objektum, semmi más szöveg:\n'
                '{"relations":[{"a":"","b":"","mutual":false,"form":"MAGÁZ",'
                '"confidence":"biztos","relation":"","evidence":[""]}]}')
-    raw, err = run_prompt(prompt, timeout, claude_bin=claude_cmd)
+    try:
+        effort = config.resolve_effort(None, "claude", "register")
+    except ValueError as e:
+        print(f"HIBA: {e}")
+        return []
+    raw, err = run_prompt(prompt, timeout, claude_bin=claude_cmd,
+                          model=model, effort=effort)
     if err:
         print(f"HIBA: {err}")
         return []
@@ -529,7 +535,7 @@ def main():
                         default=config.default_provider(builtin="gemini"),
                         help="Kinyerő provider (default: gemini, "
                              "felülírható: SUBTR_DEFAULT_PROVIDER env)")
-    parser.add_argument("--model", help="Modellazonosító (gemini/codex/grok)")
+    parser.add_argument("--model", help="Modellazonosító (claude: haiku|sonnet|opus)")
     parser.add_argument("--local-file", default=LOCAL_FILE_DEFAULT,
                         help=f"A regisztert tartalmazó fájl (default: {LOCAL_FILE_DEFAULT})")
     parser.add_argument("--timeout", type=int, default=300,
@@ -576,7 +582,7 @@ def main():
         elif args.provider in ("codex", "grok"):
             rel = run_cli(get_provider(args.provider), prompt, model, args.timeout)
         else:
-            rel = run_claude(prompt, args.timeout)
+            rel = run_claude(prompt, args.timeout, model)
         print(f"  {len(rel)} viszony")
         per_episode.append((label, rel))
 
