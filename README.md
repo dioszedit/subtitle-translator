@@ -43,15 +43,23 @@ subtitle-translator/
 ├── TRANSLATION.md               ← Közös fordítási szabályok és sorozat-kontekstus
 ├── CLAUDE.md                    ← Claude Code belépési pont a közös szabályzathoz
 ├── AGENTS.md                    ← Codex projektutasítások
+├── TRANSLATION.local.md         ← Az aktuális sorozat adatai (gitignore-olt, sorozatonként más)
 ├── glossary.json                ← Fordítási szójegyzék (kézzel validált)
-├── .env.example                 ← .env sablon: Gemini API kulcs, modell-defaultok, default provider
+├── .env.example                 ← .env sablon: API-kulcsok, modell- és effort-defaultok, default provider
 ├── .gitignore                   ← Mit ne commit-oljunk
+├── LICENSE                      ← MIT licenc
+├── pyproject.toml               ← Csomagolás (pip install -e .) és pytest-konfiguráció
+│
+├── .claude/skills/              ← Workflow-skillek (epizod, review-triage) Claude Code-hoz
+├── .codex/skills/               ← ugyanezek Codex CLI-hez
+├── .grok/skills/                ← ugyanezek Grok CLI-hez
 │
 ├── subtr.py                     ← Egyparancsos CLI — minden lépés ezen keresztül fut
 │                                  (split, glossary, register, translate, merge,
 │                                  verify, review, apply, apply-auto, resegment, quota)
 │
 ├── subtr/                       ← A tényleges fordítás- és review-logika
+│   ├── cli.py                   ← az alparancsok elosztója (subtr.py és python -m subtr)
 │   ├── config.py                ← .env betöltése, modell- és forrásnyelv-feloldás, API-kulcsok
 │   ├── srt.py                   ← SRT parser
 │   ├── blocks.py                ← Blokk-alapú szegmentálás
@@ -60,6 +68,7 @@ subtitle-translator/
 │   ├── reports.py               ← Review riportok szerializálása
 │   ├── quota.py                 ← Gemini kvóta-számlálás
 │   ├── providers/               ← Provider adapterek
+│   │   ├── base.py              ← a CLI-providerek közös felülete
 │   │   ├── gemini.py            ← Gemini API + retry + kvótakezelés
 │   │   ├── claude_cli.py        ← Claude Code wrapper
 │   │   ├── codex_cli.py         ← Codex CLI wrapper   ┐ azonos felület (run_json /
@@ -81,14 +90,23 @@ subtitle-translator/
 │   ├── srt-preclean/            ← 0/b: SDH-forrás előtisztítása
 │   ├── vtt2srt/                 ← 0/d: meglévő .vtt felirat átvétele (WebVTT → SRT)
 │   └── mkv-subs/                ← 0/e: feliratsávok a videóból, nyelvcímke szerint (ffmpeg)
-
+│
 ├── input/                       ← Ide tedd a forrásnyelvi SRT fájlokat
 ├── blocks/                      ← Auto-generált blokk-fájlok
 ├── output/                      ← Kész magyar fájlok + review riportok
 │
 ├── proposals/                   ← Fejlesztési irányok, alternatívák, tervek
 │                                  (saját README a részletekhez)
-└── steps.txt                  ← Quick-reference parancslista
+├── steps.txt                    ← Quick-reference parancslista
+├── resegment_srt.md             ← A resegment parancs részletes leírása
+│
+│   — csak fejlesztéshez (lásd: Fejlesztés) —
+├── tests/                       ← pytest-tesztek, modulonként egy fájl; hálózat és API-kulcs nélkül futnak
+├── scripts/
+│   └── check_copyright.py       ← commit előtti szűrő: jogvédett tartalom és titok
+├── .githooks/
+│   └── pre-commit               ← a szűrőt hívja (bekapcsolás: git config core.hooksPath .githooks)
+└── .copyright-blocklist.example ← sablon a helyi, gitignore-olt terminus-listához
 ```
 
 A **`subtr.py`** a repo gyökeréből fut, és minden alparancsa a `subtr/` csomag
