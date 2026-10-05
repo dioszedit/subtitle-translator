@@ -499,8 +499,13 @@ def ask(r, reason: str):
     for e in r.get("evidence", []):
         print(f"  bizonyíték: {e}")
     while True:
-        choice = input(f"  [y] elfogad  [m] {other_form(r['form'])} helyette  "
-                       f"[n] kihagy  [e] szerkeszt  [q] kilép: ").strip().lower()
+        try:
+            choice = input(f"  [y] elfogad  [m] {other_form(r['form'])} helyette  "
+                           f"[n] kihagy  [e] szerkeszt  [q] kilép: ").strip().lower()
+        except EOFError:
+            # Nem interaktív futás (pipe, agent): ne Tracebackkel álljon le.
+            print("\n  Nincs interaktív bemenet — használd a --yes vagy a --dry-run kapcsolót.")
+            return "quit", r
         if choice in ("y", ""):
             return "accept", r
         if choice == "m":
@@ -542,7 +547,8 @@ def main():
     parser.add_argument("--timeout", type=int, default=300,
                         help="Claude/Codex/Grok/Antigravity timeout másodpercben (default: 300)")
     parser.add_argument("--dry-run", action="store_true",
-                        help="Csak kiírja a javasolt regisztert, nem ír fájlba")
+                        help="Csak kiírja a javasolt regisztert, nem ír fájlba; nem is "
+                             "kérdez — a bizonytalan és ütköző párok jelölve szerepelnek")
     parser.add_argument("--all-interactive", action="store_true",
                         help="Minden párnál kérdezzen, ne csak a bizonytalanoknál")
     parser.add_argument("--yes", action="store_true",
@@ -598,7 +604,11 @@ def main():
     print(f"  {len(new)} új, {len(conflict)} ütköző, {len(same)} változatlan viszony")
     print(f"{'=' * 58}")
 
-    accepted, auto = [], []
+    # --dry-run: nincs fájlírás, így nincs mit eldönteni — a kérdezendő párok
+    # (bizonytalan, váltás, ütköző) kérdés nélkül, jelölve kerülnek a javaslatba.
+    # Kivétel a --all-interactive, ami kifejezetten kérdezést kér.
+    preview = args.dry_run and not args.all_interactive
+    accepted, auto, flagged = [], [], []
     for r in new:
         # Az ütközőt és a bizonytalant mindig megkérdezzük; a biztosat csak
         # --all-interactive esetén. A --yes a bizonytalanokat kihagyja.
@@ -609,6 +619,10 @@ def main():
             continue
         if args.yes:
             continue
+        if preview:
+            flagged.append(("BIZONYTALAN" if r["confidence"] != "biztos" else "VÁLTÁS?", r))
+            accepted.append(r)
+            continue
         decision, rec = ask(r, "BIZONYTALAN" if r["confidence"] != "biztos" else "ÚJ")
         if decision == "quit":
             print("\nMegszakítva — a fájl nem módosult.")
@@ -618,6 +632,10 @@ def main():
 
     for r in conflict:
         if args.yes:
+            continue
+        if preview:
+            flagged.append((f"ÜTKÖZIK (eddig: {r.get('previous', '?')})", r))
+            accepted.append(r)
             continue
         decision, rec = ask(r, "ÜTKÖZIK A MEGLÉVŐVEL")
         if decision == "quit":
@@ -630,6 +648,14 @@ def main():
         print(f"\nAutomatikusan elfogadva ({len(auto)} biztos viszony):")
         for r in auto:
             print(f"  - {describe(r)}" + (f"  ({r['relation']})" if r.get("relation") else ""))
+            for e in r.get("evidence", [])[:2]:
+                print(f"      {e}")
+
+    if flagged:
+        print(f"\nDÖNTENDŐ ({len(flagged)} pár — a javaslatban benne vannak, éles futásnál kérdez):")
+        for reason, r in flagged:
+            print(f"  - [{reason}] {describe(r)}"
+                  + (f"  ({r['relation']})" if r.get("relation") else ""))
             for e in r.get("evidence", [])[:2]:
                 print(f"      {e}")
 

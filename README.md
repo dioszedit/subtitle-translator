@@ -840,7 +840,8 @@ python subtr.py register "input\S01E01.eng.srt" --provider codex
 python subtr.py register "input\S01E01.eng.srt" --provider grok
 python subtr.py register "input\S01E01.eng.srt" --provider antigravity
 
-# Csak nézni akarod, nem írni
+# Csak nézni akarod, nem írni — nem is kérdez, a bizonytalan/ütköző párok
+# „DÖNTENDŐ” jelöléssel listázódnak (agentből, pipe-ból is futtatható)
 python subtr.py register "input\S01E01.eng.srt" --dry-run
 
 # KÉSZ MAGYAR feliratból (meglévő fordítás átvételekor): a tegezés/magázás
