@@ -91,7 +91,7 @@ Hely:
     "/path/to/project2"
   ],
   "ffmpeg_path": "auto",
-  "scripts_dir": "/path/to/Basic_for_claude_code"
+  "scripts_dir": "/path/to/subtitle-translator"
 }
 ```
 

@@ -1,7 +1,7 @@
 # Translategemma alapú fordítási megoldás — jegyzetek
 
 > Beszélgetés összefoglalója egy lehetséges alternatív megoldásról:
-> Mac mini-n futó `translategemma:12b` (Ollama) használata Claude helyett/mellett.
+> Helyi gépen futó `translategemma:12b` (Ollama) használata Claude helyett/mellett.
 > Dátum: 2026-04-20
 
 ---
@@ -29,7 +29,7 @@ Létrehozás: `ollama create sorozat-ford -f Modelfile`
 ### 1.b Per-request system prompt (API-n át)
 
 ```bash
-curl http://mac-mini:11434/api/generate -d '{
+curl http://localhost:11434/api/generate -d '{
   "model": "translategemma:12b",
   "system": "Glossary: ...",
   "prompt": "<SRT blokk>",
@@ -189,7 +189,7 @@ Ha >20% hibás:
 
 **Translategemma:12b előnyei**
 - offline, ingyenes, korlátlan
-- Mac mini-n lokálisan fut
+- helyben, saját hardveren fut
 - glossary beégethető Modelfile-lal
 
 **Hátrányai a Claude-hoz képest**
