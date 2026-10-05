@@ -626,7 +626,12 @@ def _ask(s: dict, i: int, total: int) -> str:
         print(f"  bizonyíték: {e}")
 
     while True:
-        choice = input("  Döntés ([y] elfogad / n / e szerkeszt / q kilép): ").strip().lower()
+        try:
+            choice = input("  Döntés ([y] elfogad / n / e szerkeszt / q kilép): ").strip().lower()
+        except EOFError:
+            # Nem interaktív futás (pipe, agent): ne Tracebackkel álljon le.
+            print("\n  Nincs interaktív bemenet — használd a --yes vagy a --dry-run kapcsolót.")
+            return "q"
         if choice in ("y", ""):
             print("  → Elfogadva")
             return "y"
@@ -651,13 +656,16 @@ def _ask(s: dict, i: int, total: int) -> str:
 
 
 def interactive_review(suggestions: list[dict], auto_yes: bool = False,
-                       all_interactive: bool = False) -> list[dict]:
+                       all_interactive: bool = False,
+                       preview: bool = False) -> list[dict]:
     """Jóváhagyás a konzolon, a biztos/bizonytalan besorolás szerint.
 
     Alapból a biztos találatok automatikusan átmennek, és csak a
     bizonytalanokat kérdezzük — ugyanaz a séma, mint a regiszter-kinyerésnél.
     `--yes` esetén a bizonytalanok kimaradnak, `--all-interactive` esetén
-    mindent végigkérdezünk (ez volt a korábbi viselkedés).
+    mindent végigkérdezünk (ez volt a korábbi viselkedés). `preview`
+    (--dry-run) esetén semmit nem kérdezünk: a bizonytalanok DÖNTENDŐ
+    jelöléssel listázódnak, és nem kerülnek az elfogadottak közé.
     """
     if not suggestions:
         print("\nNincs új javaslat.")
@@ -694,6 +702,16 @@ def interactive_review(suggestions: list[dict], auto_yes: bool = False,
         skipped = len(to_ask)
         print(f"--yes: {skipped} bizonytalan javaslat kihagyva "
               f"(--all-interactive vagy kapcsoló nélküli futással átnézhetők).")
+        to_ask = []
+
+    if to_ask and preview:
+        print(f"DÖNTENDŐ ({len(to_ask)} bizonytalan javaslat — éles futásnál kérdez):")
+        for s in to_ask:
+            print(f"  - {_describe(s)}  [{s.get('occurrences', 0)}×]")
+            for e in s.get("evidence", [])[:2]:
+                print(f"      {e}")
+        print()
+        skipped = len(to_ask)
         to_ask = []
 
     if to_ask:
@@ -765,7 +783,8 @@ def main():
                              f"gemini default: {GEMINI_MODEL_DEFAULT}, grok: grok-4.5, "
                              "antigravity: gemini-3.6-flash-high)")
     parser.add_argument("--dry-run", action="store_true",
-                        help="Csak kiírja, mi kerülne be — a szójegyzéket nem módosítja")
+                        help="Csak kiírja, mi kerülne be — a szójegyzéket nem módosítja; nem is "
+                             "kérdez, a bizonytalanok DÖNTENDŐ jelöléssel listázódnak")
     parser.add_argument("--all-interactive", action="store_true",
                         help="Minden javaslatnál kérdezzen, ne csak a bizonytalanoknál")
     parser.add_argument("--yes", action="store_true",
@@ -845,7 +864,8 @@ def main():
 
     # Jóváhagyás (biztos = automatikus, bizonytalan = kérdés vagy kihagyás)
     approved = interactive_review(suggestions, auto_yes=args.yes,
-                                  all_interactive=args.all_interactive)
+                                  all_interactive=args.all_interactive,
+                                  preview=args.dry_run and not args.all_interactive)
 
     if not approved:
         print("\nNem lett elfogadva egyetlen kifejezés sem.")

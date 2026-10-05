@@ -5,6 +5,7 @@ tests/test_source_lang_pipeline.py teszi a fordító/regiszter promptjaival.
 """
 
 import json
+import os
 
 import pytest
 
@@ -187,3 +188,31 @@ def test_merge_nem_ir_ki_segedmezoket(tmp_path):
     entry = json.loads(path.read_text(encoding="utf-8"))["special_terms"][0]
     assert set(entry) == {"en", "hu", "context"}
     assert entry["hu"] == "Rend"
+
+
+def _javaslatok():
+    return [
+        {"category": "character_names", "en": "Anna", "hu": "Anna",
+         "context": "", "confidence": "biztos", "occurrences": 3, "evidence": []},
+        {"category": "special_terms", "en": "lab", "hu": "labor",
+         "context": "", "confidence": "bizonytalan", "occurrences": 1, "evidence": ["#5"]},
+    ]
+
+
+def test_preview_nem_kerdez_a_bizonytalant_csak_listazza(monkeypatch, capsys):
+    def no_input(*a):
+        raise AssertionError("preview módban nem szabad kérdezni")
+    monkeypatch.setattr("builtins.input", no_input)
+    approved = ge.interactive_review(_javaslatok(), preview=True)
+    out = capsys.readouterr().out
+    assert [s["en"] for s in approved] == ["Anna"]
+    assert "DÖNTENDŐ (1 bizonytalan" in out
+    assert '"lab" = "labor"' in out
+
+
+def test_stdin_nelkul_nem_omlik_ossze(monkeypatch, capsys):
+    monkeypatch.setattr("sys.stdin", open(os.devnull))
+    approved = ge.interactive_review(_javaslatok())
+    out = capsys.readouterr().out
+    assert [s["en"] for s in approved] == ["Anna"]
+    assert "Nincs interaktív bemenet" in out
