@@ -53,6 +53,7 @@ subtitle-translator/
 ├── .claude/skills/              ← Workflow-skillek (epizod, review-triage) Claude Code-hoz
 ├── .codex/skills/               ← ugyanezek Codex CLI-hez
 ├── .grok/skills/                ← ugyanezek Grok CLI-hez
+├── .agents/skills/              ← ugyanezek Antigravity CLI-hez (`agy`)
 │
 ├── subtr.py                     ← Egyparancsos CLI — minden lépés ezen keresztül fut
 │                                  (split, glossary, register, translate, merge,
@@ -918,8 +919,9 @@ külön telepítés nélkül:
 
 A skillek csak **munkafolyamatot** kódolnak — a fordítási szabályok forrása
 továbbra is a `TRANSLATION.md` és a `glossary.json`. Ugyanez a két skill
-három helyen él: `.claude/skills/`, `.codex/skills/` és `.grok/skills/`
-(`epizod`, `review-triage`).
+négy helyen él: `.claude/skills/`, `.codex/skills/`, `.grok/skills/` és
+`.agents/skills/` (ez utóbbit az Antigravity CLI olvassa; `epizod`,
+`review-triage`). Ha az egyiket módosítod, a többit is igazítsd hozzá.
 
 ## Más forrásnyelv (nem angol forrásból)
 
