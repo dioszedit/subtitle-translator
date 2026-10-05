@@ -18,7 +18,10 @@ envelope: `{"status": "SUCCESS", "structured_output": {...}, ...}`.
 
 Az agent-toolokat az `agy` nem engedi kikapcsolni, ezért a `cwd` egy üres
 temp mappa — így a projekt AGENTS.md-je és fájljai nem kerülnek a modell
-látókörébe, és nincs mihez hozzányúlnia.
+látókörébe, és nincs mihez hozzányúlnia. Egyes modellek (élesben: a
+gemini-3.8-flash) ennek ellenére körülnéznének (`ls -la`); a headless mód ezt
+letiltja, és a futás válasz nélkül ér véget. Ezért a prompt elé NO_TOOLS_PREAMBLE
+kerül, a mégis megtagadott tool-hívás pedig beszédes hibát ad.
 """
 
 import json
@@ -54,6 +57,11 @@ _TRANSIENT_RE = re.compile(
     r"\b(503|429|UNAVAILABLE|RESOURCE_EXHAUSTED)\b|no capacity|overloaded|rate limit",
     re.I)
 TRANSIENT_DELAYS = (20, 60)  # másodperc; a hossza = a várakozásos újrapróbálások száma
+
+NO_TOOLS_PREAMBLE = (
+    "FONTOS: Ne használj semmilyen eszközt (tool), ne futtass parancsot, ne olvass "
+    "fájlt — a munkamappa üres, minden szükséges adat ebben az üzenetben van. "
+    "Válaszolj közvetlenül, a megadott JSON-séma szerint.\n\n")
 
 _FENCE_RE = re.compile(r"```(?:json)?\s*(\{.*\})\s*```", re.S)
 
@@ -140,6 +148,12 @@ def parse_agy_response(raw: str, schema: dict | None = None) -> dict:
     text = envelope.get("response")
     parsed = _parse_response_text(text.strip()) if isinstance(text, str) and text.strip() else None
     if not isinstance(parsed, dict):
+        denied = [a.get("display_name") or a.get("action") for a in envelope.get("denied_actions") or []
+                  if isinstance(a, dict)]
+        if denied:
+            raise AntigravityRunError(
+                f"A modell eszközt próbált használni ({', '.join(map(str, denied))}), amit a "
+                f"headless mód letiltott — válasz nem született.")
         raise AntigravityRunError("Az Antigravity válaszában nincs structured_output.")
     keys = (schema or {}).get("properties")
     if keys:
@@ -205,7 +219,7 @@ def _run_once(prompt: str, schema: dict, *, timeout: int,
         cmd = build_command(agy_bin, schema, timeout=timeout, model=model)
         try:
             proc = subprocess.run(
-                cmd, input=build_stdin_message(prompt),
+                cmd, input=build_stdin_message(NO_TOOLS_PREAMBLE + prompt),
                 capture_output=True, text=True, encoding="utf-8",
                 timeout=timeout + _KILL_GRACE_SECONDS, cwd=tmp_dir,
             )

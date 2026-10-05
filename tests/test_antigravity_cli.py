@@ -143,7 +143,8 @@ def test_run_sends_prompt_on_stdin_in_empty_tmp_dir(monkeypatch):
     result = antigravity_cli.run_json(long_prompt, SCHEMA, timeout=900,
                                       model="m", cli_bin="/x/agy")
     assert result == {"translations": []}
-    assert json.loads(seen["input"])["message"]["content"] == long_prompt
+    assert json.loads(seen["input"])["message"]["content"] == \
+        antigravity_cli.NO_TOOLS_PREAMBLE + long_prompt
     assert all(long_prompt not in part for part in seen["cmd"])
     assert seen["encoding"] == "utf-8"
     assert os.path.basename(seen["cwd"]).startswith("subtitle-agy-")
@@ -231,3 +232,10 @@ def test_run_does_not_wait_on_permanent_error(monkeypatch):
                         lambda s: pytest.fail("állandó hibára nem szabad várni"))
     with pytest.raises(AntigravityRunError):
         antigravity_cli.run_json("p", SCHEMA, timeout=60)
+
+
+def test_parse_denied_tool_gives_clear_error():
+    raw = _stream({"status": "SUCCESS", "response": None,
+                   "denied_actions": [{"action": "command", "display_name": "RunCommand"}]})
+    with pytest.raises(AntigravityRunError, match="eszközt próbált használni.*RunCommand"):
+        parse_agy_response(raw, SCHEMA)
