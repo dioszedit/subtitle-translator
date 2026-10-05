@@ -187,7 +187,7 @@ py subtr.py review "output\Sorozat - S01E01.hun.srt"
 # Opcionálisan:
 #   --chunk-size 150            nagyobb chunkok = kevesebb API hívás
 #   --model <név>               más Gemini modell (pl. gemini-3.7-flash = gyakran 503,
-#                               gemini-3.5-flash-lite = olcsó/bő kvóta, gemini-3.1-pro-preview)
+#                               gemini-3.5-flash-lite = olcsó/bő kvóta)
 #   --source "input\....srt"    forrásnyelvi SRT kézi megadása (bármilyen nyelv;
 #                               a régi név, --english, továbbra is működik)
 #   --no-source                 forrásnyelvi SRT kihagyása

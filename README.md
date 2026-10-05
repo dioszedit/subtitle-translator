@@ -435,7 +435,6 @@ python subtr.py translate "blocks\eng" --provider gemini --agents 3
 # Tetszőleges Gemini modell --model flag-gel
 python subtr.py translate "blocks\eng" --provider gemini --model gemini-3.7-flash
 python subtr.py translate "blocks\eng" --provider gemini --model gemini-3.5-flash-lite   # olcsó, bő napi kvóta
-python subtr.py translate "blocks\eng" --provider gemini --model gemini-3.1-pro-preview
 
 # Csak egy konkrét blokk újrafordítása (auto zero-pad: 3 → 003)
 python subtr.py translate "blocks\eng" --provider gemini --agents 1 --block 3
@@ -633,7 +632,6 @@ python subtr.py review "output\hun.srt"
 # Tetszőleges modell-azonosító --model flag-gel
 python subtr.py review "output\hun.srt" --model gemini-3.7-flash
 python subtr.py review "output\hun.srt" --model gemini-3.5-flash-lite   # olcsó, bő napi kvóta
-python subtr.py review "output\hun.srt" --model gemini-3.1-pro-preview
 # Modell-lista: https://ai.google.dev/gemini-api/docs/models
 
 # Csak egy chunk-tartomány lefuttatása (pl. kvótahiba utáni pótlás)
@@ -657,7 +655,6 @@ A forrásnyelvi SRT párosítása itt is működik (lásd fent a Claude review-n
 | `gemini-3.7-flash` | A legújabb Flash, papíron a legerősebb, de a gyakorlatban rendszeresen `503 UNAVAILABLE` („high demand") — több egymást követő próbálkozás sem ment át rajta, ezért nem default. Érdemes időnként újrapróbálni. |
 | `gemini-3.5-flash` | Előző Flash generáció, ha a 3.6-nál kvótába futsz. |
 | `gemini-3.5-flash-lite`, `gemini-3.1-flash-lite` | Olcsó, gyors, **bő napi kvóta** free tier-en. Nagy tömegű fordításra, illetve ha a nem-lite napi limit elfogyott. |
-| `gemini-3.1-pro-preview` | Pro (preview) — a legerősebb, de lassabb és szűkösebb kvótájú. Nehéz részekhez. |
 | `gemini-flash-latest`, `gemini-flash-lite-latest`, `gemini-pro-latest` | Alias-ok, mindig az adott sáv legújabb kiadására mutatnak. Kényelmes, de nem determinisztikus (kiadásváltáskor csendben más modellt kapsz). |
 
 A pontos, aktuális listát a saját kulcsoddal is le tudod kérni:
@@ -973,8 +970,8 @@ SUBTR_GEMINI_MODEL=gemini-3.6-flash
 # Fordítást egy gyorsabb, olcsóbb modellel végezzük
 SUBTR_GEMINI_MODEL_TRANSLATE=gemini-3.5-flash-lite
 
-# Review pedig a erősebb Pro verzióval
-SUBTR_GEMINI_MODEL_REVIEW=gemini-3.1-pro-preview
+# Review a default Flash-sel
+SUBTR_GEMINI_MODEL_REVIEW=gemini-3.6-flash
 
 # Glossary extraction alapvetően Claudeval, Geminivel nem
 SUBTR_DEFAULT_PROVIDER=claude
