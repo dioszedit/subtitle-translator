@@ -14,7 +14,7 @@ Az utasítások forrása a `steps.txt`; a fordítási szabályzat a `TRANSLATION
 | Fordítás | minden inputblokkhoz van `_HUN.srt` |
 | Merge | `output/<X>.hun.srt` létezik |
 | Verify | a `subtr.py verify` már lefutott a megfelelő forrással |
-| Review | `_REVIEW_CLAUDE*`, `_REVIEW_GEMINI*`, `_REVIEW_CODEX*` vagy `_REVIEW_GROK*` riport létezik |
+| Review | `_REVIEW_CLAUDE*`, `_REVIEW_GEMINI*`, `_REVIEW_CODEX*`, `_REVIEW_GROK*` vagy `_REVIEW_ANTIGRAVITY*` riport létezik |
 | Triage | ezt a felhasználó erősíti meg |
 | Resegment | `*.reflow.srt` létezik, vagy külső szerkesztőben folytatják |
 
@@ -22,7 +22,7 @@ Az utasítások forrása a `steps.txt`; a fordítási szabályzat a `TRANSLATION
 
 - Fordítás előtt ellenőrizd, hogy a `TRANSLATION.local.md` *Megszólítási regisztere* megvan-e és tartalmazza-e az előző epizód óta történt viszonyváltozásokat; hiány vagy elavulás esetén kérdezz rá. Utólag a tegezés/magázás csak kézzel egységesíthető. Kérésre a `py subtr.py register` felvázolhat egy első változatot az angol forrásból (opcionális, interaktív) — jóváhagyás nélkül ne futtasd.
 - Új split csak `--clean`-nel törölhet régi blokkokat.
-- Fordítóválasztáskor kérdezz rá, ha a felhasználó nem nevez meg providert: Claude (`py subtr.py translate --provider claude`), Gemini (`py subtr.py translate --provider gemini`), Codex (`py subtr.py translate --provider codex`) vagy Grok (`py subtr.py translate --provider grok`). A Codexet és a Grokot először `--agents 1`-gyel futtasd. A Grok default modellje fordításnál `grok-4.5`, review-nál `grok-4.6`.
+- Fordítóválasztáskor kérdezz rá, ha a felhasználó nem nevez meg providert: Claude (`py subtr.py translate --provider claude`), Gemini (`py subtr.py translate --provider gemini`), Codex (`py subtr.py translate --provider codex`) Grok (`py subtr.py translate --provider grok`) vagy Antigravity (`py subtr.py translate --provider antigravity` — Gemini előfizetésből, API-kvóta nélkül). A Codexet és a Grokot először `--agents 1`-gyel futtasd. A Grok default modellje fordításnál `grok-4.5`, review-nál `grok-4.6`; az Antigravityé mindkettőnél `gemini-3.6-flash-high`.
 - A checkpoint miatt újrafuttatás csak a hiányzó blokkokat dolgozza fel. Egy konkrét blokk újrafordítását a `--block` kapcsolóval végezd.
 - Merge-nél hiányzó blokk esetén ne használj `--force`-ot külön felhasználói kérés nélkül.
 - Preclean után a `.clean.srt` legyen a `subtr.py verify` forrása.

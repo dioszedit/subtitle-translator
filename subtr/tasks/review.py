@@ -10,7 +10,7 @@ a forrás-párosítás és a lektor-prompt törzse két teljes másolatban. Itt:
   - a chunk-ciklus + riportírás közös, a provider csak egy "executor" closure:
     (chunk_text, i, total) -> (normalizált findings-lista | None, hibaüzenet).
 
-Belépési pont: `subtr.py review [--provider claude|gemini|codex|grok]`.
+Belépési pont: `subtr.py review [--provider claude|gemini|codex|grok|antigravity]`.
 """
 
 import argparse
@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 
 from subtr import config, reports
-from subtr.config import PROVIDERS
+from subtr.config import CLI_PROVIDERS, PROVIDERS
 from subtr.context import load_translation_context
 from subtr.glossary import as_prompt_text
 from subtr.providers import claude_cli, get_provider
@@ -35,7 +35,8 @@ CLAUDE_SYS_PROMPT_PREFIX = ".review_claude_sys_prompt_"
 # Beégetett modell-defaultok — a .env (SUBTR_<P>_MODEL_REVIEW / SUBTR_<P>_MODEL)
 # és a --model kapcsoló a config.resolve_model() precedenciája szerint felülbírálja.
 MODEL_BUILTIN = {"gemini": "gemini-3.6-flash", "claude": "sonnet",
-                 "codex": None, "grok": "grok-4.6"}
+                 "codex": None, "grok": "grok-4.6",
+                 "antigravity": "gemini-3.6-flash-high"}
 
 # Codex strict séma (a Gemini-adapter ugyanennek az additionalProperties
 # nélküli változatát használná — de a Gemini-ág pydantic sémával megy)
@@ -364,7 +365,7 @@ def _make_claude_executor(claude_bin, sys_prompt_path, model,
 
 
 def _make_cli_executor(adapter, cli_bin, model, instruction, timeout, retries):
-    """Codex és Grok: ugyanaz a strukturált JSON-minta, az `adapter` a
+    """Codex, Grok és Antigravity: ugyanaz a strukturált JSON-minta, az `adapter` a
     subtr.providers közös CLI-felülete (run_json / RunError / LABEL)."""
     def executor(chunk_text, i, total):
         prompt = f"{instruction}\n\n=== REVIEW BLOKK ({i}/{total}) ===\n{chunk_text}"
@@ -402,7 +403,7 @@ def main(argv=None):
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(
-        description="Magyar fordítás stilisztikai review (Gemini API / Claude Code / Codex CLI / Grok CLI)")
+        description="Magyar fordítás stilisztikai review (Gemini API / Claude Code / Codex CLI / Grok CLI / Antigravity CLI)")
     parser.add_argument("srt_file", help="Az összefűzött hun.srt fájl")
     parser.add_argument("--provider", choices=PROVIDERS,
                         default=config.default_provider(builtin="gemini"),
@@ -413,13 +414,14 @@ def main(argv=None):
     parser.add_argument("--model", type=str, default=None,
                         help="Modell-azonosító. Feloldás: --model > "
                              "SUBTR_<PROVIDER>_MODEL_REVIEW > SUBTR_<PROVIDER>_MODEL > "
-                             "beégetett (gemini: gemini-3.6-flash, claude: sonnet, grok: grok-4.6)")
+                             "beégetett (gemini: gemini-3.6-flash, claude: sonnet, grok: grok-4.6, "
+                             "antigravity: gemini-3.6-flash-high)")
     config.add_effort_argument(parser, "review")
     parser.add_argument("--timeout", type=int, default=None,
-                        help="Timeout chunkonként mp-ben (default: claude 600, codex/grok 900; "
+                        help="Timeout chunkonként mp-ben (default: claude 600, codex/grok/antigravity 900; "
                              "a gemini-ágon nem használt)")
     parser.add_argument("--max-retries", type=int, default=None,
-                        help="Újrapróbálkozások (default: gemini 4, codex/grok 2; a claude-ágon "
+                        help="Újrapróbálkozások (default: gemini 4, codex/grok/antigravity 2; a claude-ágon "
                              "nem használt)")
     parser.add_argument("--start-chunk", type=int, default=1,
                         help="Csak ettől a chunktól kezdje (1-alapú). Default: 1")
@@ -443,7 +445,8 @@ def main(argv=None):
     if args.timeout is None:
         args.timeout = 600 if provider == "claude" else 900
     if args.max_retries is None:
-        args.max_retries = {"gemini": MAX_RETRIES, "codex": 2, "grok": 2}.get(provider, 1)
+        args.max_retries = (MAX_RETRIES if provider == "gemini"
+                            else 2 if provider in CLI_PROVIDERS else 1)
     if provider == "claude" and args.model and args.model not in ("haiku", "sonnet", "opus"):
         print(f"HIBA: a claude providernél a --model haiku|sonnet|opus lehet (kaptam: {args.model})")
         sys.exit(1)
@@ -508,7 +511,7 @@ def main(argv=None):
             print("      Telepítés: npm install -g @anthropic-ai/claude-code")
             sys.exit(1)
     else:
-        adapter = get_provider(provider)  # codex / grok — közös felület
+        adapter = get_provider(provider)  # CLI_PROVIDERS — közös felület
         cli_bin = adapter.find_cli()
         if not cli_bin:
             print(f"HIBA: {adapter.MISSING_HINT}")

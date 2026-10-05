@@ -19,6 +19,7 @@ REVIEW_SUFFIX = {
     "gemini": "_REVIEW_GEMINI",
     "codex": "_REVIEW_CODEX",
     "grok": "_REVIEW_GROK",
+    "antigravity": "_REVIEW_ANTIGRAVITY",
 }
 
 
@@ -49,7 +50,7 @@ def write_reports(srt_path: Path, report_path: Path, json_path: Path, *,
     """A .txt és .json riport mentése a bevált szerkezetben.
 
     A .txt fejlécében a reviewer nagybetűs kezdőbetűvel jelenik meg
-    (Claude/Gemini/Codex/Grok), a .json-ban kisbetűvel — ez a meglévő kontraktus.
+    (Claude/Gemini/Codex/Grok/Antigravity), a .json-ban kisbetűvel — ez a meglévő kontraktus.
     """
     sections = []
     if finding_blocks:

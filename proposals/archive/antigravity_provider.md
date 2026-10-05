@@ -1,5 +1,12 @@
 # Antigravity CLI (`agy`) mint ötödik provider — terv
 
+> **Státusz: MEGVALÓSULT (2026-10-05)** — `subtr/providers/antigravity_cli.py`,
+> használat: README → *Antigravity fordító* / *Antigravity review*. Az F0-ból a
+> stdin-formátum, az elszigetelés és a párhuzamosság macOS-en igazolva; a
+> megvalósításban a tervhez képest új: várakozásos újrapróbálás átmeneti
+> szerverhibára (élesben `503 No capacity` jött). Nyitott: a Windows-oldali
+> élő próba és az előfizetéses kvóta kimerülésének viselkedése.
+
 > Dátum: 2026-10-05 · Kiindulás: az Antigravity CLI (`agy` 1.2.16), amely
 > Gemini-előfizetéssel használható. Cél: `subtr.py translate|review|glossary|register
 > --provider antigravity`, a Gemini-modellek előfizetésből, API-kulcs és napi

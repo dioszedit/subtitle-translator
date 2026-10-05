@@ -36,6 +36,7 @@ Provider:
     --provider claude   Claude Code CLI (`claude` parancs)
     --provider codex    Codex CLI (`codex` parancs)
     --provider grok     Grok CLI (`grok` parancs)
+    --provider antigravity  Antigravity CLI (`agy` parancs)
 
 Kimenet:
     A TRANSLATION.local.md "Megszólítási regiszter:" szakasza (előző állapot:
@@ -56,7 +57,7 @@ sys.stderr.reconfigure(encoding="utf-8")
 from subtr import config
 from subtr.providers import get_provider
 from subtr.providers.claude_cli import extract_json, find_claude as find_claude_cli, run_prompt
-from subtr.config import PROVIDERS
+from subtr.config import CLI_PROVIDERS, PROVIDERS
 from subtr.context import load_translation_context
 
 LOCAL_FILE_DEFAULT = "TRANSLATION.local.md"
@@ -377,7 +378,7 @@ def run_gemini(prompt: str, model: str) -> list[dict]:
 
 
 def run_cli(adapter, prompt: str, model, timeout: int) -> list[dict]:
-    """Codex / Grok ág — az `adapter` a subtr.providers közös CLI-felülete."""
+    """Codex / Grok / Antigravity ág — az `adapter` a subtr.providers közös CLI-felülete."""
     cli_cmd = adapter.find_cli()
     if not cli_cmd:
         print(f"HIBA: {adapter.MISSING_HINT}")
@@ -539,7 +540,7 @@ def main():
     parser.add_argument("--local-file", default=LOCAL_FILE_DEFAULT,
                         help=f"A regisztert tartalmazó fájl (default: {LOCAL_FILE_DEFAULT})")
     parser.add_argument("--timeout", type=int, default=300,
-                        help="Claude/Codex/Grok timeout másodpercben (default: 300)")
+                        help="Claude/Codex/Grok/Antigravity timeout másodpercben (default: 300)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Csak kiírja a javasolt regisztert, nem ír fájlba")
     parser.add_argument("--all-interactive", action="store_true",
@@ -564,7 +565,8 @@ def main():
 
     model = config.resolve_model(args.model, args.provider, "register",
                                  builtin={"gemini": GEMINI_MODEL_DEFAULT,
-                                          "grok": "grok-4.5"}.get(args.provider))
+                                          "grok": "grok-4.5",
+                                          "antigravity": "gemini-3.6-flash-high"}.get(args.provider))
     per_episode = []
     for path in args.srt:
         label = Path(path).stem
@@ -579,7 +581,7 @@ def main():
                               hungarian=args.hungarian)
         if args.provider == "gemini":
             rel = run_gemini(prompt, model)
-        elif args.provider in ("codex", "grok"):
+        elif args.provider in CLI_PROVIDERS:
             rel = run_cli(get_provider(args.provider), prompt, model, args.timeout)
         else:
             rel = run_claude(prompt, args.timeout, model)

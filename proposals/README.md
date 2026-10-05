@@ -14,7 +14,6 @@ research jegyzetek, alternatív megoldások, tervezési dokumentumok.
 |------|------|---------|
 | [deep_review_otletek_v2.md](deep_review_otletek_v2.md) | A még nyitott fejlesztési ötletek (review resume, glossary-check, `subtr run` orchestrator, költség-log, GUI-újratervezés) a subtr-es világra igazítva | Fontolgatott opciók, javasolt sorrenddel |
 | [translategemma_local.md](translategemma_local.md) | Lokális fordító (ollama + `translategemma:12b`) — alternatíva a felhős providerek mellett | Research jegyzet. Ha megvalósul, a természetes alakja egy `subtr/providers/ollama.py` adapter |
-| [antigravity_provider.md](antigravity_provider.md) | Antigravity CLI (`agy`) mint ötödik provider — Gemini-modellek előfizetésből, a Codex/Grok headless CLI-mintájára | Terv, becsléssel (≈2,5–3 nap); első lépés a felderítés |
 | [stilisztika_chat_prompt.md](stilisztika_chat_prompt.md) | Stilisztikai + CPS review prompt chat-AI-ba (ChatGPT, Claude.ai) — alternatíva a `subtr.py review` parancshoz | Használatra kész prompt |
 
 ## Archívum
@@ -26,6 +25,7 @@ történeti dokumentumok, nem frissülnek:
 |------|------|
 | [archive/deep_review_otletek_v1.md](archive/deep_review_otletek_v1.md) | A #1 (közös modul) megvalósult a `subtr/` csomag-refaktorral, a #4 (egyparancsos pipeline) részben a `subtr.py` CLI-vel; a nyitott tételek a v2-ben élnek tovább |
 | [archive/desktop_gui_v1.md](archive/desktop_gui_v1.md) | A törölt gyökér-scriptek subprocess-hívására épült; egy jövőbeli GUI-nak a `subtr.tasks` API az alapja (lásd v2 #5) |
+| [archive/antigravity_provider.md](archive/antigravity_provider.md) | Megvalósult: `--provider antigravity` (`subtr/providers/antigravity_cli.py`); a terv és a felderítés eredményei |
 
 ## Konvenciók
 

@@ -1,14 +1,15 @@
-"""subtr.providers — a két headless CLI-adapter (codex, grok) közös felülete.
+"""subtr.providers — a headless CLI-adapterek (codex, grok, antigravity) közös felülete.
 
 A tasks réteg egyetlen ággal kezeli őket; ha valamelyik attribútum hiányzik,
 az csak a tényleges (fizetős) CLI-hívásnál derülne ki."""
 
 import pytest
 
+from subtr.config import CLI_PROVIDERS
 from subtr.providers import CliRunError, get_provider
 
 
-@pytest.mark.parametrize("name", ["codex", "grok"])
+@pytest.mark.parametrize("name", CLI_PROVIDERS)
 def test_cli_adapter_contract(name):
     adapter = get_provider(name)
     assert isinstance(adapter.LABEL, str) and adapter.LABEL

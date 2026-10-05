@@ -10,12 +10,12 @@ Használat:
     python glossary_extract.py eredeti.eng.srt                      # (1) előzetes mód
     python glossary_extract.py eredeti.eng.srt forditott.hun.srt    # (2) utólagos mód
     python glossary_extract.py eredeti.eng.srt forditott.hun.srt --glossary glossary.json
-    python glossary_extract.py eredeti.eng.srt --provider gemini   # vagy codex / claude / grok
+    python glossary_extract.py eredeti.eng.srt --provider gemini   # vagy codex / claude / grok / antigravity
     python glossary_extract.py eredeti.eng.srt --yes                # csak a biztosakat veszi át
     python glossary_extract.py eredeti.eng.srt --all-interactive    # mindent végigkérdez
     python glossary_extract.py eredeti.eng.srt --dry-run            # nem ír fájlba
 
-A feliratot Claude Code-dal, Codex CLI-vel, Grok CLI-vel vagy Gemini API-val elemzi (hosszú fájlnál több darabban, szekció-
+A feliratot Claude Code-dal, Codex CLI-vel, Grok CLI-vel, Antigravity CLI-vel vagy Gemini API-val elemzi (hosszú fájlnál több darabban, szekció-
 határon vágva — párban a két nyelv ugyanazokat a szekciókat kapja), kigyűjti
 a visszatérő kifejezéseket (megszólítások, helyszínek, nevek, speciális
 fogalmak), majd a konzolon jóváhagyhatod őket.
@@ -42,7 +42,7 @@ import shutil
 from subtr.glossary import CATEGORIES, as_prompt_text
 from subtr.providers import get_provider
 from subtr import config
-from subtr.config import PROVIDERS
+from subtr.config import CLI_PROVIDERS, PROVIDERS
 from subtr.context import load_translation_context as load_claude_md
 from subtr.providers.claude_cli import (find_claude as find_claude_cli,
                                         json_candidates, run_prompt)
@@ -538,7 +538,7 @@ def _run_extraction(prompt: str, existing_terms: set, timeout: int,
     if provider == "gemini":
         return _run_gemini(prompt, existing_terms, model, source_text)
 
-    if provider in ("codex", "grok"):
+    if provider in CLI_PROVIDERS:
         adapter = get_provider(provider)  # közös CLI-felület
         cli_cmd = adapter.find_cli()
         if not cli_cmd:
@@ -761,8 +761,9 @@ def main():
                         help="Kinyerő provider (alapértelmezett: claude, "
                              "felülírható: SUBTR_DEFAULT_PROVIDER env)")
     parser.add_argument("--model",
-                        help="Opcionális modellazonosító (codex / gemini / grok; "
-                             f"gemini default: {GEMINI_MODEL_DEFAULT}, grok: grok-4.5)")
+                        help="Opcionális modellazonosító (codex / gemini / grok / antigravity; "
+                             f"gemini default: {GEMINI_MODEL_DEFAULT}, grok: grok-4.5, "
+                             "antigravity: gemini-3.6-flash-high)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Csak kiírja, mi kerülne be — a szójegyzéket nem módosítja")
     parser.add_argument("--all-interactive", action="store_true",
@@ -780,7 +781,8 @@ def main():
     # > beégetett default (Gemini-nél GEMINI_MODEL_DEFAULT, CLI-knél None).
     args.model = config.resolve_model(
         args.model, args.provider, "glossary",
-        builtin={"gemini": GEMINI_MODEL_DEFAULT, "grok": "grok-4.5"}.get(args.provider))
+        builtin={"gemini": GEMINI_MODEL_DEFAULT, "grok": "grok-4.5",
+                 "antigravity": "gemini-3.6-flash-high"}.get(args.provider))
 
     pre_mode = args.hun_srt is None  # fordítás előtti, forrás-only mód
     src_lang = config.resolve_source_lang(args.source_lang, args.source_srt)

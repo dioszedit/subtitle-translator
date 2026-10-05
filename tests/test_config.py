@@ -83,6 +83,16 @@ def test_grok_is_a_known_provider(monkeypatch):
     assert result == "grok-4.5"
 
 
+def test_antigravity_is_a_known_cli_provider(monkeypatch):
+    assert "antigravity" in config.PROVIDERS
+    assert set(config.CLI_PROVIDERS) <= set(config.PROVIDERS)
+    assert "antigravity" in config.CLI_PROVIDERS
+    monkeypatch.setenv("SUBTR_DEFAULT_PROVIDER", "antigravity")
+    assert config.default_provider(builtin="claude") == "antigravity"
+    monkeypatch.setenv("SUBTR_ANTIGRAVITY_MODEL_REVIEW", "gemini-3.1-pro-high")
+    assert config.resolve_model(None, "antigravity", "review") == "gemini-3.1-pro-high"
+
+
 def test_default_provider_invalid_env_falls_back(monkeypatch):
     monkeypatch.setenv("SUBTR_DEFAULT_PROVIDER", "nem-letezo-provider")
     assert config.default_provider(builtin="claude") == "claude"

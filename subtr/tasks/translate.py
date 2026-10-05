@@ -8,7 +8,7 @@ A provider vezérlési modellek szándékosan különböznek, és ez itt is
 látszik:
   - gemini: API-hívás strukturált JSON-nal; a szerkezetet (sorszám, időbélyeg)
     Python garantálja, a modell csak szöveget kap és ad.
-  - codex / grok: ugyanez a szöveg-transzformer minta a CLI-n át.
+  - codex / grok / antigravity: ugyanez a szöveg-transzformer minta a CLI-n át.
   - claude (DOKUMENTÁLT KIVÉTEL): nem szöveg-transzformer — a Claude Code
     agent maga olvassa az input fájlt és írja a _HUN.srt-t (Read,Write
     tool-okkal). Ezért itt subprocess + fájlrendszer-ellenőrzés a minta,
@@ -16,7 +16,7 @@ látszik:
 
 A prompt-szövegek providerenkénti megfogalmazása változatlan (bájtra azonos
 a refaktor előttivel) — a promptok tudatosan mások, mert a modellek
-másképp kapják a feladatot (a grok a codex-promptot használja).
+másképp kapják a feladatot (a grok és az antigravity a codex-promptot használja).
 """
 
 import argparse
@@ -28,7 +28,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from subtr import config
-from subtr.config import PROVIDERS
+from subtr.config import CLI_PROVIDERS, PROVIDERS
 from subtr.blocks import get_all_blocks, get_pending_blocks, hun_path, safe_remove
 from subtr.context import load_translation_context
 from subtr.glossary import as_prompt_text
@@ -39,7 +39,8 @@ from subtr.srt import count_sections, count_sections_text, parse_sections, read_
 TEMPERATURE = 0.3
 MAX_RETRIES = 4
 MODEL_BUILTIN = {"gemini": "gemini-3.6-flash", "claude": "sonnet",
-                 "codex": None, "grok": "grok-4.5"}
+                 "codex": None, "grok": "grok-4.5",
+                 "antigravity": "gemini-3.6-flash-high"}
 
 CLAUDE_SYS_PROMPT_PREFIX = ".translate_sys_prompt_"
 
@@ -451,7 +452,7 @@ def _make_gemini_translator(client, model, system_instruction, max_retries,
 
 
 def _make_cli_translator(adapter, cli_bin, model, instruction, timeout, retries):
-    """Codex és Grok: ugyanaz a JSON-transzformer minta, az `adapter` a
+    """Codex, Grok és Antigravity: ugyanaz a JSON-transzformer minta, az `adapter` a
     subtr.providers közös CLI-felülete (run_json / RunError / LABEL)."""
     def translate_block(block_path: str) -> dict:
         output_path = hun_path(block_path)
@@ -650,27 +651,29 @@ def main(argv=None):
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(
-        description="Párhuzamos SRT blokk-fordítás (Gemini API / Claude Code / Codex CLI / Grok CLI)")
+        description="Párhuzamos SRT blokk-fordítás (Gemini API / Claude Code / Codex CLI / Grok CLI / Antigravity CLI)")
     parser.add_argument("blocks_dir", help="Blokkok mappája (a split kimenete)")
     parser.add_argument("--provider", choices=PROVIDERS,
                         default=config.default_provider(builtin="claude"),
                         help="Fordító provider (default: claude, "
                              "felülírható: SUBTR_DEFAULT_PROVIDER env)")
     parser.add_argument("--agents", type=int, default=None,
-                        help="Párhuzamos futások száma (default: gemini/claude 3, codex/grok 1)")
+                        help="Párhuzamos futások száma (default: gemini/claude/antigravity 3, "
+                             "codex/grok 1)")
     parser.add_argument("--block", type=str, default=None,
                         help="Csak egy konkrét blokk fordítása (pl. 003 vagy 3 — auto zero-pad)")
     config.add_source_lang_argument(parser)
     parser.add_argument("--model", type=str, default=None,
                         help="Modell-azonosító. Feloldás: --model > "
                              "SUBTR_<PROVIDER>_MODEL_TRANSLATE > SUBTR_<PROVIDER>_MODEL > "
-                             "beégetett (gemini: gemini-3.6-flash, claude: sonnet, grok: grok-4.5)")
+                             "beégetett (gemini: gemini-3.6-flash, claude: sonnet, grok: grok-4.5, "
+                             "antigravity: gemini-3.6-flash-high)")
     config.add_effort_argument(parser, "translate")
     parser.add_argument("--timeout", type=int, default=None,
                         help="Timeout blokkonként mp-ben (default: 900; a gemini-ágon "
                              "nem használt — ott a retry-logika véd)")
     parser.add_argument("--max-retries", type=int, default=None,
-                        help="Újrapróbálkozások (default: gemini 4, codex/grok 2; a claude-ágon "
+                        help="Újrapróbálkozások (default: gemini 4, codex/grok/antigravity 2; a claude-ágon "
                              "nem használt)")
     parser.add_argument("--max-turns", type=int, default=20,
                         help="Maximum agent fordulók blokkonként (csak claude; default: 20)")
@@ -687,7 +690,8 @@ def main(argv=None):
     if args.timeout is None:
         args.timeout = 900
     if args.max_retries is None:
-        args.max_retries = {"gemini": MAX_RETRIES, "codex": 2, "grok": 2}.get(provider, 1)
+        args.max_retries = (MAX_RETRIES if provider == "gemini"
+                            else 2 if provider in CLI_PROVIDERS else 1)
 
     if args.agents < 1:
         print(f"HIBA: --agents legalább 1 legyen (kaptam: {args.agents})")
@@ -758,7 +762,7 @@ def main(argv=None):
         if not args.no_cleanup:
             claude_cli.cleanup_stale_sys_prompts(CLAUDE_SYS_PROMPT_PREFIX)
     else:
-        adapter = get_provider(provider)  # codex / grok — közös felület
+        adapter = get_provider(provider)  # CLI_PROVIDERS — közös felület
         cli_bin = adapter.find_cli()
         if not cli_bin:
             print(f"HIBA: {adapter.MISSING_HINT}")
@@ -811,7 +815,7 @@ def main(argv=None):
                              f"({'új fájl' if newly_created else 'meglévő — másik process is használhatja'})"))
         extra_status.append(("   fájl", os.path.basename(sys_prompt_path)))
     else:
-        # Codex és Grok: ugyanaz a JSON-transzformer prompt
+        # CLI-providerek: ugyanaz a JSON-transzformer prompt
         instruction = build_codex_instruction(claude_md, glossary, src_lang)
         extra_status.append(("Timeout", f"{args.timeout // 60} perc / blokk"))
         extra_status.append(("Max retry", args.max_retries))

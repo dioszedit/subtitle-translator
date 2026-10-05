@@ -23,7 +23,10 @@ except ImportError:
 
 
 TASKS = ("translate", "review", "glossary", "register")
-PROVIDERS = ("gemini", "claude", "codex", "grok")
+PROVIDERS = ("gemini", "claude", "codex", "grok", "antigravity")
+# A headless CLI-adapterek (subtr.providers közös felülete): a tasks réteg
+# egyetlen ágon kezeli őket.
+CLI_PROVIDERS = ("codex", "grok", "antigravity")
 
 # CWD-relatív útvonalak, mint eddig is — NEM keresünk repo-gyökeret,
 # a scripteket úgyis a repo gyökeréből futtatjuk.

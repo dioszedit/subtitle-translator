@@ -22,11 +22,11 @@ NE innen idézd, hanem onnan.
 1. **A magyar SRT**: az argumentumban kapott `hun.srt` (ha nincs argumentum,
    keresd az `output/` legfrissebb `.hun.srt` fájlját, és erősíttesd meg).
 2. **Riportok**: a hun.srt mellett `<stem>_REVIEW_CLAUDE*.json`,
-   `<stem>_REVIEW_GEMINI*.json`, `<stem>_REVIEW_CODEX*.json` és
-   `<stem>_REVIEW_GROK*.json` (ha egy riportnak .json és .txt változata is van,
+   `<stem>_REVIEW_GEMINI*.json`, `<stem>_REVIEW_CODEX*.json`,
+   `<stem>_REVIEW_GROK*.json` és `<stem>_REVIEW_ANTIGRAVITY*.json` (ha egy riportnak .json és .txt változata is van,
    a .json a kanonikus). Ha EGYIK sincs → állj meg, és mondd meg, hogy előbb
    review-t kell futtatni
-   (`py subtr.py review [--provider claude|codex|grok]`).
+   (`py subtr.py review [--provider claude|codex|grok|antigravity]`).
 3. **Forrás SRT**: a hun.srt nevéből a `.hun.` tag helyére a forrásnyelv kódja
    (`.eng.`, `.ger.`, … — bármelyik ismert kód), keresés az `input/`-ban és a
    hun.srt mellett. Ha nem található (a fájlnév nem követi a konvenciót),

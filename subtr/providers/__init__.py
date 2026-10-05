@@ -9,10 +9,11 @@ rétegben él, provider-függetlenül.
 Kivétel (dokumentált): a Claude fordítási útja nem szöveg-transzformer —
 az agent maga írja a kimeneti fájlt (lásd claude_cli.translate_block_to_file).
 
-A KÉT HEADLESS CLI-ADAPTER (codex_cli, grok_cli) AZONOS FELÜLETET AD, hogy a
+A HEADLESS CLI-ADAPTEREK (codex_cli, grok_cli, antigravity_cli) AZONOS
+FELÜLETET ADNAK, hogy a
 tasks réteg egyetlen ággal kezelhesse őket (korábban minden task két, csak a
 függvénynevekben eltérő másolatot hordozott):
-    LABEL          "Codex" / "Grok" — kiírásokhoz
+    LABEL          "Codex" / "Grok" / "Antigravity" — kiírásokhoz
     MISSING_HINT   a "nem található" hibaüzenet
     find_cli()     a parancs útvonala vagy None
     RunError       a hívás hibája (CliRunError leszármazott)
@@ -21,7 +22,7 @@ függvénynevekben eltérő másolatot hordozott):
 
 
 class CliRunError(RuntimeError):
-    """Egy headless CLI (Codex, Grok) nem futott le, vagy nem adott érvényes
+    """Egy headless CLI (Codex, Grok, Antigravity) nem futott le, vagy nem adott érvényes
     JSON választ. A konkrét adapterek ebből származtatnak."""
 
 
@@ -40,4 +41,8 @@ def get_provider(name: str):
     if name == "grok":
         from subtr.providers import grok_cli
         return grok_cli
-    raise ValueError(f"Ismeretlen provider: {name!r} (várt: gemini, claude, codex, grok)")
+    if name == "antigravity":
+        from subtr.providers import antigravity_cli
+        return antigravity_cli
+    raise ValueError(f"Ismeretlen provider: {name!r} "
+                     "(várt: gemini, claude, codex, grok, antigravity)")

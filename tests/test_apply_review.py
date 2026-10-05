@@ -44,11 +44,11 @@ def test_find_reports_prefers_json_over_txt(hun):
     stem = hun.stem
     for name in (f"{stem}_REVIEW_GEMINI.json", f"{stem}_REVIEW_GEMINI.txt",
                  f"{stem}_REVIEW_CLAUDE.txt", f"{stem}_REVIEW_GROK_part2.json",
-                 f"{stem}_REVIEW_CODEX.bak"):
+                 f"{stem}_REVIEW_ANTIGRAVITY.json", f"{stem}_REVIEW_CODEX.bak"):
         (hun.parent / name).write_text("{}", encoding="utf-8")
     found = sorted(p.name for p in apply_review.find_reports(hun))
-    assert found == [f"{stem}_REVIEW_CLAUDE.txt", f"{stem}_REVIEW_GEMINI.json",
-                     f"{stem}_REVIEW_GROK_part2.json"]
+    assert found == [f"{stem}_REVIEW_ANTIGRAVITY.json", f"{stem}_REVIEW_CLAUDE.txt",
+                     f"{stem}_REVIEW_GEMINI.json", f"{stem}_REVIEW_GROK_part2.json"]
 
 
 def test_merge_findings_dedupes_same_suggestion():
