@@ -38,10 +38,24 @@ Ha nincsenek → nincs rá szükség.
 4. Az **időbélyegeket változatlanul** viszi tovább — semmit nem "generál".
 5. Opcionálisan `N`-esével (alapból 150) **blokkfájlokra bontja** a fordításhoz.
 
+> **SDH-forrásnál a projekt alapmenete NEM az előtisztítás**, hanem a fordítás
+> utáni tisztítás (`postclean_srt.py`, `steps.txt` 6/b — lásd lent): a fordító
+> zárójelben lefordítja a címkéket, így látja, ki beszél, és a pipeline végig
+> 1:1-ben fut az eredeti forrással. Az előtisztítás opcionális: WebVTT-
+> artefaktumoknál kell, vagy ha a fordítót nem akarod a jegyzetekkel terhelni.
+
+A `--strip-labels` kapcsolóval ezenfelül:
+- a sor eleji **beszélő-/névcímkék** (`[Anna] Szia!` → `Szia!`, `NÉV: …`) és
+- a dialógus utáni **sor végi jegyzetek** (`Let me... [sighs]` → `Let me...`)
+  is lekerülnek, hogy a fordítóhoz már ne jussanak el.
+
+Mindkét módban: ha egy kétsoros párbeszédből a jegyzetsor törlése után csak egy
+sor marad, a párbeszéd-kötőjel is lekerül (`-Hello...` / `-[line beeps]` → `Hello...`).
+
 Amit **NEM** dob el:
-- A **beszélő-/névcímkéket** dialógus-sorokban (`[Anna] Szia!`) — ezek adják a
-  fordítási kontextust (ki beszél → nem, tegezés/magázás). A kész fordításból
-  úgyis kikerülnek. (Ha eleve törölnéd őket: `--strip-labels`.)
+- `--strip-labels` nélkül a **beszélő-/névcímkéket** dialógus-sorokban
+  (`[Anna] Szia!`) — ezek adják a fordítási kontextust (ki beszél → nem,
+  tegezés/magázás); a kész fordításból a `postclean_srt.py` veszi ki őket.
 - A `--keep "MINTA"` mintát tartalmazó sorokat (pl. kétnyelvű cím-kártya).
 
 ## Hogyan illeszkedik a pipeline-ba
@@ -123,6 +137,35 @@ teljes egészében zárójeles, automatikusan kihagyja). Kilépési kód 0 = ren
 1 = hiba (CI/szkript-barát). *Korábbi neve `verify_srt.py` volt — átnevezve,
 hogy ne ütközzön a projekt gyökerében lévő másik ellenőrzéssel (ma: `py subtr.py verify`).*
 
+## Fordítás utáni tisztítás: `postclean_srt.py` (SDH-forrás alapmenete)
+
+A kész magyar feliratból törli a lefordított beszélőcímkéket és hangjegyzeteket
+(`[Anna] Igen.` → `Igen.`, `Hadd... [sóhajt]` → `Hadd...`). Minden `[...]` és
+`(...)` szegmenst töröl, kivéve a sorozatcím-kártyát — ezt a `TRANSLATION.local.md`
+`Title` / `Hungarian title` mezőiből (a zárójeles natív címmel együtt) és a
+`glossary.json` `meta.series`-éből ismeri fel; egyéb megtartandó sor: `--keep MINTA`.
+A csak jegyzetből álló feliratot eldobja, a magára maradt párbeszéd-kötőjelet
+leveszi, és **újraszámoz** (az időbélyegek változatlanok).
+
+```
+python addons/srt-preclean/postclean_srt.py "output/Sorozat - S01E01.hun.srt" --dry-run   # előnézet
+python addons/srt-preclean/postclean_srt.py "output/Sorozat - S01E01.hun.srt"
+  -> output/Sorozat - S01E01.hun.clean.srt
+```
+
+- **A bemenetet nem írja felül.** Az `output/…hun.srt` 1:1-es (címkés) példány
+  marad, a review / triage / glossary később is futtatható rajta; a `.hun.clean.srt`
+  a végleges, ezt viszed tovább (resegment, majd a `Season 01/`-be másolás).
+- **Mikor:** a review-javítások átvezetése (triage) és a glossary (6.) UTÁN, a
+  resegment (7.) ELŐTT. A tisztított fájl cue-száma kisebb, ezért a verify
+  az eredeti forrás ellen azon eltérést jelezne — az ellenőrzés az 1:1-es példányon fut.
+- **Csak SDH-forrásnál!** Nem SDH forrásnál a `[...]` képi szöveg (helyszín, hír,
+  SMS), azt meg kell tartani. Védelem: ha a fájlban alig van beszélőcímke vagy
+  sor végi jegyzet (5-nél kevesebb, vagy a feliratok 2 %-ánál kevesebb), a szkript
+  nem ír semmit; felülbírálás: `--force`.
+- A kerek zárójeles szegmenseket külön kilistázza: a fordítónak ezeket is szögletes
+  zárójelbe kell tennie, de ha egy valódi zárójeles megjegyzés becsúszott, itt látod.
+
 ## Megjegyzések, finomhangolás
 
 - **Kódolás:** a beolvasás `utf-8-sig` (BOM-toleráns), a kiírás `utf-8`.
@@ -141,5 +184,6 @@ hogy ne ütközzön a projekt gyökerében lévő másik ellenőrzéssel (ma: `p
 addons/srt-preclean/
 ├── preclean_srt.py   # fordítás előtti tisztító + blokkokra bontó
 ├── verify_preclean.py # fordítás utáni ellenőrző
+├── postclean_srt.py  # fordítás utáni SDH-tisztító (beszélőcímkék, hangjegyzetek)
 └── README.md         # ez a leírás
 ```

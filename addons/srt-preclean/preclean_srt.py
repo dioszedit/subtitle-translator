@@ -20,8 +20,9 @@ Mikor érdemes használni?
 
 Beszélő-/névcímkék ([Hari], [narrator], Anna:):
   Alapból MEGMARADNAK, mert a fordításnál kontextust adnak (ki beszél ->
-  nem, tegezés/magázás). A kész fordításból úgyis kikerülnek.
-  Ha eleve el akarod dobni őket: --strip-labels.
+  nem, tegezés/magázás). A kész fordításból a postclean_srt.py veszi ki őket.
+  Ha eleve el akarod dobni őket: --strip-labels (ez a sor végi
+  hangjegyzeteket is levágja: "Let me... [sighs]" -> "Let me...").
 
 Cím-/megtartandó sorok:
   A tisztán cue-nak tűnő, de valójában megtartandó sorokra (pl. kétnyelvű
@@ -74,6 +75,9 @@ LEADING_LABEL_RE = re.compile(
 # {\an8}[music]) — a tisztaság-vizsgálat előtt lejönnek, különben a cue
 # üres <i></i>-ként maradna bent.
 FORMAT_TAG_RE = re.compile(r"</?[ibu]>|\{\\an\d\}", re.IGNORECASE)
+# Sor végi hangjegyzet ([sighs], (groans)) — csak --strip-labels (SDH-mód)
+# mellett vágjuk, mert nem SDH forrásban a zárójel képi szöveg is lehet.
+TRAILING_NOTE_RE = re.compile(r"\s*[\[(][^\])]{1,40}[\])](?=\s*(?:</[ibu]>)?\s*$)")
 
 
 def is_pure_cue_line(line: str, keep_res) -> bool:
@@ -100,7 +104,9 @@ def strip_leading_label(line: str, keep_res) -> str:
     for kr in keep_res:
         if kr.search(line):
             return line
-    return LEADING_LABEL_RE.sub(lambda m: m.group("dash"), line, count=1)
+    line = LEADING_LABEL_RE.sub(lambda m: m.group("dash"), line, count=1)
+    # Sor végi hangjegyzet a dialógus után: "Let me... [sighs]" -> "Let me..."
+    return TRAILING_NOTE_RE.sub("", line)
 
 
 def parse_srt(txt: str):
@@ -154,6 +160,10 @@ def preclean(subs, keep_res, strip_labels: bool):
         if strip_labels:
             newlines = [strip_leading_label(ln, keep_res) for ln in newlines]
             newlines = [ln for ln in newlines if ln.strip()]
+        # Kétsoros párbeszédből a jegyzetsor törlése után egy sor maradt:
+        # a párbeszéd-kötőjel ott már félrevezető ("-Hello..." -> "Hello...").
+        if len(newlines) == 1 and len(text) > 1 and re.match(r"\s*[-–—]", newlines[0]):
+            newlines = [re.sub(r"^\s*[-–—]\s*", "", newlines[0])]
         if not newlines:
             dropped += 1
             continue

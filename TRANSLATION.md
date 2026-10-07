@@ -44,7 +44,10 @@ A regisztert kézzel írod. Ha első változatot szeretnél a forrásfeliratból
 1. Csak a szöveget fordítsd a forrásnyelvről természetes, beszélt magyarra; ne tükörfordíts.
 2. A sorszám és időbélyeg 1:1 maradjon. A Python pipeline ezt szerkezetileg védi.
 3. Őrizd meg a HTML tageket (`<i>`, `</i>`, `<b>`, `</b>`), a kötőjeles párbeszédet, a `♫` jelet és a sortöréseket, amikor a szöveg megkívánja.
-4. A szögletes zárójeles megjegyzéseket fordítsd le. Karakternevet ne fordíts le.
+4. A szögletes zárójeles szöveg kezelése **a forrásfelirat típusától függ**. Karakternevet ne fordíts le.
+   - **Nem SDH forrás** (nincs benne beszélőcímke és hangjegyzet): a `[...]` a képen látható szöveget jelöli — helyszín, névtábla, felirat, hír, SMS/chatüzenet, levél, fejezetcím stb. Ezeket **fordítsd le, és tartsd meg zárójelben**: `[Seoul, 2019]` → `[Szöul, 2019]`, `[Mom: Where are you?]` → `[Anya: Hol vagy?]`.
+   - **SDH/CC forrás** (vannak benne `[Név]`/`NÉV:` címkék, `[sighs]`, `(door opens)` jellegű jegyzetek): a beszélőcímkéket és hangjegyzeteket **fordításkor is fordítsd le, és mindig szögletes zárójelben add vissza** — `[Anna] Yes.` → `[Anna] Igen.`, `Let me... [sighs]` → `Hadd... [sóhajt]`, `(door opens)` → `[nyílik az ajtó]`, `NARRATOR: That night…` → `[narrátor] Aznap éjjel…`. Ezek kontextust adnak a review-nak is (ki beszél, kihez, milyen hangon), és a végén **egy lépésben kerülnek ki** a kész fájlból (`steps.txt` 6/b: `postclean_srt.py`). Ezért mindig maradjanak zárójelben: a zárójel nélküli címke bent ragadna a végleges feliratban. Az SDH-forrás képi feliratai jellemzően zárójel nélkül, csupa nagybetűvel állnak (`ANNA'S DIARY`); ezeket a szokásos módon fordítsd, zárójel nélkül.
+   - A sorozatcím címkártyája mindkét esetben a *Címkártya* szakasz szerint marad (a végső tisztítás felismeri és megtartja).
 5. Az „episode” (és megfelelői) mindig „rész”: „1. rész”, „a következő rész”, sosem „epizód”.
 6. A tegezés/magázás a *Megszólítási regiszterből*, ennek hiányában a jelenet kontextusából következzen; kétes esetben ne találj ki biztos viszonyt. Részletes eljárás: *Tegezés/magázás* szakasz.
 7. A `glossary.json` jóváhagyott fordításai kötelezőek. A sorozatspecifikus

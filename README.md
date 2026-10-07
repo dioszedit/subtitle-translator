@@ -12,7 +12,7 @@
 > Codex CLI, Grok CLI and Antigravity CLI (Gemini models via subscription). 18 source languages are recognised from the file name
 > (`.eng`, `.ger`, `.kor`, …); the **target language is fixed to Hungarian** — the
 > prompts are written in Hungarian and this is a design decision, not a
-> parameter. Add-ons cover new-series setup from the TMDB API, SDH pre-cleaning,
+> parameter. Add-ons cover new-series setup from the TMDB API, SDH pre- and post-cleaning,
 > WebVTT import and subtitle-track extraction from video. ~450 tests, no network
 > in the test suite. The documentation below is in Hungarian. MIT licensed;
 > most of the code was written with AI assistants under human direction — see
@@ -89,7 +89,7 @@ subtitle-translator/
 │
 ├── addons/                      ← Opcionális segédscriptek (saját READMÉ-kkel)
 │   ├── tmdb-init/               ← 0/a: új sorozat — TRANSLATION.local.md + glossary-címek TMDB-linkből
-│   ├── srt-preclean/            ← 0/b: SDH-forrás előtisztítása
+│   ├── srt-preclean/            ← 0/b: SDH-forrás előtisztítása, 6/b: SDH-tisztítás a kész fordításon
 │   ├── vtt2srt/                 ← 0/d: meglévő .vtt felirat átvétele (WebVTT → SRT)
 │   └── mkv-subs/                ← 0/e: feliratsávok a videóból, nyelvcímke szerint (ffmpeg)
 │

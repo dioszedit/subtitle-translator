@@ -49,3 +49,13 @@ def test_style_blokk_folytatassorai_is_torlodnek():
     kept, dropped = preclean_srt.preclean(subs, [], False)
     assert kept == [("t1", ["Szia!"]), ("t4", ["Ez már szöveg"])]
     assert dropped == 2
+
+
+def test_strip_labels_sor_vegi_jegyzetet_is_levagja():
+    assert preclean_srt.strip_leading_label("Let me... [sighs]", []) == "Let me..."
+    assert preclean_srt.strip_leading_label("<i>Wait (groans)</i>", []) == "<i>Wait</i>"
+
+
+def test_maganmaradt_parbeszed_kotojel_lekerul():
+    kept, _ = preclean_srt.preclean([("t1", ["-Hello...", "-[line beeps]"])], [], False)
+    assert kept == [("t1", ["Hello..."])]

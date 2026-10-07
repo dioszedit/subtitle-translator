@@ -249,8 +249,16 @@ Profi felirat-fordító vagy. {src.capitalize()} nyelvű SRT feliratokat fordít
 természetes, beszélt magyar nyelvre. NEM tükörfordítasz.
 
 === KEMÉNY SZABÁLYOK ===
-- HTML tagek (<i>, </i>, <b>, </b>), kötőjeles párbeszéd (-), [szögletes
-  zárójeles megjegyzések], ♫ daljelek MEGŐRZENDŐK a magyar szövegben.
+- HTML tagek (<i>, </i>, <b>, </b>), kötőjeles párbeszéd (-), ♫ daljelek
+  MEGŐRZENDŐK a magyar szövegben.
+- [Szögletes zárójel] — a forrás típusától függ:
+  * nem SDH forrás: a zárójel képi szöveg (helyszín, névtábla, hír, SMS,
+    felirat a képen) → fordítsd le, és tartsd meg zárójelben;
+  * SDH forrás (beszélőcímkék [Név]/NÉV:, hangjegyzetek [sighs], (door opens)):
+    a címkéket és jegyzeteket is fordítsd le, és MINDIG szögletes zárójelben
+    add vissza ([Anna] Igen. / Hadd... [sóhajt]; (door opens) → [nyílik az
+    ajtó]; NÉV: → [név]) — egy későbbi lépés gépiesen törli őket, a zárójel
+    nélküli címke bent ragadna.
 - Karakterneveket NE fordítsd le (a szójegyzékben szerepelnek a helyes
   írásmódok).
 - Az "episode" magyarul mindig "rész", NEM "epizód".
@@ -297,7 +305,7 @@ def build_codex_instruction(context: str, glossary: str,
     src = config.source_lang_name(src_lang)
     parts = [f"""Profi felirat-fordító vagy. {src.capitalize()} nyelvű SRT feliratszövegeket fordítasz természetes, beszélt magyarra.
 
-KÖTELEZŐ: minden kapott sorszámhoz pontosan egy fordítást adj. A text csak a magyar feliratszöveg legyen; a HTML tageket, kötőjeles párbeszédet, szögletes megjegyzéseket és ♫ jelet őrizd meg. Ne adj magyarázatot.
+KÖTELEZŐ: minden kapott sorszámhoz pontosan egy fordítást adj. A text csak a magyar feliratszöveg legyen; a HTML tageket, kötőjeles párbeszédet és ♫ jelet őrizd meg. Szögletes zárójel: nem SDH forrásnál képi szöveg (helyszín, névtábla, hír, SMS) — fordítsd le és tartsd meg zárójelben; SDH forrásnál (beszélőcímkék [Név]/NÉV:, hangjegyzetek [sighs], (door opens)) a címkéket és jegyzeteket is fordítsd le, és MINDIG szögletes zárójelben add vissza ([Anna] Igen. / Hadd... [sóhajt]; NÉV: → [név]) — egy későbbi lépés gépiesen törli őket. Ne adj magyarázatot.
 
 {formality_rule(src_lang, bullet="")}"""]
     if context.strip():

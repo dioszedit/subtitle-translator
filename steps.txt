@@ -17,9 +17,15 @@
 #      Szereplőneveket NEM vesz fel (a TMDB írásmódja eltérhet a feliratétól);
 #      azokat az 1.5 lépés szedi ki magából a feliratból.
 
-# 0/b. (OPCIONÁLIS) SDH-forrás előtisztítása — CSAK ha a felirat hang-/zene-
-#    jegyzeteket tartalmaz ([music playing], [sighs], NÉV: címkék stb.)
-#    Részletek: addons\srt-preclean\README.md
+# 0/b. (OPCIONÁLIS) SDH-forrás előtisztítása — általában NEM kell.
+#    SDH-forrásnál (beszélőcímkék [Anna], NÉV:, hangjegyzetek [sighs],
+#    [door opens]) a projekt alapmenete: a fordító zárójelben lefordítja a
+#    címkéket (így látja, ki beszél), és a 6/b lépés a kész fájlból egy külön
+#    .hun.clean.srt-be tisztítja — a verify/review/triage/glossary addig 1:1-ben
+#    fut az eredeti forrással.
+#    Előtisztítás csak akkor kell, ha a forrás WebVTT-artefaktumokat (STYLE,
+#    ::cue) tartalmaz, vagy ha a fordítót nem akarod a jegyzetekkel terhelni.
+#    Részletek: addons\srt-preclean\README.md, TRANSLATION.md 4. szabály
 # py addons\srt-preclean\preclean_srt.py "input\Sorozat - S01E01.eng.srt"
 #    Kimenet: input\Sorozat - S01E01.eng.clean.srt + a blokkok input\blocks\<X>.eng\
 #    alá (NEM a gyökér blocks\ alá). Innen kétféleképp mehetsz tovább:
@@ -312,9 +318,21 @@ py subtr.py glossary "input\Sorozat - S01E01.eng.srt" "output\Sorozat - S01E01.h
 # A glossary.json-t minden fordító- és review-provider automatikusan
 # betölti és átadja a modellnek (system prompt-ként) a következő futáskor.
 
+# 6/b. SDH-TISZTÍTÁS — CSAK SDH-forrásnál (beszélőcímkék, hangjegyzetek).
+#     A lefordított [Anna], [sóhajt], [nyílik az ajtó] jegyzetek törlése; a
+#     sorozatcím-kártyát megtartja. A csak jegyzetből álló feliratokat eldobja és
+#     ÚJRASZÁMOZ (időbélyeg változatlan). A bemenetet NEM írja felül: a tisztított
+#     változat külön fájl (.hun.clean.srt) az output mappában — a 7. lépés és a
+#     Season 01-be másolás ezzel megy tovább, a review/triage az 1:1-es .hun.srt-n.
+#     Nem SDH forrásnál TILOS (ott a [...] képi szöveg) — a szkript ezt ellenőrzi.
+#     Előnézet: --dry-run
+py addons\srt-preclean\postclean_srt.py "output\Sorozat - S01E01.hun.srt"
+#     Kimenet: output\Sorozat - S01E01.hun.clean.srt
+
 # 7. Szegmentálás — sorhossz + CPS (véglegesítő formázás, a kézi review-javítások UTÁN)
 #     Csak Python stdlib, nincs telepítendő függőség. Kiegészíti a subtr.py verify-t
 #     (az CPS-t jelzi, de sorhosszt/tördelést nem). Részletek: resegment_srt.md
+#     SDH-forrásnál a 6/b kimenetén (.hun.clean.srt) futtasd.
 # 7a. QA-riport (csak olvasás) — bármikor futtatható, ez a QA-kapu:
 py subtr.py resegment report "output\Sorozat - S01E01.hun.srt"
 # 7b. Sorhossz-tisztítás (időzítést NEM változtat) — a VÉGLEGES szövegen futtasd:
