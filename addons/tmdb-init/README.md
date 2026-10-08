@@ -93,6 +93,9 @@ sorba) és a szereplőket. Két dolgot a script számol vagy pótol:
   az epizódok legalább háromnegyedében szerepel; a többi mellékszereplő. A
   címkék ugyanazok, amikkel a regiszter-váz dolgozik, tehát a *Megszólítási
   regiszter* TODO-sorai a főszereplőkből állnak össze.
+  Még el nem indult sorozatnál (a TMDB legfeljebb 2 részt ismer, jellemzően
+  1 helykitöltőt) az epizódszám nem informatív: ilyenkor csak a sorrend dönt,
+  vendég nincs.
 
 Ami hiányzik: az epizódhossz újabb sorozatoknál gyakran nincs kitöltve
 (`Duration: N/A`), és a szinopszis végén nincs „Adapted from…” lábjegyzet —

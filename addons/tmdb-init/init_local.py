@@ -271,6 +271,9 @@ def build_document(data: dict, hu_title: str, url: str, max_cast: int, include_g
             if role_type:
                 parts.append(f" ({role_type})")
             lines.append("".join(parts))
+    elif data["cast"]:
+        lines.append(f"- TODO: szereplők (a TMDB {len(data['cast'])} szereplője mind vendég — "
+                     "--include-guests)")
     else:
         lines.append("- TODO: szereplők (a TMDB-n nincs cast-adat)")
 

@@ -154,9 +154,15 @@ def classify_role(order: int, total_ep: int, n_episodes: int,
     Vendég: legfeljebb 2 epizód, vagy az epizódszám 10 %-a (ami nagyobb).
     Fő: az első `main_limit` a TMDB sorrendjében, ÉS legalább az epizódok
     háromnegyedében szerepel — egy 2-részes cameo a lista elején sem lesz fő.
+
+    Ha a sorozatnak legfeljebb 2 része ismert (még nem indult el: a TMDB
+    ilyenkor 1 helykitöltő epizódot tart nyilván), az epizódszám nem mond
+    semmit — különben mindenki vendég lenne. Ilyenkor csak a sorrend dönt.
     """
     n = n_episodes or 0
     total = total_ep or 0
+    if n <= 2:
+        return "Main Role" if order < main_limit else "Support Role"
     if total <= max(2, n // 10):
         return "Guest Role"
     if order < main_limit and (not n or total >= 0.75 * n):

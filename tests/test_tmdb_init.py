@@ -105,6 +105,13 @@ def test_ures_cast_eseten_todo():
     assert "TODO: szereplők" in doc
 
 
+def test_csak_vendeg_cast_eseten_nem_allitja_hogy_nincs_adat():
+    adat = dict(SAMPLE, cast=[("A", "B", "Guest Role")])
+    doc = init_local.build_document(adat, "x", "u", 12, False)
+    assert "nincs cast-adat" not in doc
+    assert "--include-guests" in doc
+
+
 # ────────────────────────────────────────────────────────────────────────────
 # Glossary-magok: a sorozat- és forrásmű-címek felvétele
 # ────────────────────────────────────────────────────────────────────────────
@@ -465,6 +472,9 @@ def test_map_series_ismeretlen_orszagkod_marad():
     (0, 10, 100, "Guest Role"),      # 10 % → vendég
     (0, 0, 36, "Guest Role"),        # ismeretlen epizódszám a szereplőnél
     (0, 5, 0, "Main Role"),          # a sorozat epizódszáma ismeretlen: a sorrend dönt
+    (0, 1, 1, "Main Role"),          # még nem indult sorozat (1 helykitöltő rész): a sorrend dönt
+    (5, 1, 1, "Support Role"),       # ... és nem vendég
+    (0, 2, 2, "Main Role"),
 ])
 def test_classify_role(order, total, n, expected):
     assert tmdb_fetch.classify_role(order, total, n) == expected
