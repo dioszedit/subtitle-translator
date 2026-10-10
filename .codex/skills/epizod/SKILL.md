@@ -28,5 +28,6 @@ Az utasítások forrása a `steps.txt`; a fordítási szabályzat a `TRANSLATION
 - Preclean után a `.clean.srt` legyen a `subtr.py verify` forrása.
 - A forrásnyelvet a fájlnév `.kód` tagjából minden lépés felismeri; `--source-lang` csak akkor kell, ha a név nem árulkodik (pl. a `.clean.srt` splittelésekor). A review a forrás SRT-t magától megtalálja; `--source` csak nem konvenció szerinti fájlnévnél kell.
 - A review-javaslatokat a `review-triage` skill szerint szűrd, és csak ezután futtasd a resegmentet.
+- SDH-forrásnál (beszélőcímkék `[Név]`, hangjegyzetek) a triage és a glossary után futtasd a 6/b lépést: `py addons/srt-preclean/postclean_srt.py "output/<X>.hun.srt"` → `output/<X>.hun.clean.srt` (előtte `--dry-run`); a resegment ezzel a fájllal megy tovább. Nem SDH forrásnál tilos.
 
 A végén emlékeztesd a felhasználót a videóval való végső kézi ellenőrzésre.

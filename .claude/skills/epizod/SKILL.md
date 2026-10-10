@@ -17,13 +17,14 @@ Az epizód azonosítójából (pl. `Sorozat - S01E01`) sorban ellenőrizd:
 
 | Lépés | Kész, ha… |
 |---|---|
-| 0. preclean (opcionális) | `input/<X>.<lang>.clean.srt` létezik — akkor INNENTŐL ez a forrás (a blokkok ilyenkor `input/blocks/<X>.<lang>/` alatt is lehetnek) |
+| 0. preclean (opcionális, SDH-nál sem kell — lásd 6/b) | `input/<X>.<lang>.clean.srt` létezik — akkor INNENTŐL ez a forrás (a blokkok ilyenkor `input/blocks/<X>.<lang>/` alatt is lehetnek) |
 | 1. split | `blocks/<X>.<lang>/` létezik és vannak benne blokkok (`<lang>` = a forrás nyelvkódja: `eng`, `ger`, …) |
 | 2. translate | MINDEN `<X>_block_NNN_*.srt`-hez van `*_HUN.srt` párja |
 | 3. merge | `output/<X>.hun.srt` létezik |
 | 4. verify | le kell futtatni (olcsó, mindig futtatható) |
 | 5. review | `output/<X>.hun_REVIEW_CLAUDE*`, `_REVIEW_GEMINI*`, `_REVIEW_CODEX*`, `_REVIEW_GROK*` vagy `_REVIEW_ANTIGRAVITY*` létezik |
 | 5b/5c. triage | a review-javítások átvezetve (ezt a felhasználótól kérdezd, fájlból nem látszik) |
+| 6/b. SDH-tisztítás | CSAK SDH-forrásnál (beszélőcímkék `[Név]`, hangjegyzetek): `output/<X>.hun.clean.srt` létezik |
 | 7. resegment | `*.reflow.srt` létezik, vagy a felhasználó Subtitle Editben folytatja |
 
 Írd ki tömören, mi kész és mi a következő lépés, MIELŐTT bármit futtatnál.
@@ -67,6 +68,12 @@ Az epizód azonosítójából (pl. `Sorozat - S01E01`) sorban ellenőrizd:
   csak akkor kell, ha a fájlnév nem követi a konvenciót.
 - **Review-javítások átvezetése**: add át a **review-triage** skillnek
   (`/review-triage "<output/X.hun.srt>"`) — ott van a szűrési eljárás.
+- **SDH-tisztítás (6/b)**: CSAK SDH-forrásnál, a triage és a glossary UTÁN —
+  `py addons/srt-preclean/postclean_srt.py "output/<X>.hun.srt"` → `output/<X>.hun.clean.srt`
+  (a bemenetet nem írja felül; a resegment és a Season 01-be másolás a `.clean`
+  fájllal megy tovább). Előtte `--dry-run`-nal mutasd meg a felhasználónak, mit
+  dobna el. Nem SDH forrásnál tilos (ott a `[...]` képi szöveg) — a szkript
+  ezt ellenőrzi.
 - **Resegment**: CSAK a review-javítások átvezetése UTÁN (`--split` újraszámoz,
   utána a riportok sorszámai elavulnak).
 
