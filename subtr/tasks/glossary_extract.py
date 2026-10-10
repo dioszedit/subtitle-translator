@@ -781,7 +781,7 @@ def main():
     parser.add_argument("--model",
                         help="Opcionális modellazonosító (codex / gemini / grok / antigravity; "
                              f"gemini default: {GEMINI_MODEL_DEFAULT}, grok: grok-4.5, "
-                             "antigravity: gemini-3.6-flash-high)")
+                             "antigravity: gemini-3.8-flash-high)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Csak kiírja, mi kerülne be — a szójegyzéket nem módosítja; nem is "
                              "kérdez, a bizonytalanok DÖNTENDŐ jelöléssel listázódnak")
@@ -801,7 +801,7 @@ def main():
     args.model = config.resolve_model(
         args.model, args.provider, "glossary",
         builtin={"gemini": GEMINI_MODEL_DEFAULT, "grok": "grok-4.5",
-                 "antigravity": "gemini-3.6-flash-high"}.get(args.provider))
+                 "antigravity": "gemini-3.8-flash-high"}.get(args.provider))
 
     pre_mode = args.hun_srt is None  # fordítás előtti, forrás-only mód
     src_lang = config.resolve_source_lang(args.source_lang, args.source_srt)

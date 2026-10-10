@@ -47,7 +47,7 @@ Az epizód azonosítójából (pl. `Sorozat - S01E01`) sorban ellenőrizd:
   `--provider codex`, `--provider grok` vagy `--provider antigravity` (Gemini
   előfizetésből, API-kvóta nélkül). Codex/Grok első próbánál
   `--agents 1`. Grok-fordítás default modellje `grok-4.5`, Antigravityé
-  `gemini-3.6-flash-high`. Gemini-nél a parancs
+  `gemini-3.8-flash-high` (review-nál `gemini-3.1-pro-high`). Gemini-nél a parancs
   indulásakor kvóta-preflight fut — ha azt írja, a modell kimerült vagy nem fér
   bele, javasolj modellváltást (`--model`) vagy másik providert; állást a
   `py subtr.py quota` mutat. Újrafuttatás biztonságos: csak a hiányzó blokkokat

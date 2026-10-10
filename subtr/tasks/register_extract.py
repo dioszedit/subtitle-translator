@@ -572,7 +572,7 @@ def main():
     model = config.resolve_model(args.model, args.provider, "register",
                                  builtin={"gemini": GEMINI_MODEL_DEFAULT,
                                           "grok": "grok-4.5",
-                                          "antigravity": "gemini-3.6-flash-high"}.get(args.provider))
+                                          "antigravity": "gemini-3.8-flash-high"}.get(args.provider))
     per_episode = []
     for path in args.srt:
         label = Path(path).stem

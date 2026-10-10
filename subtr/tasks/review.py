@@ -36,7 +36,7 @@ CLAUDE_SYS_PROMPT_PREFIX = ".review_claude_sys_prompt_"
 # és a --model kapcsoló a config.resolve_model() precedenciája szerint felülbírálja.
 MODEL_BUILTIN = {"gemini": "gemini-3.6-flash", "claude": "sonnet",
                  "codex": None, "grok": "grok-4.6",
-                 "antigravity": "gemini-3.6-flash-high"}
+                 "antigravity": "gemini-3.1-pro-high"}
 
 # Codex strict séma (a Gemini-adapter ugyanennek az additionalProperties
 # nélküli változatát használná — de a Gemini-ág pydantic sémával megy)
@@ -415,7 +415,7 @@ def main(argv=None):
                         help="Modell-azonosító. Feloldás: --model > "
                              "SUBTR_<PROVIDER>_MODEL_REVIEW > SUBTR_<PROVIDER>_MODEL > "
                              "beégetett (gemini: gemini-3.6-flash, claude: sonnet, grok: grok-4.6, "
-                             "antigravity: gemini-3.6-flash-high)")
+                             "antigravity: gemini-3.1-pro-high)")
     config.add_effort_argument(parser, "review")
     parser.add_argument("--timeout", type=int, default=None,
                         help="Timeout chunkonként mp-ben (default: claude 600, codex/grok/antigravity 900; "

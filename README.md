@@ -231,7 +231,7 @@ python subtr.py translate "blocks\Sorozat - S01E01.eng" --provider claude --agen
 # python subtr.py translate "blocks\Sorozat - S01E01.eng" --provider codex --block 1 --agents 1
 # vagy Grok CLI-vel (fordítás default: grok-4.5)
 # python subtr.py translate "blocks\Sorozat - S01E01.eng" --provider grok --block 1 --agents 1
-# vagy Antigravity CLI-vel (Gemini előfizetésből; default: gemini-3.6-flash-high)
+# vagy Antigravity CLI-vel (Gemini előfizetésből; default: gemini-3.8-flash-high)
 # python subtr.py translate "blocks\Sorozat - S01E01.eng" --provider antigravity --agents 3
 
 # 3. Összefűzés egy fájlba
@@ -256,7 +256,7 @@ python subtr.py review "output\Sorozat - S01E01.hun.srt" --provider codex
 python subtr.py review "output\Sorozat - S01E01.hun.srt" --provider grok
 # Kimenet: output\Sorozat - S01E01.hun_REVIEW_GROK.txt + .json
 
-# vagy Antigravity CLI-vel (review default: gemini-3.6-flash-high)
+# vagy Antigravity CLI-vel (review default: gemini-3.1-pro-high)
 python subtr.py review "output\Sorozat - S01E01.hun.srt" --provider antigravity
 # Kimenet: output\Sorozat - S01E01.hun_REVIEW_ANTIGRAVITY.txt + .json
 
@@ -469,13 +469,22 @@ python subtr.py translate "blocks\eng" --provider grok --model grok-4.6
 
 #### Antigravity fordító (`subtr.py translate --provider antigravity`) — alternatíva
 ```powershell
-# Default modell: gemini-3.6-flash-high. Előfeltétel: `agy` a PATH-on, bejelentkezve.
+# Default modell: gemini-3.8-flash-high. Előfeltétel: `agy` a PATH-on, bejelentkezve.
 # A Gemini-modelleket az előfizetés adja — nincs GEMINI_API_KEY és napi API-kvóta.
 python subtr.py translate "blocks\eng" --provider antigravity --agents 3
 
 # Más modell (a teljes lista: `agy models`; az effort a név része: -low/-medium/-high)
 python subtr.py translate "blocks\eng" --provider antigravity --model gemini-3.1-pro-high
 ```
+
+> **Modellválasztás (mérés, 2026-10):** egy 497 feliratos kínai drámarész
+> Opus-fordítását három Antigravity-modell lektorálta, a találatokat egyenként az
+> angol forráshoz mértük. A 19 valódi hibából a `gemini-3.6-flash-high` 10-et, a
+> `gemini-3.8-flash-high` és a `gemini-3.1-pro-high` 16-16-ot talált (részben eltérőket); téves riasztás
+> 1 / 1 / 0. Ezért a fordítás defaultja a `gemini-3.8-flash-high`, a review-é a
+> `gemini-3.1-pro-high`; a glossary és a register a `gemini-3.8-flash-high`-et használja.
+> Egyetlen rész — kis minta; független, magyar nyelvű fordítási benchmark ezekre
+> a modellekre nem volt elérhető.
 
 > **Hogyan fut:** headless `agy`, üres ideiglenes munkamappában, JSON-sémás
 > válasszal — a sorszámot és az időbélyeget a Python írja, mint a Codex/Grok-ágon.
@@ -532,9 +541,9 @@ python subtr.py review "output\hun.srt" --provider grok --model grok-4.5
 
 #### Antigravity review (`subtr.py review --provider antigravity`)
 ```powershell
-# Default modell: gemini-3.6-flash-high (előfizetésből, API-kvóta nélkül)
+# Default modell: gemini-3.1-pro-high (előfizetésből, API-kvóta nélkül) — lásd a fenti mérést
 python subtr.py review "output\hun.srt" --provider antigravity
-python subtr.py review "output\hun.srt" --provider antigravity --model gemini-3.1-pro-high
+python subtr.py review "output\hun.srt" --provider antigravity --model gemini-3.8-flash-high   # gyorsabb
 ```
 
 A review minden providernél automatikusan megkeresi a **forrásnyelvi SRT-t**
@@ -954,7 +963,7 @@ automatikusan betölt modell-beállításokat. A definiálandó változók neve 
 | `SUBTR_CLAUDE_MODEL` + `_TRANSLATE` / `_REVIEW` / `_GLOSSARY` / `_REGISTER` | ugyanez Claude CLI-hez |
 | `SUBTR_CODEX_MODEL` + `_TRANSLATE` / `_REVIEW` / `_GLOSSARY` / `_REGISTER` | ugyanez Codex CLI-hez |
 | `SUBTR_GROK_MODEL` + `_TRANSLATE` / `_REVIEW` / `_GLOSSARY` / `_REGISTER` | ugyanez Grok CLI-hez (beégetett: translate / glossary / register `grok-4.5`, review `grok-4.6`) |
-| `SUBTR_ANTIGRAVITY_MODEL` + `_TRANSLATE` / `_REVIEW` / `_GLOSSARY` / `_REGISTER` | ugyanez Antigravity CLI-hez (beégetett: mind a négy feladathoz `gemini-3.6-flash-high`) |
+| `SUBTR_ANTIGRAVITY_MODEL` + `_TRANSLATE` / `_REVIEW` / `_GLOSSARY` / `_REGISTER` | ugyanez Antigravity CLI-hez (beégetett: review `gemini-3.1-pro-high`, translate / glossary / register `gemini-3.8-flash-high`) |
 | `SUBTR_DEFAULT_PROVIDER` | fordításnál kötelező helyettesítő (`--provider` nélkül ez dönt), a `subtr.py glossary` default providere (`claude`, felülírható), a `subtr.py register` default providere (`gemini`, felülírható) |
 
 **Feloldási precedencia** (az első nem-üres érték nyer):

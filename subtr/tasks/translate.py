@@ -40,7 +40,7 @@ TEMPERATURE = 0.3
 MAX_RETRIES = 4
 MODEL_BUILTIN = {"gemini": "gemini-3.6-flash", "claude": "sonnet",
                  "codex": None, "grok": "grok-4.5",
-                 "antigravity": "gemini-3.6-flash-high"}
+                 "antigravity": "gemini-3.8-flash-high"}
 
 CLAUDE_SYS_PROMPT_PREFIX = ".translate_sys_prompt_"
 
@@ -675,7 +675,7 @@ def main(argv=None):
                         help="Modell-azonosító. Feloldás: --model > "
                              "SUBTR_<PROVIDER>_MODEL_TRANSLATE > SUBTR_<PROVIDER>_MODEL > "
                              "beégetett (gemini: gemini-3.6-flash, claude: sonnet, grok: grok-4.5, "
-                             "antigravity: gemini-3.6-flash-high)")
+                             "antigravity: gemini-3.8-flash-high)")
     config.add_effort_argument(parser, "translate")
     parser.add_argument("--timeout", type=int, default=None,
                         help="Timeout blokkonként mp-ben (default: 900; a gemini-ágon "

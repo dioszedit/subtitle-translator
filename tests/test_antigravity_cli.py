@@ -239,3 +239,10 @@ def test_parse_denied_tool_gives_clear_error():
                    "denied_actions": [{"action": "command", "display_name": "RunCommand"}]})
     with pytest.raises(AntigravityRunError, match="eszközt próbált használni.*RunCommand"):
         parse_agy_response(raw, SCHEMA)
+
+
+def test_antigravity_default_modellek():
+    """A 2026-10-i mérés alapján: fordítás 3.8 Flash, review 3.1 Pro."""
+    from subtr.tasks import review, translate
+    assert translate.MODEL_BUILTIN["antigravity"] == "gemini-3.8-flash-high"
+    assert review.MODEL_BUILTIN["antigravity"] == "gemini-3.1-pro-high"

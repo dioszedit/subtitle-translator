@@ -173,7 +173,7 @@ py subtr.py translate "blocks\Sorozat - S01E01.eng" --provider claude --agents 3
 # py subtr.py translate "blocks\Sorozat - S01E01.eng" --provider grok --agents 1
 
 # ALTERNATÍVA: fordítás Antigravity CLI-vel — Gemini-modellek ELŐFIZETÉSBŐL
-#    (nincs GEMINI_API_KEY, nincs napi API-kvóta; default: gemini-3.6-flash-high)
+#    (nincs GEMINI_API_KEY, nincs napi API-kvóta; default: gemini-3.8-flash-high)
 # Előfeltétel: telepített és bejelentkezett `agy` parancs. Modellek: agy models
 # py subtr.py translate "blocks\Sorozat - S01E01.eng" --provider antigravity --agents 3
 #   Átmeneti "503 No capacity" hibára az adapter magától vár és újrapróbál.
@@ -222,7 +222,8 @@ py subtr.py review "output\Sorozat - S01E01.hun.srt" --provider claude
 # Kimenet: output\Sorozat - S01E01.hun_REVIEW_GROK.txt + .json
 
 # 5. ALTERNATÍVA/KIEGÉSZÍTÉS: Stilisztikai review Antigravity CLI-vel
-#    (Gemini előfizetésből; default: gemini-3.6-flash-high)
+#    (Gemini előfizetésből; default: gemini-3.1-pro-high — a 2026-10-i mérésen a
+#    legkevesebb téves riasztással; gyorsabb alternatíva: --model gemini-3.8-flash-high)
 # py subtr.py review "output\Sorozat - S01E01.hun.srt" --provider antigravity
 # Kimenet: output\Sorozat - S01E01.hun_REVIEW_ANTIGRAVITY.txt + .json
 
