@@ -300,12 +300,15 @@ def check(project: dict, directory: str, project_dir: str) -> dict:
         else:
             new.append((base_id, e))
 
+    # Ugyanaz az illesztés, mint a promptba szűrésnél (glossary._occurs): az
+    # egyszavas nagybetűs címek kis/nagybetű-érzékenyen.
     patterns = []
     for base_id, e in new:
-        pe = g.term_pattern(g.normalize_for_match(e["en"]).strip(), False)
+        cs = g._case_sensitive_key(e["en"].strip())
+        pe = g.term_pattern(g.normalize_for_match(e["en"], keep_case=cs).strip(), False, cs)
         ph = g.term_pattern(g.normalize_for_match(e["hu"]).strip(), True)
         if pe and ph:
-            patterns.append((base_id, e, pe, ph))
+            patterns.append((base_id, e, pe, ph, cs))
 
     mismatches, compared, skipped = [], [], []
     for src, hun in _translated_pairs(project_dir):
@@ -315,11 +318,13 @@ def check(project: dict, directory: str, project_dir: str) -> dict:
             continue
         compared.append(os.path.basename(hun))
         src_norm = {n: g.normalize_for_match(text) for n, (_, text) in source.items()}
-        whole = "\n".join(src_norm.values())
-        for base_id, e, pe, ph in patterns:
-            if not pe.search(whole):
+        src_case = {n: g.normalize_for_match(text, keep_case=True) for n, (_, text) in source.items()}
+        whole, whole_case = "\n".join(src_norm.values()), "\n".join(src_case.values())
+        for base_id, e, pe, ph, cs in patterns:
+            texts = src_case if cs else src_norm
+            if not pe.search(whole_case if cs else whole):
                 continue
-            for n, text in src_norm.items():
+            for n, text in texts.items():
                 if pe.search(text):
                     hu_text = target[n][1]
                     if not ph.search(g.normalize_for_match(hu_text)):
