@@ -1,7 +1,7 @@
 """Alap-szótárak (glossaries/) kezelése: listázás, sorozatból alapba emelés, ütközés-ellenőrzés.
 
     py subtr.py bases list
-    py subtr.py bases promote "Marquis" "Marchioness" --to zh-historical [--from <sorozat>/glossary.json]
+    py subtr.py bases promote "Grand Tutor" --to zh-historical [--from <sorozat>/glossary.json]
     py subtr.py bases check [--glossary glossary.json]
 
 A `promote` a REPÓ `glossaries/` mappájába írjon: a sorozat-mappákban lévő
@@ -53,7 +53,13 @@ def _read_json(path: str):
 def cmd_list(args) -> int:
     directory = _bases_dir_for(args.glossary)
     index = g.load_index(directory)
-    used = g.base_ids(g.load(args.glossary)) if os.path.isfile(args.glossary) else []
+    used = []
+    if os.path.isfile(args.glossary):
+        data, err = _read_json(args.glossary)
+        if err:
+            print(f"HIBA: {args.glossary}: {err}")
+            return 1
+        used = g.base_ids(data)
     print(f"Alap-szótárak ({directory}):")
     listed = set()
     for base in index:
@@ -132,25 +138,25 @@ def _upsert(base: dict, category: str, entry: dict) -> None:
     base.setdefault(category, []).append(entry)
 
 
-def _removal_blockers(project: dict, base_id: str, directory: str, terms_moved) -> list[str]:
-    """Miért NEM vehető ki a terminus a sorozatból (különben elveszne / megváltozna)."""
+def _removal_blockers(project: dict, base_id: str, directory: str, entry: dict,
+                      copy_ok: bool) -> list[str]:
+    """Miért NEM vehető ki ez a terminus a sorozatból (különben elveszne / megváltozna)."""
     if base_id not in g.base_ids(project):
         return [f"a sorozat nem használja a(z) {base_id} alapot (meta.bases: "
-                f"{', '.join(g.base_ids(project)) or '—'}) — kivéve a terminus eltűnne a promptból"]
-    # Ha egy erősebb (később felsorolt) alap ugyanarra az en-re mást ad, a kivétel
-    # után az érvényesülne.
-    blockers = []
-    later = g.base_ids(project)[g.base_ids(project).index(base_id) + 1:]
-    for other in later:
+                f"{', '.join(g.base_ids(project)) or '—'})"]
+    if not copy_ok:
+        return [f"a sorozat-mappában nincs (olvasható) glossaries/{base_id}.json — a következő "
+                f"kód-szinkronig a terminus eltűnne a promptból"]
+    # Egy erősebb (később felsorolt) alap ugyanarra az en-re mást ad → kivéve az érvényesülne.
+    ids = g.base_ids(project)
+    for other in ids[ids.index(base_id) + 1:]:
         data = g.load_base(other, directory) or {}
-        other_map = {g.match_key(e): e.get("hu", "") for c in g.CATEGORIES
-                     for e in data.get(c, []) or []}
-        for _, entry in terms_moved:
-            hu = other_map.get(g.match_key(entry))
-            if hu is not None and hu.strip().lower() != entry["hu"].strip().lower():
-                blockers.append(f"„{entry['en']}”: a később felsorolt {other} alap „{hu}”-t ad "
-                                f"— kivéve az érvényesülne")
-    return blockers
+        for c in g.CATEGORIES:
+            for e in data.get(c, []) or []:
+                if g.match_key(e) == g.match_key(entry) and \
+                        e.get("hu", "").strip().lower() != entry["hu"].strip().lower():
+                    return [f"a később felsorolt {other} alap „{e.get('hu')}”-t ad — kivéve az érvényesülne"]
+    return []
 
 
 def cmd_promote(args) -> int:
@@ -194,16 +200,19 @@ def cmd_promote(args) -> int:
             os.path.realpath(series_copy) != os.path.realpath(base_path):
         copy_target = series_copy
 
-    keep = args.keep
-    if not keep:
-        blockers = _removal_blockers(project, args.to, series_dir, moved)
-        if blockers:
-            print("A terminus a sorozatban MARAD (nem vehető ki biztonságosan):")
-            for b in blockers:
-                print(f"  - {b}")
-            keep = True
-    if not keep:
-        promote(project, {}, [e["en"] for _, e in moved], keep=False)   # kivétel a sorozatból
+    # Ha a sorozat ugyanabból a mappából olvassa az alapot, amit most írunk, az is „másolat”.
+    same_dir = os.path.realpath(series_dir) == os.path.realpath(directory)
+    copy_ok = same_dir or copy_target is not None and _read_json(copy_target)[0] is not None
+    to_remove = []
+    if not args.keep:
+        for _, entry in moved:
+            blockers = _removal_blockers(project, args.to, series_dir, entry, copy_ok)
+            if blockers:
+                print(f"„{entry['en']}” a sorozatban MARAD: {blockers[0]}")
+            else:
+                to_remove.append(entry["en"])
+    if to_remove:
+        promote(project, {}, to_remove, keep=False)   # kivétel a sorozatból
 
     print(f"Az alapba ({args.to}) kerülne — a repo NYILVÁNOS, a context ne tartalmazzon"
           f" sorozat- vagy szereplőnevet:")
@@ -231,23 +240,23 @@ def cmd_promote(args) -> int:
                 _upsert(copy, category, entry)
             g.write_json_atomic(copy_target, copy)
             print(f"A sorozat alap-másolata is frissítve: {copy_target}")
-    if not keep:
+    if to_remove:
         g.write_json_atomic(args.glossary, project)
-        print(f"Kivéve a sorozatból: {args.glossary} (+ .bak) — mostantól az alapból jön.")
+        print(f"Kivéve a sorozatból: {', '.join(to_remove)} ({args.glossary}, + .bak) — "
+              "mostantól az alapból jön. Figyelem: az alap-bejegyzés szóhatárral illeszt "
+              "(a sorozaté részszóval is), ezért ragozott angol alakra ritkábban kerül a promptba.")
     print("Ne felejtsd: commit a repóban, majd kód-szinkron a sorozat-mappákba.")
     return 1 if errors else 0
 
 
 # ── check ───────────────────────────────────────────────────────────────────
 
-def _source_for(project_dir: str, stem: str) -> str | None:
-    """A kész magyar SRT forrása az input/-ban: <stem>.<nyelvkód>.srt, angol előnyben."""
-    order = ["eng"] + [c for c in config.SOURCE_LANGS if c != "eng"]
-    for code in order:
-        path = os.path.join(project_dir, "input", f"{stem}.{code}.srt")
-        if os.path.isfile(path):
-            return path
-    return None
+def _source_for(hun_path: str) -> str | None:
+    """A kész magyar SRT forrása — ugyanaz a keresés, mint a review-é."""
+    from pathlib import Path
+    from subtr.tasks.review import find_source_srt
+    found = find_source_srt(Path(hun_path), "eng")
+    return str(found) if found else None
 
 
 def _translated_pairs(project_dir: str) -> list[tuple[str, str]]:
@@ -261,7 +270,7 @@ def _translated_pairs(project_dir: str) -> list[tuple[str, str]]:
             if not name.endswith(".hun.srt"):
                 continue
             stem = name[:-len(".hun.srt")]
-            source = _source_for(project_dir, stem)
+            source = _source_for(os.path.join(folder, name))
             if stem not in seen and source:
                 seen.add(stem)
                 pairs.append((source, os.path.join(folder, name)))
@@ -323,7 +332,10 @@ def cmd_check(args) -> int:
     if not os.path.isfile(args.glossary):
         print(f"HIBA: nincs ilyen szójegyzék: {args.glossary}")
         return 1
-    project = g.load(args.glossary)
+    project, err = _read_json(args.glossary)
+    if err:
+        print(f"HIBA: {args.glossary}: {err}")
+        return 1
     if not g.base_ids(project):
         print("A sorozat nem használ alap-szótárt (meta.bases üres).")
         return 0

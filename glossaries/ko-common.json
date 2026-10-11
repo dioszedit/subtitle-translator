@@ -40,7 +40,7 @@
     {
       "en": "sunbae",
       "hu": "sunbae",
-      "context": "felsőbbéves/idősebb kolléga (선배; -nim-mel: sunbaenim); a gyakorlat (alap_szotarak kutatás) szerint a koreai alak marad, kurziválva, ha az angol felirat is meghagyta. Ha az angol „senior”-t ír, az a ko-modern szerint ( Fiatalabb → sunbae irányban jellemzően magáz (egy koreai egyetemi/laborbeli romantikus sorozat glossaryja alapján regisztere szerint), de a sorozat regisztere dönt"
+      "context": "felsőbbéves / idősebb kolléga (선배; -nim-mel: sunbaenim). A koreai alak marad, ha az angol felirat is meghagyta. Ha az angol „senior”-t ír, azt sorozatonként kell eldönteni (iskolában „felsőbbéves”, munkahelyen „kolléga”). Fiatalabb → sunbae irányban jellemzően magáz, de a sorozat regisztere dönt."
     },
     {
       "en": "Mom",
@@ -60,7 +60,7 @@
     {
       "en": "Auntie",
       "hu": "néni",
-      "context": "nem rokon asszony megszólítása gyerek szájából („X néni”) — egy koreai jogi-misztikus sorozat kész fordítása alapján. Rokon nagynénire „nagynéni”; sorozatban felülírható"
+      "context": "nem rokon idősebb asszony megszólítása gyerek szájából: „X néni”. Rokon nagynénire „nagynéni”; sorozatban felülírható. Egy koreai sorozat kész fordítása alapján."
     },
     {
       "en": "Mister",
@@ -80,7 +80,7 @@
     {
       "en": "Mr.",
       "hu": "úr",
-      "context": "név után: „Mr. Kim” = „Kim úr”, „Mr. X” = „X úr”; titulussal: „Mr. Attorney” = „ügyvéd úr” — egy koreai jogi-misztikus sorozat glossaryja alapján és egy koreai egyetemi/laborbeli romantikus sorozat glossaryja alapján. Magázás felé mutat"
+      "context": "név után: „Mr. X” = „X úr”; titulussal: „Mr. Attorney” = „ügyvéd úr”. Magázás felé mutat. Két koreai sorozat glossaryja alapján."
     },
     {
       "en": "Ms.",
@@ -90,12 +90,7 @@
     {
       "en": "Madam",
       "hu": "asszony",
-      "context": "név előtt: „Madam X” = „X asszony” — egy koreai jogi-misztikus sorozat kész fordítása alapján"
-    },
-    {
-      "en": "Honey",
-      "hu": "drágám",
-      "context": "házastársak/párok egymás közt — egy koreai jogi-misztikus sorozat glossaryja alapján és egy koreai egyetemi/laborbeli romantikus sorozat glossaryja alapján"
+      "context": "név előtt: „Madam X” = „X asszony”. Egy koreai sorozat kész fordítása alapján."
     },
     {
       "en": "young man",

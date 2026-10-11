@@ -12,6 +12,7 @@ Az összefésült dict bejegyzései belső `_source` mezőt kapnak („project�
 „base:<id>”); a sorozat fájljába soha nem írunk vissza alap-bejegyzést.
 """
 
+import functools
 import json
 import os
 import re
@@ -46,11 +47,17 @@ _MATCH_SUBSTITUTIONS = (
 )
 
 
-def normalize_for_match(text: str) -> str:
-    """Kisbetűs, ASCII-írásjelű, egy-szóközös alak az előfordulás-kereséshez."""
-    text = text.lower()
+def normalize_for_match(text: str, keep_case: bool = False) -> str:
+    """Kisbetűs (keep_case: kis/nagybetű marad), ASCII-írásjelű, egy-szóközös alak.
+
+    A „ | ” sorelválasztó (a forrás-SRT sorai így vannak összefűzve) szóközzé
+    válik, hogy a sortörésen átnyúló terminus is megtalálható legyen.
+    """
+    if not keep_case:
+        text = text.lower()
     for fancy, plain in _MATCH_SUBSTITUTIONS:
         text = text.replace(fancy, plain)
+    text = text.replace(" | ", " ")
     return re.sub(r"\s+", " ", text)
 
 
@@ -61,40 +68,61 @@ _LONG_VOWEL_IN_LAST_SYLLABLE = re.compile(r"([áéíóőúű])[^aáeéiíoóöő
 _WORD_CHAR = re.compile(r"[0-9a-z\u00c0-\u024f]")
 
 
-def term_pattern(term: str, suffixes: bool) -> re.Pattern | None:
+@functools.lru_cache(maxsize=4096)
+def term_pattern(term: str, suffixes: bool, case_sensitive: bool = False) -> re.Pattern | None:
     """Szóhatáros keresőminta egy (normalizált) terminushoz.
 
     Részszóra nem illeszt („Mom” ≠ „moment”, „unni” ≠ „running”). Latin betűs
     szélen szóhatárt kérünk; CJK-írásnál nincs szóköz, ott nincs határ-feltétel.
     `suffixes`: a végére toldalék is jöhet — a magyar alak ragozva szerepel a
-    szövegben („márkival”), az angolnál a többes szám/birtokos („Marquises”,
-    „Elder's”) számít.
+    szövegben, ezért a magyar ragozás három jelenségét is elfogadja:
+      tőhangzó-nyúlás (apa → apám), magánhangzó-rövidülés (madár → madarat;
+      csak 4+ betűs szónál, különben a „vén” a „vendég”-re is illene), kettőzött
+      kétjegyű mássalhangzó (kisasszony → kisasszonnyal, ügyész → ügyésszel).
+    Az angolnál a többes szám/birtokos („Marquises”, „Elder's”) számít.
+    `case_sensitive`: a szöveg kis/nagybetűs alakjában keres (a hívó dönti el).
     """
     if not term:
         return None
-    head = r"(?<![0-9a-z\u00c0-\u024f])" if _WORD_CHAR.match(term[0]) else ""
-    if suffixes or not _WORD_CHAR.match(term[-1]):
+    word = r"0-9a-zA-Z\u00c0-\u024f"
+    head = rf"(?<![{word}])" if _WORD_CHAR.match(term[0].lower()) else ""
+    if suffixes or not _WORD_CHAR.match(term[-1].lower()):
         tail = ""
     else:
-        tail = r"(?:'s|s|es)?(?![0-9a-z\u00c0-\u024f])"
+        tail = rf"(?:'s|s|es)?(?![{word}])"
     body = re.escape(term)
-    if suffixes and term[-1] in "ae":
-        # Magyar tőhangzó-nyúlás ragozáskor: apa → apám, mese → mesét.
-        body = re.escape(term[:-1]) + ("[aá]" if term[-1] == "a" else "[eé]")
-    elif suffixes and _LONG_VOWEL_IN_LAST_SYLLABLE.search(term):
-        # Tőbeli magánhangzó-rövidülés ragozáskor: úr → urat, kéz → kezet, madár → madarat.
-        m = _LONG_VOWEL_IN_LAST_SYLLABLE.search(term)
-        long_v = m.group(1)
-        body = (re.escape(term[:m.start(1)]) + f"[{long_v}{_SHORTEN[long_v]}]"
-                + re.escape(term[m.end(1):]))
-    elif suffixes and term[-2:] in _DIGRAPHS:
-        # Kettőzött kétjegyű mássalhangzó a -val/-vé előtt: kisasszony → kisasszonnyal.
-        d = term[-2:]
-        body = re.escape(term[:-2]) + f"(?:{d}|{d[0]}{d})"
+    if suffixes:
+        stem, ending = term, ""
+        if term[-1] in "ae":
+            stem, ending = term[:-1], "[aá]" if term[-1] == "a" else "[eé]"
+        elif term[-2:] in _DIGRAPHS:
+            d = term[-2:]
+            stem, ending = term[:-2], f"(?:{d}|{d[0]}{d})"
+        m = _LONG_VOWEL_IN_LAST_SYLLABLE.search(term) if len(term) >= 4 else None
+        if m and m.start(1) < len(stem):
+            v = m.group(1)
+            body = (re.escape(stem[:m.start(1)]) + f"[{v}{_SHORTEN[v]}]"
+                    + re.escape(stem[m.end(1):]) + ending)
+        else:
+            body = re.escape(stem) + ending
     return re.compile(head + body + tail)
 
 
-def _occurs(entry: dict, haystack: str) -> bool:
+def _case_sensitive_key(en: str) -> bool:
+    """Kis/nagybetű-érzékeny-e az alap-kulcs keresése.
+
+    Egyszavas nagybetűs cím (Miss, General, Director): a köznévi/igei alak
+    („miss”, „in general”) ne hozza be. Kisbetűs kezdetű, de nagybetűt
+    tartalmazó kulcs (the Way): a „by the way” ne hozza be. A többszavas
+    nagybetűs kulcs (Sect Leader) viszont a feliratban kisbetűvel is áll
+    („the sect leader”), az marad érzéketlen.
+    """
+    if " " not in en:
+        return en[:1].isupper()
+    return en[:1].islower() and en != en.lower()
+
+
+def _occurs(entry: dict, haystack: str, haystack_cs: str = "") -> bool:
     """Előfordul-e a bejegyzés (`en` vagy `hu` alakja) a normalizált szövegben.
 
     A sorozat SAJÁT bejegyzéseinél részszó is számít (mint eddig): a forrásbeli
@@ -105,11 +133,20 @@ def _occurs(entry: dict, haystack: str) -> bool:
     """
     strict = _is_base(entry)
     for key, suffixes in (("en", False), ("hu", True)):
-        form = normalize_for_match(str(entry.get(key) or "")).strip()
+        raw = str(entry.get(key) or "")
+        form = normalize_for_match(raw).strip()
         if not form:
             continue
         if not strict:
             if form in haystack:
+                return True
+            continue
+        # Alapnál a nagybetűs angol kulcs (Miss, General, the Way) kis/nagybetű-
+        # érzékenyen illeszt: így az „I miss you”, „in general”, „by the way”
+        # nem hozza be a megszólítást / fogalmat.
+        if key == "en" and _case_sensitive_key(raw.strip()):
+            pattern = term_pattern(normalize_for_match(raw, keep_case=True).strip(), False, True)
+            if pattern and pattern.search(haystack_cs):
                 return True
             continue
         pattern = term_pattern(form, suffixes)
@@ -130,9 +167,11 @@ def filter_for_source(glossary: dict, *texts: str) -> dict:
     Üres/hiányzó szöveg esetén a teljes szójegyzéket adja vissza: a szűrés
     csak akkor szűkíthet, ha tényleg van mihez mérni.
     """
-    haystack = normalize_for_match("\n".join(t for t in texts if t))
+    joined = "\n".join(t for t in texts if t)
+    haystack = normalize_for_match(joined)
     if not haystack.strip():
         return glossary
+    haystack_cs = normalize_for_match(joined, keep_case=True)
 
     filtered = dict(glossary)
     for category in CATEGORIES:
@@ -143,7 +182,7 @@ def filter_for_source(glossary: dict, *texts: str) -> dict:
             if category not in FILTERABLE_CATEGORIES and not _is_base(entry):
                 kept.append(entry)       # a sorozat saját azonosítója: mindig
                 continue
-            if _occurs(entry, haystack):
+            if _occurs(entry, haystack, haystack_cs):
                 kept.append(entry)
         filtered[category] = kept
     return filtered
@@ -336,7 +375,7 @@ def load(path: str | None = None) -> dict:
         path = GLOSSARY_PATH
     if not os.path.isfile(path):
         return {cat: [] for cat in CATEGORIES}
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, "r", encoding="utf-8-sig") as f:
         content = f.read()
     if not content.strip():
         return {cat: [] for cat in CATEGORIES}

@@ -34,7 +34,14 @@ def repo(tmp_path):
     return tmp_path
 
 
+def _series_copy(repo):
+    (repo / "Sorozat" / "glossaries").mkdir(exist_ok=True)
+    _write(repo / "Sorozat" / "glossaries" / "zh-historical.json",
+           {"honorifics": [{"en": "Marquis", "hu": "márki"}]})
+
+
 def test_promote_athelyez_es_context_cserelheto(repo, monkeypatch):
+    _series_copy(repo)
     monkeypatch.chdir(repo)
     with pytest.raises(SystemExit) as e:
         bases.main(["promote", "Duke", "--to", "zh-historical", "--from", "Sorozat/glossary.json",
@@ -56,6 +63,7 @@ def test_promote_meglevot_nem_ir_felul_replace_nelkul(repo, monkeypatch, capsys)
 
 
 def test_promote_keep_es_dry_run(repo, monkeypatch):
+    _series_copy(repo)
     monkeypatch.chdir(repo)
     before = (repo / "glossaries" / "zh-historical.json").read_text(encoding="utf-8")
     with pytest.raises(SystemExit):
@@ -137,3 +145,32 @@ def test_list_hibas_alapfajlt_jelez(repo, monkeypatch, capsys):
     with pytest.raises(SystemExit):
         bases.main(["list"])
     assert "HIBÁS FÁJL" in capsys.readouterr().out
+
+
+def test_promote_masolat_nelkul_a_sorozatban_marad(repo, monkeypatch, capsys):
+    monkeypatch.chdir(repo)
+    with pytest.raises(SystemExit) as e:
+        bases.main(["promote", "Duke", "--to", "zh-historical", "--from", "Sorozat/glossary.json", "--yes"])
+    assert e.value.code == 0
+    assert "nincs (olvasható) glossaries/zh-historical.json" in capsys.readouterr().out
+    series = json.loads((repo / "Sorozat" / "glossary.json").read_text(encoding="utf-8"))
+    assert "Duke" in [x["en"] for x in series["honorifics"]]
+    base = json.loads((repo / "glossaries" / "zh-historical.json").read_text(encoding="utf-8"))
+    assert "Duke" in [x["en"] for x in base["honorifics"]]      # az alapba bekerült
+
+
+def test_promote_terminusonkent_dont(repo, monkeypatch, capsys):
+    _series_copy(repo)
+    _write(repo / "glossaries" / "zh-later.json", {"honorifics": [{"en": "Duke", "hu": "fejedelem"}]})
+    _write(repo / "Sorozat" / "glossaries" / "zh-later.json", {"honorifics": [{"en": "Duke", "hu": "fejedelem"}]})
+    g = json.loads((repo / "Sorozat" / "glossary.json").read_text(encoding="utf-8"))
+    g["meta"]["bases"] = ["zh-historical", "zh-later"]
+    g["honorifics"].append({"en": "Count", "hu": "gróf"})
+    _write(repo / "Sorozat" / "glossary.json", g)
+    monkeypatch.chdir(repo)
+    with pytest.raises(SystemExit):
+        bases.main(["promote", "Duke", "Count", "--to", "zh-historical", "--from", "Sorozat/glossary.json", "--yes"])
+    out = capsys.readouterr().out
+    assert "„Duke” a sorozatban MARAD" in out and "Kivéve a sorozatból: Count" in out
+    series = json.loads((repo / "Sorozat" / "glossary.json").read_text(encoding="utf-8"))
+    assert [x["en"] for x in series["honorifics"]] == ["Duke", "Marquis"]

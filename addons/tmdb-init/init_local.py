@@ -63,11 +63,15 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 # Az add-on önállóan is futtatható, ezért van fallback.
 try:
     sys.path.insert(0, str(REPO_ROOT))
-    from subtr.glossary import BASE_ID_RE, CATEGORIES, load_index, suggest_bases  # noqa: E402
+    from subtr.config import GLOSSARIES_DIR  # noqa: E402
+    from subtr.glossary import (  # noqa: E402
+        BASE_ID_RE, CATEGORIES, load_index, suggest_bases, write_json_atomic)
 except ImportError:  # pragma: no cover
     CATEGORIES = ["honorifics", "place_names", "character_names",
                   "special_terms", "phrases"]
     BASE_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+    GLOSSARIES_DIR = "glossaries"
+    write_json_atomic = None
 
     def load_index(directory=None):
         return []
@@ -75,8 +79,6 @@ except ImportError:  # pragma: no cover
     def suggest_bases(index, countries, genres, keywords):
         return []
 
-# Az alap-szótárak mappája a szójegyzék mellett (CWD-relatív, mint a többi kimenet).
-GLOSSARIES_DIR = "glossaries"
 
 # A szinopszis végén álló forrás-/adaptációs lábjegyzetek — a fordítási
 # kontextushoz nem adnak semmit, viszont zajt visznek a promptba.
@@ -242,10 +244,12 @@ def update_glossary(entries: list[dict], path: Path, series: str = "",
 
     if not added and bases_written is None:
         return [], None
-    if path.exists():
-        shutil.copy2(path, path.with_suffix(path.suffix + ".bak"))
-    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n",
-                    encoding="utf-8")
+    if write_json_atomic is not None:
+        write_json_atomic(str(path), data)
+    else:  # pragma: no cover — önálló futás a subtr csomag nélkül
+        if path.exists():
+            shutil.copy2(path, path.with_suffix(path.suffix + ".bak"))
+        path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return added, bases_written
 
 
@@ -412,7 +416,10 @@ def main():
     if args.base:
         if args.no_base:
             parser.error("--base és --no-base kizárja egymást")
-        explicit_bases = [b.strip() for arg in args.base for b in arg.split(",") if b.strip()]
+        explicit_bases = list(dict.fromkeys(      # duplikátum nélkül, sorrendtartóan
+            b.strip() for arg in args.base for b in arg.split(",") if b.strip()))
+        if not explicit_bases:
+            parser.error("üres --base — a meta.bases törléséhez szerkeszd kézzel a glossary.json-t")
         bad = [b for b in explicit_bases if not BASE_ID_RE.match(b)]
         if bad:
             parser.error(f"érvénytelen alap-azonosító: {', '.join(bad)}")

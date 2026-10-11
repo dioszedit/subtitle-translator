@@ -10,17 +10,17 @@
     {
       "en": "Team Leader",
       "hu": "csoportvezető",
-      "context": "팀장; névvel: „Team Leader X” = „X csoportvezető”, megszólításban „csoportvezető úr/asszony”. NE „csapatvezető” — egy koreai egyetemi/laborbeli romantikus sorozat glossaryja alapján. Felfelé magáz"
+      "context": "팀장; névvel: „Team Leader X” = „X csoportvezető”, megszólításban „csoportvezető úr/asszony”. NE „csapatvezető”. Felfelé magáz. Egy koreai sorozat glossaryja alapján."
     },
     {
       "en": "Director",
       "hu": "igazgató",
-      "context": "이사; „Chief” → „igazgató” (egy koreai jogi-misztikus sorozat glossaryja alapján), „creative director” → „kreatív igazgató”, „lab director” → „laboratóriumi igazgató” (egy koreai jogi-misztikus sorozat kész fordítása alapján, egy koreai egyetemi romantikus sorozat kész fordítása alapján). FILMES kontextusban „rendező”!"
+      "context": "이사 — céges igazgató; „creative director” = „kreatív igazgató”, „lab director” = „laboratóriumi igazgató”. FILMES kontextusban „rendező” (sorozatban felülírandó). Két koreai sorozat kész fordítása alapján."
     },
     {
       "en": "CEO",
       "hu": "vezérigazgató",
-      "context": "névvel „X vezérigazgató”; egységesen, NE „cégvezető” — egy koreai jogi-misztikus sorozat glossaryja alapján"
+      "context": "névvel „X vezérigazgató”; egységesen, NE „cégvezető”. Egy koreai sorozat glossaryja alapján."
     },
     {
       "en": "Chairman",
@@ -30,17 +30,17 @@
     {
       "en": "Professor",
       "hu": "professzor",
-      "context": "névvel „X professzor”; megszólításban „professzor úr” / „professzor asszony” — egy koreai egyetemi/laborbeli romantikus sorozat glossaryja alapján. Hallgató → professzor: magáz"
+      "context": "névvel „X professzor”; megszólításban „professzor úr” / „professzor asszony”. Hallgató → professzor: magáz. Egy koreai sorozat glossaryja alapján."
     },
     {
       "en": "Attorney",
       "hu": "ügyvéd",
-      "context": "a név ELŐRE kerül: „Attorney X” = „X ügyvéd”; megszólításban „ügyvéd úr” / „ügyvéd asszony”; nőre is „ügyvéd”, NE „ügyvédnő” — egy koreai jogi-misztikus sorozat glossaryja alapján"
+      "context": "a név ELŐRE kerül: „Attorney X” = „X ügyvéd”; megszólításban „ügyvéd úr” / „ügyvéd asszony”; nőre is „ügyvéd”, NE „ügyvédnő”. Egy koreai sorozat glossaryja alapján."
     },
     {
       "en": "Prosecutor",
       "hu": "ügyész",
-      "context": "„Prosecutor Kim” = „Kim ügyész” — egy koreai jogi-misztikus sorozat glossaryja alapján"
+      "context": "„Prosecutor X” = „X ügyész”. Egy koreai sorozat glossaryja alapján."
     },
     {
       "en": "Chief Prosecutor",
@@ -50,17 +50,12 @@
     {
       "en": "Detective",
       "hu": "nyomozó",
-      "context": "„Detective X” = „X nyomozó”, megszólításban „nyomozó úr” — egy koreai jogi-misztikus sorozat glossaryja alapján"
+      "context": "„Detective X” = „X nyomozó”, megszólításban „nyomozó úr”. Egy koreai sorozat glossaryja alapján."
     },
     {
       "en": "Lieutenant",
       "hu": "hadnagy",
       "context": "rendőrségi rang; megszólításban „hadnagy úr” — egy koreai jogi-misztikus sorozat kész fordítása alapján"
-    },
-    {
-      "en": "Officer",
-      "hu": "rendőr",
-      "context": "megszólításként „rendőr úr”; beszélőcímkében [rendőr] — két koreai sorozat alapján"
     },
     {
       "en": "Your Honor",
@@ -75,12 +70,12 @@
     {
       "en": "Nurse",
       "hu": "nővér",
-      "context": "névvel/megszólításban „X nővér”; köznévként „ápoló(nő)” — egy koreai jogi-misztikus sorozat kész fordítása alapján"
+      "context": "névvel/megszólításban „X nővér”; köznévként „ápoló(nő)”. Egy koreai sorozat kész fordítása alapján."
     },
     {
       "en": "Manager",
       "hu": "menedzser",
-      "context": "irodai 과장; névvel „Kim menedzser”. Bolt/étterem vezetőjére „üzletvezető”, sportoló/idol menedzserére „menedzser”. Döntés (2026-10): a koreai céges/jogi terminológia egységesítésére."
+      "context": "irodai 과장; névvel „X menedzser”. Bolt/étterem vezetőjére „üzletvezető”, sportoló/idol menedzserére „menedzser”. Döntés (2026-10): a koreai céges ranglétra egységesítésére."
     },
     {
       "en": "Assistant Manager",
@@ -124,7 +119,7 @@
     {
       "en": "board of directors",
       "hu": "igazgatótanács",
-      "context": "Döntés (2026-10): egységes „…ügyi Minisztérium” névforma."
+      "context": "a cég igazgatótanácsa (이사회). Döntés (2026-10): a koreai céges terminológia egységesítésére."
     },
     {
       "en": "chaebol",
@@ -177,11 +172,6 @@
       "context": "egy koreai jogi-misztikus sorozat glossaryja alapján"
     },
     {
-      "en": "detention",
-      "hu": "előzetes letartóztatás",
-      "context": "egy koreai jogi-misztikus sorozat glossaryja alapján"
-    },
-    {
       "en": "lawsuit",
       "hu": "per",
       "context": "„lawsuit for damages” = „kártérítési per” — egy koreai jogi-misztikus sorozat kész fordítása alapján"
@@ -209,7 +199,7 @@
     {
       "en": "police station",
       "hu": "rendőrőrs",
-      "context": "névvel „X Rendőrőrs”; „vigyétek a rendőrségre” fordulatban „rendőrség” — egy koreai jogi-misztikus sorozat kész fordítása alapján"
+      "context": "„X Rendőrőrs”; „vigyétek a rendőrségre” fordulatban „rendőrség”. Egy koreai sorozat kész fordítása alapján."
     },
     {
       "en": "forensic",

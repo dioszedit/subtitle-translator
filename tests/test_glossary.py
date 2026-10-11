@@ -272,8 +272,15 @@ def test_hianyzo_index_ures_lista(tmp_path):
     ({"en": "Grandfather", "hu": "nagyapa"}, "a nagyapám azt mondta", True),        # a → á ragozáskor
     ({"en": "Grandfather", "hu": "nagyapa"}, "a nagyapó jött", False),
     ({"en": "Miss", "hu": "kisasszony"}, "maradj Chen kisasszonnyal", True),   # ny → nny
-    ({"en": "Mr.", "hu": "úr"}, "Liang urat tisztelem", True),                   # ú → u
-    ({"en": "Mr.", "hu": "úr"}, "ez egy uradalom", True),                        # (elfogadott álpozitív)
+    ({"en": "bird", "hu": "madár"}, "látta a madarat", True),                     # á → a (4+ betű)
+    ({"en": "Elder", "hu": "vén"}, "megjött a vendég", False),                    # rövid szónál nincs rövidülés
+    ({"en": "disciple", "hu": "tanítvány"}, "a tanítvánnyal", True),              # á és ny együtt
+    ({"en": "Prosecutor", "hu": "ügyész"}, "beszélt az ügyésszel", True),
+    ({"en": "Miss", "hu": "kisasszony"}, "I miss you so much", False),            # egyszavas cím: case
+    ({"en": "Miss", "hu": "kisasszony"}, "Miss Liu, wait!", True),
+    ({"en": "the Way", "hu": "az Út"}, "By the way, he left.", False),
+    ({"en": "the Way", "hu": "az Út"}, "He seeks the Way.", True),
+    ({"en": "law firm", "hu": "ügyvédi iroda"}, "Go to the law | firm now.", True),  # sortörés
 ])
 def test_szohataros_elofordulas(entry, text, expected):
     """Az alap-bejegyzések szóhatárral illesztenek."""

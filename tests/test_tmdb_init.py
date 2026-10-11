@@ -686,3 +686,17 @@ def test_base_azonos_a_meglevovel_pontos_uzenet(tmp_path, monkeypatch, capsys):
     _run(monkeypatch, tmp_path, gloss, "--glossary-only", "--base", "zh-common")
     out = capsys.readouterr().out
     assert "nem változott" in out and "felülírás: --base" not in out
+
+
+def test_ures_base_hiba(tmp_path, monkeypatch):
+    gloss = _bases_setup(tmp_path, "zh-common")
+    gloss.write_text(json.dumps({"meta": {"bases": ["zh-common"]}}), encoding="utf-8")
+    with pytest.raises(SystemExit):
+        _run(monkeypatch, tmp_path, gloss, "--glossary-only", "--base", "")
+    assert json.loads(gloss.read_text(encoding="utf-8"))["meta"]["bases"] == ["zh-common"]
+
+
+def test_duplikalt_base_egyszer_irodik(tmp_path, monkeypatch):
+    gloss = _bases_setup(tmp_path, "zh-common")
+    data = _run(monkeypatch, tmp_path, gloss, "--base", "zh-common", "--base", "zh-common")
+    assert data["meta"]["bases"] == ["zh-common"]

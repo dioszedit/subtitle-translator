@@ -871,7 +871,7 @@ A `subtr.py bases` parancs kezeli őket:
 python subtr.py bases list                                  # alapok + a sorozat választása
 python subtr.py bases check                                 # alap ↔ sorozat ↔ kész fordítások ütközései
 # terminus a sorozatból az alapba — a REPO gyökeréből, hogy a repo glossaries/-ába írjon:
-python subtr.py bases promote "Marquis" --to zh-historical --from "..\Sorozat\glossary.json" --context "侯; név + márki"
+python subtr.py bases promote "Grand Tutor" --to zh-historical --from "..\Sorozat\glossary.json" --context "太傅; a trónörökös nevelője"
 ```
 
 A `check` a már lefordított részeket is összeveti a forrással: ha egy futó

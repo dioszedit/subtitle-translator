@@ -132,9 +132,11 @@ def find_source_srt(hun_path: Path, src_lang: str = None):
         c for c in config.SOURCE_LANGS if c != src_lang]
     for code in ordered:
         src_name = hun_path.name.replace(".hun.", f".{code}.")
-        for cand in (Path("input") / src_name,
+        # A sorozat-mappa saját input/-ja előbb, mint a munkakönyvtáré: így a
+        # repo gyökeréből egy másik mappa fájljára futtatva sem téved el.
+        for cand in (hun_path.parent.parent / "input" / src_name,
                      hun_path.parent / src_name,
-                     hun_path.parent.parent / "input" / src_name):
+                     Path("input") / src_name):
             if cand.is_file():
                 return cand
     return None

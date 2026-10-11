@@ -228,11 +228,8 @@ def read_blocks_text(block_files) -> str:
     return "\n".join(parts)
 
 
-def describe_glossary_saving(merged: dict, source_text: str) -> str:
+def describe_glossary_saving(merged: dict, kept: dict) -> str:
     """Státuszsor a szűrés hatásáról, a sorozat és az alapok külön — üres, ha nem szűkült."""
-    if not source_text:
-        return ""
-    kept = filter_for_source(merged, source_text)
     parts = []
     for label, source in (("sorozat", "project"), ("alap", "base")):
         total = count_entries(merged, source)
@@ -806,8 +803,9 @@ def main(argv=None):
     # prompt fájlja is stabil marad (különben minden folytatás cache-miss).
     episode_text = read_blocks_text(all_blocks)
     merged_glossary = load_merged()
-    glossary = as_prompt_text(merged_glossary, source_text=episode_text)
-    glossary_saving = describe_glossary_saving(merged_glossary, episode_text)
+    kept_glossary = filter_for_source(merged_glossary, episode_text)
+    glossary = as_prompt_text(kept_glossary)
+    glossary_saving = describe_glossary_saving(merged_glossary, kept_glossary)
 
     extra_status = []
     if provider == "gemini":
