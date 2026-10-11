@@ -45,6 +45,13 @@ műfaji utána. Új alapfájl felvételekor az indexbe is be kell írni.
 
 - Csak **sorozatfüggetlen**, több sorozaton bevált terminus: udvari rangok,
   hivatalok, megszólítások, művelési szintek, irodai beosztások.
+- A `character_names` kategóriába **csak mitológiai és vallási alak** kerülhet
+  (Jade Emperor, Buddha, Guanyin — lásd `zh-myth`), szereplőnév soha; ahol
+  nincs ilyen, a kulcs el is hagyható.
+- Hétköznapi jelentésben is gyakori angol szó ne kerüljön be (won, trial,
+  stage, Director…): a promptba szűrés szóhatárral és — egyszavas nagybetűs
+  címnél — kis/nagybetű-érzékenyen illeszt, de a köznévi jelentést nem tudja
+  kiszűrni. Új bejegyzés előtt futtass `bases check`-et a kész részeken.
 - Sorozatnév, szereplőnév, jogvédett szöveg **nem** — a repo nyilvános.
 - A `context` általános: mire vonatkozik, és ha van, a forrás
   („hu.wikipedia: Kínai császár”), illetve hogy sorozatban felülírható.

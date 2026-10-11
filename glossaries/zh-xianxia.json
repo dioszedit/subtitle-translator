@@ -143,11 +143,6 @@
       "context": "démonok uralkodója (妖王/魔王). Forrás: Csongor: Nyugati utazás"
     },
     {
-      "en": "Dragon King",
-      "hu": "Sárkánykirály",
-      "context": "tengeri sárkányuralkodó (龙王). Forrás: Csongor: Nyugati utazás (kisbetűvel „sárkánykirály”); egy xianxia sorozat glossaryja alapján (címként nagybetűvel)"
-    },
-    {
       "en": "Saint",
       "hu": "szent",
       "context": "a legfelső kozmikus rang (圣人); „Quasi-Saint” = „kvázi-szent”. Forrás: egy xianxia sorozat glossaryja alapján; Csongor: Nyugati utazás („Nagy Szent”)"
@@ -164,7 +159,6 @@
     }
   ],
   "place_names": [],
-  "character_names": [],
   "special_terms": [
     {
       "en": "cultivation",
@@ -562,11 +556,6 @@
       "context": "神. Forrás: egy xianxia sorozat glossaryja alapján"
     },
     {
-      "en": "Earth Deity",
-      "hu": "földisten",
-      "context": "土地: helyi alacsony rangú istenség. Forrás: Csongor: Nyugati utazás; egy xianxia sorozat glossaryja alapján"
-    },
-    {
       "en": "celestial soldiers",
       "hu": "mennyei katonák",
       "context": "天兵. Csongor: Nyugati utazás („mennyei katonaság”); a forrás-sorozat „égi katonák”-at használt"
@@ -597,21 +586,6 @@
       "context": "九天. egy xianxia sorozat glossaryja alapján („Ninth Heaven” = „Kilencedik Ég”)"
     },
     {
-      "en": "underworld",
-      "hu": "alvilág",
-      "context": "地府/阴间. Forrás: Csongor: Nyugati utazás; egy xianxia sorozat glossaryja alapján"
-    },
-    {
-      "en": "Jade Emperor",
-      "hu": "Jáde Császár",
-      "context": "玉帝: a Mennyei Udvar uralkodója. Forrás: Csongor: Nyugati utazás"
-    },
-    {
-      "en": "Three Pure Ones",
-      "hu": "a Három Tiszta",
-      "context": "三清: a daoizmus három legfőbb istensége. Forrás: egy xianxia sorozat glossaryja alapján"
-    },
-    {
       "en": "Dragon Palace",
       "hu": "Sárkánypalota",
       "context": "龙宫: a sárkánykirály tenger alatti palotája. Forrás: egy xianxia sorozat glossaryja alapján"
@@ -630,6 +604,11 @@
       "en": "the Way",
       "hu": "az Út",
       "context": "道, ha az angol felirat „Way”-nek fordítja; „seek the Way” = „az Utat keresni”. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "underworld",
+      "hu": "alvilág",
+      "context": "阴间/地府, a holtak birodalma (mitológiai értelemben; modern drámában a bűnözői „alvilág” vagy a „túlvilág” is lehet — sorozatban felülírható). Forrás: Csongor: Nyugati utazás; egy xianxia sorozat glossaryja."
     }
   ],
   "phrases": [

@@ -1,0 +1,91 @@
+{
+  "meta": {
+    "id": "zh-myth",
+    "title": "Kínai mitológia és vallás: istenek, halhatatlanok, buddhista alakok",
+    "lang": "zh",
+    "description": "Sorozatfüggetlen mitológiai és vallási alakok, ahogy kínai drámákban (kosztümös, xianxia, modern) visszatérnek. A személynevek a felirat latin alakjában maradnak; a contextben a magyar fordítói hagyomány (Csongor Barnabás) alakja.",
+    "version": "1.0"
+  },
+  "honorifics": [],
+  "place_names": [],
+  "character_names": [
+    {
+      "en": "Jade Emperor",
+      "hu": "Jáde Császár",
+      "context": "玉皇大帝, a Mennyei Udvar ura. Forrás: Csongor: Nyugati utazás (≈90×)."
+    },
+    {
+      "en": "Queen Mother of the West",
+      "hu": "Nyugati Királyi Anya",
+      "context": "西王母. Forrás: Csongor: Nyugati utazás."
+    },
+    {
+      "en": "Monkey King",
+      "hu": "Majomkirály",
+      "context": "美猴王 / Sun Wukong. Forrás: Csongor: Nyugati utazás (≈450×). A „Sun Wukong” név pinyinben marad (Csongornál „Szun Vu-kung”)."
+    },
+    {
+      "en": "Buddha",
+      "hu": "Buddha",
+      "context": "佛. Forrás: Csongor: Nyugati utazás."
+    },
+    {
+      "en": "Tathagata",
+      "hu": "Tathágata",
+      "context": "如来, Buddha jelzője. Forrás: Csongor: Nyugati utazás."
+    },
+    {
+      "en": "Guanyin",
+      "hu": "Guanyin",
+      "context": "观音, az irgalom bodhiszattvája; a név pinyinben marad (Csongornál „Kuan-jin”). Forrás: Csongor: Nyugati utazás."
+    },
+    {
+      "en": "Laozi",
+      "hu": "Lao-ce",
+      "context": "老子 — bevett magyar alak (mint Konfuciusz). Forrás: Csongor: Nyugati utazás."
+    },
+    {
+      "en": "Lao Tzu",
+      "hu": "Lao-ce",
+      "context": "老子 régi angol átírása. Forrás: Csongor: Nyugati utazás."
+    },
+    {
+      "en": "Three Pure Ones",
+      "hu": "a Három Tisztaságos",
+      "context": "三清, a taoizmus három legfőbb istensége. Forrás: Csongor: Nyugati utazás."
+    },
+    {
+      "en": "Dragon King",
+      "hu": "Sárkánykirály",
+      "context": "龙王, a tengerek ura; tengerrel: „Dragon King of the East Sea” = „a Keleti-tenger Sárkánykirálya”. Forrás: Csongor: Nyugati utazás; egy xianxia sorozat glossaryja."
+    },
+    {
+      "en": "Earth Deity",
+      "hu": "Földisten",
+      "context": "土地公, helyi alacsony rangú istenség (Csongornál becézve „földistenke”). Forrás: Csongor: Nyugati utazás; egy xianxia sorozat glossaryja."
+    },
+    {
+      "en": "King of Hell",
+      "hu": "Pokolkirály",
+      "context": "阎王 (Yama), a túlvilág bírája. Forrás: Csongor: Vízparti történet (≈30×)."
+    },
+    {
+      "en": "Moon Elder",
+      "hu": "Holdvén",
+      "context": "月老 (Yue Lao), a házasságok istene, aki vörös fonallal köti össze a párokat; az Elder = vén döntéshez igazítva. Egy xianxia sorozat glossaryja alapján."
+    },
+    {
+      "en": "God of Wealth",
+      "hu": "Gazdagság Istene",
+      "context": "财神. Egy xianxia sorozat glossaryja alapján."
+    }
+  ],
+  "special_terms": [
+    {
+      "en": "bodhisattva",
+      "hu": "bodhiszattva",
+      "context": "菩萨. Forrás: Csongor: Nyugati utazás (≈250×)."
+    }
+  ],
+  "phrases": []
+}

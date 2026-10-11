@@ -1,26 +1,116 @@
 {
   "description": "Az alap-szótárak listája és a tmdb-init javaslati szabályai. A sorrend számít: a közös réteg előbb, a műfaji utána (a sorozat meta.bases-ében is így kerülnek egymás után; a később felsorolt az erősebb).",
   "bases": [
-    {"id": "zh-common", "title": "Kínai közös: megszólítások, rokoni és társasági formák",
-     "countries": ["CN", "TW", "HK", "SG"]},
-    {"id": "ko-common", "title": "Koreai közös: megszólítások (oppa, unni, sunbae…)",
-     "countries": ["KR"]},
-    {"id": "ja-common", "title": "Japán közös: megszólítások, utótagok",
-     "countries": ["JP"]},
-    {"id": "zh-historical", "title": "Kínai történelmi: udvar, nemesi címek, hivatalok, hárem",
-     "countries": ["CN", "TW", "HK"],
-     "any_keywords": ["historical", "costume", "ancient china", "imperial", "palace", "dynasty", "court intrigue"]},
-    {"id": "zh-wuxia", "title": "Wuxia: jianghu, harcművészeti irányzatok, belső erő",
-     "countries": ["CN", "TW", "HK"],
-     "any_keywords": ["wuxia", "martial arts", "jianghu"]},
-    {"id": "zh-xianxia", "title": "Xianxia: kultiváció, rendek, szintek, halhatatlanok",
-     "countries": ["CN", "TW", "HK"],
-     "any_keywords": ["xianxia", "xuanhuan", "cultivation", "immortal"]},
-    {"id": "ko-sageuk", "title": "Koreai történelmi (sageuk): Joseon-udvar, rangok",
-     "countries": ["KR"],
-     "any_keywords": ["sageuk", "joseon", "goryeo", "historical", "period drama", "costume"]},
-    {"id": "ko-modern", "title": "Koreai modern: irodai beosztások, chaebol, iskola",
-     "countries": ["KR"],
-     "none_keywords": ["sageuk", "joseon", "goryeo", "historical", "period drama", "costume"]}
+    {
+      "id": "zh-common",
+      "title": "Kínai közös: megszólítások, rokoni és társasági formák",
+      "countries": [
+        "CN",
+        "TW",
+        "HK",
+        "SG"
+      ]
+    },
+    {
+      "id": "ko-common",
+      "title": "Koreai közös: megszólítások (oppa, unni, sunbae…)",
+      "countries": [
+        "KR"
+      ]
+    },
+    {
+      "id": "ja-common",
+      "title": "Japán közös: megszólítások, utótagok",
+      "countries": [
+        "JP"
+      ]
+    },
+    {
+      "id": "zh-myth",
+      "title": "Kínai mitológia és vallás: istenek, halhatatlanok, buddhista alakok",
+      "countries": [
+        "CN",
+        "TW",
+        "HK",
+        "SG"
+      ]
+    },
+    {
+      "id": "zh-historical",
+      "title": "Kínai történelmi: udvar, nemesi címek, hivatalok, hárem",
+      "countries": [
+        "CN",
+        "TW",
+        "HK"
+      ],
+      "any_keywords": [
+        "historical",
+        "costume",
+        "ancient china",
+        "imperial",
+        "palace",
+        "dynasty",
+        "court intrigue"
+      ]
+    },
+    {
+      "id": "zh-wuxia",
+      "title": "Wuxia: jianghu, harcművészeti irányzatok, belső erő",
+      "countries": [
+        "CN",
+        "TW",
+        "HK"
+      ],
+      "any_keywords": [
+        "wuxia",
+        "martial arts",
+        "jianghu"
+      ]
+    },
+    {
+      "id": "zh-xianxia",
+      "title": "Xianxia: kultiváció, rendek, szintek, halhatatlanok",
+      "countries": [
+        "CN",
+        "TW",
+        "HK"
+      ],
+      "any_keywords": [
+        "xianxia",
+        "xuanhuan",
+        "cultivation",
+        "immortal"
+      ]
+    },
+    {
+      "id": "ko-sageuk",
+      "title": "Koreai történelmi (sageuk): Joseon-udvar, rangok",
+      "countries": [
+        "KR"
+      ],
+      "any_keywords": [
+        "sageuk",
+        "joseon",
+        "goryeo",
+        "historical",
+        "period drama",
+        "costume"
+      ]
+    },
+    {
+      "id": "ko-modern",
+      "title": "Koreai modern: irodai beosztások, chaebol, iskola",
+      "countries": [
+        "KR"
+      ],
+      "none_keywords": [
+        "sageuk",
+        "joseon",
+        "goryeo",
+        "historical",
+        "period drama",
+        "costume"
+      ]
+    }
   ]
 }

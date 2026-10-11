@@ -241,9 +241,9 @@ def test_index_betoltheto_es_azonositok_ervenyesek():
 
 
 @pytest.mark.parametrize("countries,genres,keywords,expected", [
-    (["CN"], ["Drama"], ["romance", "historical fiction", "costume drama"], ["zh-common", "zh-historical"]),
-    (["CN"], ["Sci-Fi & Fantasy"], ["xianxia", "cultivation"], ["zh-common", "zh-xianxia"]),
-    (["CN"], ["Drama"], ["based on novel or book"], ["zh-common"]),
+    (["CN"], ["Drama"], ["romance", "historical fiction", "costume drama"], ["zh-common", "zh-myth", "zh-historical"]),
+    (["CN"], ["Sci-Fi & Fantasy"], ["xianxia", "cultivation"], ["zh-common", "zh-myth", "zh-xianxia"]),
+    (["CN"], ["Drama"], ["based on novel or book"], ["zh-common", "zh-myth"]),
     (["KR"], ["Comedy"], ["romcom", "ceo", "chaebol"], ["ko-common", "ko-modern"]),
     (["KR"], ["Drama"], ["joseon", "palace"], ["ko-common", "ko-sageuk"]),
     (["JP"], ["Drama"], [], ["ja-common"]),

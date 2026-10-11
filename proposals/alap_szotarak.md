@@ -2,7 +2,7 @@
 
 Állapot: **mind az öt fázis kész** (2026-10) — mechanizmus, `tmdb-init`-javaslat,
 hat alap (v1.0), a futó sorozatok átállítása és a `subtr.py bases` parancs
-(`list` / `check` / `promote`). Nyitott: `ja-common`, `ko-sageuk` (nincs még forrásanyag).
+(`list` / `check` / `promote`). Később felvéve: `zh-myth` (mitológiai és vallási alakok, Csongor *Nyugati utazás* alapján). Nyitott: `ja-common`, `ko-sageuk` (nincs még forrásanyag).
 
 Az első kiadás döntései (2026-10): csak forrással alátámasztott vagy sorozatban
 bevált bejegyzés került be (a ~200 forrás nélküli javaslat kimaradt); Chancellor =
