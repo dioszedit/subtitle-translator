@@ -13,7 +13,7 @@
     {"id": "zh-wuxia", "title": "Wuxia: jianghu, harcművészeti irányzatok, belső erő",
      "countries": ["CN", "TW", "HK"],
      "any_keywords": ["wuxia", "martial arts", "jianghu"]},
-    {"id": "zh-xianxia", "title": "Xianxia: kultiváció, szekták, szintek, halhatatlanok",
+    {"id": "zh-xianxia", "title": "Xianxia: kultiváció, rendek, szintek, halhatatlanok",
      "countries": ["CN", "TW", "HK"],
      "any_keywords": ["xianxia", "xuanhuan", "cultivation", "immortal"]},
     {"id": "ko-sageuk", "title": "Koreai történelmi (sageuk): Joseon-udvar, rangok",

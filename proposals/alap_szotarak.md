@@ -1,9 +1,8 @@
 # Alap-szótárak (műfaj × kultúra) — terv
 
-Állapot: **1–3. fázis kész** — mechanizmus, `tmdb-init`-javaslat és az első hat
-alap (`zh-common`, `zh-historical`, `zh-wuxia`, `zh-xianxia`, `ko-common`,
-`ko-modern`; 416 bejegyzés, v1.0). A 4–5. fázis (futó sorozatok átállítása,
-`promote`) hátravan.
+Állapot: **mind az öt fázis kész** (2026-10) — mechanizmus, `tmdb-init`-javaslat,
+hat alap (v1.0), a futó sorozatok átállítása és a `subtr.py bases` parancs
+(`list` / `check` / `promote`). Nyitott: `ja-common`, `ko-sageuk` (nincs még forrásanyag).
 
 Az első kiadás döntései (2026-10): csak forrással alátámasztott vagy sorozatban
 bevált bejegyzés került be (a ~200 forrás nélküli javaslat kimaradt); Chancellor =

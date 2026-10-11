@@ -865,6 +865,21 @@ sorozat a `glossary.json` `meta.bases` listájában választ közülük:
 - A fordítás és a review indulásakor egy sor mutatja a használt alapokat
   (`Alap-szótár: zh-common, zh-historical (…)`).
 
+A `subtr.py bases` parancs kezeli őket:
+
+```powershell
+python subtr.py bases list                                  # alapok + a sorozat választása
+python subtr.py bases check                                 # alap ↔ sorozat ↔ kész fordítások ütközései
+# terminus a sorozatból az alapba — a REPO gyökeréből, hogy a repo glossaries/-ába írjon:
+python subtr.py bases promote "Marquis" --to zh-historical --from "..\Sorozat\glossary.json" --context "侯; név + márki"
+```
+
+A `check` a már lefordított részeket is összeveti a forrással: ha egy futó
+sorozathoz utólag kapcsolsz alapot, megmutatja, hol írna az alap mást, mint a
+kész részek (ott a sorozat glossaryjába felülírás kell). A `promote`
+alapból kiveszi a bejegyzést a sorozatból (`--keep`: marad), a `context`-et
+`--context`-tel általánosra cserélheted — a repo nyilvános.
+
 Részletek és szabályok: `glossaries/README.md`.
 
 ### Megszólítási regiszter kinyerése (`subtr.py register`) — opcionális

@@ -17,6 +17,7 @@ import sys
 COMMANDS = {
     "split":      ("subtr.tasks.split",             "1.  SRT szétvágása blokkokra"),
     "glossary":   ("subtr.tasks.glossary_extract",  "1.5 Szójegyzék kinyerése (opcionális, --provider)"),
+    "bases":      ("subtr.tasks.bases",             "    Alap-szótárak: list / promote / check"),
     "register":   ("subtr.tasks.register_extract",  "1.6 Megszólítási regiszter kinyerése (opcionális, --provider)"),
     "translate":  ("subtr.tasks.translate",         "2.  Blokkok fordítása (--provider, default: claude)"),
     "merge":      ("subtr.tasks.merge",             "3.  Blokkok összefűzése egy SRT-vé"),

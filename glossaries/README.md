@@ -31,6 +31,16 @@ Az `index.json` sorolja fel az alapokat és a `tmdb-init` javaslati szabályait
 -kulcsszavakra, részszó-egyezéssel). A sorrend számít: a közös réteg előbb, a
 műfaji utána. Új alapfájl felvételekor az indexbe is be kell írni.
 
+## Parancsok
+
+- `py subtr.py bases list` — az alapok, darabszámmal, és a sorozat választása.
+- `py subtr.py bases check` — a sorozat és az alapok ütközései, a kész
+  fordításokkal összevetve (futó sorozathoz alap kapcsolása előtt).
+- `py subtr.py bases promote "<en>" --to <id> --from <sorozat>/glossary.json` —
+  sorozatból alapba emelés; a **repo gyökeréből** futtasd (a sorozat-mappák
+  `glossaries/`-a csak másolat, a szinkron felülírja). `--context` új,
+  általános megjegyzés, `--keep` a sorozatban is marad, `--dry-run` előnézet.
+
 ## Mi kerülhet ide
 
 - Csak **sorozatfüggetlen**, több sorozaton bevált terminus: udvari rangok,

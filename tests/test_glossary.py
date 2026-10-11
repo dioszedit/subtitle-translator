@@ -269,6 +269,8 @@ def test_hianyzo_index_ures_lista(tmp_path):
     ({"en": "Marquis", "hu": "márki"}, "Ez a bömárki szó.", False),          # magyar eleje szóhatár
     ({"en": "兰香如故", "hu": "兰香如故"}, "第一集兰香如故第二集", True),      # CJK: nincs szóhatár
     ({"en": "Sect Leader", "hu": "szektavezér"}, "The sect leader came.", True),
+    ({"en": "Grandfather", "hu": "nagyapa"}, "a nagyapám azt mondta", True),        # a → á ragozáskor
+    ({"en": "Grandfather", "hu": "nagyapa"}, "a nagyapó jött", False),
 ])
 def test_szohataros_elofordulas(entry, text, expected):
     g = {"special_terms": [entry]}

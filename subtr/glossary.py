@@ -73,7 +73,11 @@ def term_pattern(term: str, suffixes: bool) -> re.Pattern | None:
         tail = ""
     else:
         tail = r"(?:'s|s|es)?(?![0-9a-z\u00c0-\u024f])"
-    return re.compile(head + re.escape(term) + tail)
+    body = re.escape(term)
+    if suffixes and term[-1] in "ae":
+        # Magyar tőhangzó-nyúlás ragozáskor: apa → apám, mese → mesét.
+        body = re.escape(term[:-1]) + ("[aá]" if term[-1] == "a" else "[eé]")
+    return re.compile(head + body + tail)
 
 
 def _occurs(entry: dict, haystack: str) -> bool:

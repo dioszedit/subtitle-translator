@@ -15,7 +15,7 @@ research jegyzetek, alternatív megoldások, tervezési dokumentumok.
 | [deep_review_otletek_v2.md](deep_review_otletek_v2.md) | A még nyitott fejlesztési ötletek (review resume, glossary-check, `subtr run` orchestrator, költség-log, GUI-újratervezés) a subtr-es világra igazítva | Fontolgatott opciók, javasolt sorrenddel |
 | [translategemma_local.md](translategemma_local.md) | Lokális fordító (ollama + `translategemma:12b`) — alternatíva a felhős providerek mellett | Research jegyzet. Ha megvalósul, a természetes alakja egy `subtr/providers/ollama.py` adapter |
 | [stilisztika_chat_prompt.md](stilisztika_chat_prompt.md) | Stilisztikai + CPS review prompt chat-AI-ba (ChatGPT, Claude.ai) — alternatíva a `subtr.py review` parancshoz | Használatra kész prompt |
-| [alap_szotarak.md](alap_szotarak.md) | Műfaj × kultúra alap-szótárak (`glossaries/`), futáskori összefésülés a sorozat-glossaryval; magyar forráskutatás | Folyamatban: mechanizmus, `tmdb-init`-javaslat és az első hat alap (v1.0) kész; a futó sorozatok átállítása hátravan |
+| [alap_szotarak.md](alap_szotarak.md) | Műfaj × kultúra alap-szótárak (`glossaries/`), futáskori összefésülés a sorozat-glossaryval; magyar forráskutatás | Megvalósult (2026-10); nyitott: `ja-common`, `ko-sageuk` |
 
 ## Archívum
 
