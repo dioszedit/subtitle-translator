@@ -1,0 +1,272 @@
+{
+  "meta": {
+    "id": "zh-common",
+    "title": "Kínai közös: megszólítások, rokoni és társasági formák",
+    "lang": "zh",
+    "description": "Kínai sorozatok (modern és kosztümös) közös rétege: családi és sorszámos testvéri megszólítások, udvariassági formák, általános társasági és munkahelyi titulusok, néhány általános kulturális terminus. A sorozat glossary.json-ja minden bejegyzést felülírhat.",
+    "version": "1.0"
+  },
+  "honorifics": [
+    {
+      "en": "Big Brother",
+      "hu": "bátyám",
+      "context": "idősebb fiútestvér vagy idősebb férfi bizalmas megszólítása (大哥/哥哥); névvel a név után: „Li bátyám”. Leírásként „a bátyám”. 1 sorozat (Bro/Senior = bátyám); Csongor: Vízparti történet „bátyám”."
+    },
+    {
+      "en": "Elder Brother",
+      "hu": "bátyám",
+      "context": "mint „Big Brother”; névvel „Li bátyám”. 1 sorozat; Csongor: Vízparti történet."
+    },
+    {
+      "en": "Little Brother",
+      "hu": "öcsém",
+      "context": "fiatalabb fiútestvér vagy fiatalabb férfi bizalmas megszólítása; névvel „Ming öcsém”. 1 sorozat; Csongor: Vízparti történet."
+    },
+    {
+      "en": "Younger Brother",
+      "hu": "öcsém",
+      "context": "mint „Little Brother”. 1 sorozat; Csongor: Vízparti történet."
+    },
+    {
+      "en": "Little Sister",
+      "hu": "húgom",
+      "context": "fiatalabb lánytestvér vagy fiatalabb nő bizalmas megszólítása; névvel „Mei húgom”. 1 sorozat."
+    },
+    {
+      "en": "Younger Sister",
+      "hu": "húgom",
+      "context": "mint „Little Sister”. 1 sorozat."
+    },
+    {
+      "en": "Second Brother",
+      "hu": "második bátyám",
+      "context": "sorszámos minta: sorszám + bátyám (二哥), a sorszám megmarad. Ha a beszélő az idősebb (二弟): „második öcsém”. 1 sorozat."
+    },
+    {
+      "en": "Sister-in-law",
+      "hu": "sógornő",
+      "context": "a báty felesége (嫂子) és általában a sógornő; megszólításként is. 2 sorozat egyezik; Csongor: „sógorasszony” (kosztümös sorozatban felülírható)."
+    },
+    {
+      "en": "Brother-in-law",
+      "hu": "sógor",
+      "context": "megszólításként is (tréfásan is). 1 sorozat; Csongor: Vízparti történet."
+    },
+    {
+      "en": "Uncle",
+      "hu": "bácsi",
+      "context": "idősebb férfi (rokon vagy ismerős) megszólítása; névvel a név után: „Liu bácsi”. Rokoni viszony leírásakor „nagybátyám”. Sorszámmal (Second Uncle): „második bácsi”. 3 sorozat egyezik."
+    },
+    {
+      "en": "Auntie",
+      "hu": "néni",
+      "context": "idősebb nő megszólítása; névvel „Zhang néni”. Rokoni viszony leírásakor „nagynéném”. 1 sorozat (Aunt = néni); Csongor."
+    },
+    {
+      "en": "Aunt",
+      "hu": "néni",
+      "context": "mint „Auntie”; rokoni viszony leírásakor „nagynéni”. 1 sorozat."
+    },
+    {
+      "en": "Grandpa",
+      "hu": "nagyapa",
+      "context": "saját nagyapa megszólítása; idegen idős férfinál „bácsi” vagy „apó” (Csongor). 1 sorozat (Grandfather = Nagyapa)."
+    },
+    {
+      "en": "Grandfather",
+      "hu": "nagyapa",
+      "context": "1 sorozat; leírásként „a nagyapám”."
+    },
+    {
+      "en": "Mom",
+      "hu": "anya",
+      "context": "mondat elején nagybetűvel. 1 sorozat „anya”, 1 sorozat „Anyu” — sorozatban felülírható."
+    },
+    {
+      "en": "Dad",
+      "hu": "apa",
+      "context": "mondat elején nagybetűvel. 1 sorozat."
+    },
+    {
+      "en": "Stepmother",
+      "hu": "mostohaanya",
+      "context": "1 sorozat."
+    },
+    {
+      "en": "Father-in-law",
+      "hu": "após",
+      "context": "leírásként; megszólításként a kínai szokás szerint gyakran „Apám”. Csongor: „apósom”."
+    },
+    {
+      "en": "Mr.",
+      "hu": "úr",
+      "context": "vezetéknév + úr: „Mr. Wang” = „Wang úr”. 2 sorozat egyezik."
+    },
+    {
+      "en": "Mrs.",
+      "hu": "asszony",
+      "context": "vezetéknév + asszony: „Mrs. Zhou” = „Zhou asszony”. 1 sorozat."
+    },
+    {
+      "en": "Ms.",
+      "hu": "kisasszony",
+      "context": "vezetéknév + kisasszony fiatal vagy nem férjes nőnél; idősebb, férjes nőnél „asszony” („Ms. Wang” = „Wang asszony”). 2 sorozat; sorozatban felülírható."
+    },
+    {
+      "en": "Miss",
+      "hu": "kisasszony",
+      "context": "fiatal nő megszólítása; vezetéknévvel „Liu kisasszony”. 3 sorozat egyezik."
+    },
+    {
+      "en": "Young Lady",
+      "hu": "kisasszony",
+      "context": "fiatal nő / a ház kisasszonya. 1 sorozat."
+    },
+    {
+      "en": "Ma'am",
+      "hu": "asszonyom",
+      "context": "alkalmazottak, idegenek megszólítása. 1 sorozat; Csongor."
+    },
+    {
+      "en": "Sir",
+      "hu": "uram",
+      "context": "rangban feljebb álló vagy ismeretlen férfi megszólítása; magázás. 1 sorozat."
+    },
+    {
+      "en": "Young Master",
+      "hu": "ifjú úr",
+      "context": "a ház fiatal ura / nemes ifjú (少爷/公子); névvel a név után: „Wang ifjú úr”, sorszámmal „második ifjú úr”. 3 sorozat egyezik; Csongor: „ifiúr”."
+    },
+    {
+      "en": "Chief",
+      "hu": "főnök",
+      "context": "szervezet, csapat vezetője; névvel „Wang főnök”. Törzs vagy falu vezetőjénél „törzsfőnök” (1 sorozat). 1 sorozat."
+    },
+    {
+      "en": "Director",
+      "hu": "igazgató",
+      "context": "név + igazgató: „Director Sun” = „Sun igazgató”; összetételben „márkaigazgató”, „PR-igazgató”. 2 sorozat egyezik."
+    },
+    {
+      "en": "President",
+      "hu": "elnök",
+      "context": "cég, egyesület elnöke; név + elnök: „Liu elnök”. 1 sorozat."
+    },
+    {
+      "en": "Mentor",
+      "hu": "mester",
+      "context": "tanító / mester tiszteletteljes megszólítása a tanítvány részéről. 2 sorozat egyezik."
+    },
+    {
+      "en": "Benefactor",
+      "hu": "jótevőm",
+      "context": "megmentő, pártfogó megszólítása (恩人/恩公). Csongor: Vízparti történet."
+    },
+    {
+      "en": "Honey",
+      "hu": "drágám",
+      "context": "házastársak, szeretők egymás közt; mondat elején nagybetűvel. 1 sorozat."
+    },
+    {
+      "en": "General",
+      "hu": "tábornok",
+      "context": "katonai rang; név + tábornok: „Li tábornok”. 2 sorozat egyezik; Csongor: Vízparti történet."
+    },
+    {
+      "en": "Commander",
+      "hu": "parancsnok",
+      "context": "katonai rang / megszólítás; név + parancsnok. 2 sorozat egyezik; Csongor."
+    },
+    {
+      "en": "Colonel",
+      "hu": "ezredes",
+      "context": "modern katonai rang; név + ezredes. 1 sorozat."
+    },
+    {
+      "en": "Captain",
+      "hu": "kapitány",
+      "context": "katonai / őrségi rang; név + kapitány. 1 sorozat; Csongor."
+    }
+  ],
+  "place_names": [],
+  "character_names": [],
+  "special_terms": [
+    {
+      "en": "sworn brothers",
+      "hu": "esküdt testvérek",
+      "context": "vérszerződéssel fogadott testvérek (结拜). Csongor: Vízparti történet „esküdt testvér”."
+    },
+    {
+      "en": "betrothed",
+      "hu": "jegyes",
+      "context": "birtokos alakban „jegyesem”. 1 sorozat."
+    },
+    {
+      "en": "fiancée",
+      "hu": "jegyes",
+      "context": "birtokos alakban „jegyesem”. 1 sorozat."
+    },
+    {
+      "en": "yuan",
+      "hu": "jüan",
+      "context": "pénznem. 1 sorozat."
+    },
+    {
+      "en": "tael",
+      "hu": "tael",
+      "context": "régi ezüst/arany súly- és pénzegység; „taels of gold” = „arany tael”. 1 sorozat."
+    },
+    {
+      "en": "feng shui",
+      "hu": "fengsuj",
+      "context": "akadémiai helyesírás szerint. 1 sorozat."
+    },
+    {
+      "en": "Five Elements",
+      "hu": "Öt Elem",
+      "context": "a kínai filozófia öt eleme (五行). 1 sorozat."
+    },
+    {
+      "en": "stick of incense",
+      "hu": "füstölőpálca",
+      "context": "kegyeleti és áldozati kellék; időmértékként is („egy füstölőpálcányi idő”). 1 sorozat."
+    },
+    {
+      "en": "longevity noodles",
+      "hu": "hosszú élet tészta",
+      "context": "születésnapi étel. 1 sorozat."
+    },
+    {
+      "en": "WeChat",
+      "hu": "WeChat",
+      "context": "márkanév, nem fordítjuk (WeChat Pay, WeChat Moments is marad). 1 sorozat."
+    },
+    {
+      "en": "Alipay",
+      "hu": "Alipay",
+      "context": "márkanév, nem fordítjuk. 1 sorozat."
+    }
+  ],
+  "phrases": [
+    {
+      "en": "Episode",
+      "hu": "rész",
+      "context": "„1. rész”, „a következő rész” — sosem „epizód” (TRANSLATION.md 5. szabály). 1 sorozat."
+    },
+    {
+      "en": "Next Episode Preview",
+      "hu": "A következő rész előzetese",
+      "context": "képernyőfelirat; a forrás zárójelezését követi. 1 sorozat."
+    },
+    {
+      "en": "the will of Heaven",
+      "hu": "az Ég akarata",
+      "context": "sors, isteni elrendelés; 2 sorozat (az egyik kisbetűs „ég”-gel)."
+    },
+    {
+      "en": "scumbag",
+      "hu": "szemétláda",
+      "context": "hűtlen, aljas férfira (渣男). 1 sorozat."
+    }
+  ]
+}

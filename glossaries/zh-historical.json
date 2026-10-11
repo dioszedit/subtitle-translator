@@ -1,0 +1,417 @@
+{
+  "meta": {
+    "id": "zh-historical",
+    "title": "Kínai történelmi: udvar, nemesi címek, hivatalok, hárem",
+    "lang": "zh",
+    "description": "Kínai kosztümös drámák rétege a zh-common fölött: császári család és háremrangok, udvari megszólítások, nemesi címek, hivatalok és minisztériumok, katonai rangok, udvari fordulatok. A sorozat glossary.json-ja minden bejegyzést felülírhat.",
+    "version": "1.0"
+  },
+  "honorifics": [
+    {
+      "en": "Emperor",
+      "hu": "császár",
+      "context": "hu.wiki: Kínai császár; Csongor: Vízparti történet."
+    },
+    {
+      "en": "Son of Heaven",
+      "hu": "az Ég Fia",
+      "context": "a császár megnevezése (天子). hu.wiki: Kínai császár; Csongor."
+    },
+    {
+      "en": "Empress",
+      "hu": "császárné",
+      "context": "a császár felesége (皇后). hu.wiki: Kínai császár; Csongor egy helyen „császárnő”. Megszólítása „Felség”."
+    },
+    {
+      "en": "Empress Dowager",
+      "hu": "anyacsászárné",
+      "context": "a császár anyja / az előző császár özvegye (皇太后). hu.wiki: Kínai császár. Megszólítása „Felség”."
+    },
+    {
+      "en": "Crown Prince",
+      "hu": "trónörökös",
+      "context": "太子. 1 sorozat; hu.wiki: Kínai császár."
+    },
+    {
+      "en": "Prince",
+      "hu": "herceg",
+      "context": "császári herceg, hercegi rang (皇子/王爷); névvel a név után: „Qin herceg”. 1 sorozat; hu.wiki; Csongor (a „királyfi” ritka). Koreai/mesei kontextusban „királyfi” — sorozatban felülírható."
+    },
+    {
+      "en": "Princess",
+      "hu": "hercegnő",
+      "context": "公主; névvel a név után: „X hercegnő”. 1 sorozat; hu.wiki: Kínai császár."
+    },
+    {
+      "en": "First Prince",
+      "hu": "első herceg",
+      "context": "sorszámos minta: sorszám + herceg (大皇子 stb.), kisbetűvel. 1 sorozat."
+    },
+    {
+      "en": "Second Prince",
+      "hu": "második herceg",
+      "context": "1 sorozat; vö. „First Prince”."
+    },
+    {
+      "en": "Noble Consort",
+      "hu": "nemes hitves",
+      "context": "贵妃. hu.wiki: Kínai császár."
+    },
+    {
+      "en": "Concubine",
+      "hu": "ágyas",
+      "context": "妾/嫔; névvel „Li ágyas”. hu.wiki; Csongor: Vízparti történet."
+    },
+    {
+      "en": "Your Majesty",
+      "hu": "Felség",
+      "context": "az uralkodó (császár, császárné, anyacsászárné) megszólítása; birtokos alakban „Felséged”. 1 sorozat; Csongor: „felséged”, „felséges úr”."
+    },
+    {
+      "en": "His Majesty",
+      "hu": "Őfelsége",
+      "context": "harmadik személyben. 1 sorozat; Csongor."
+    },
+    {
+      "en": "Your Highness",
+      "hu": "Fenség",
+      "context": "herceg, hercegnő, trónörökös megszólítása; birtokos alakban „Fenséged”. 2 sorozat („Fenség”, „Fenséged”), 1 sorozat „felség”. Magyar hagyomány: Felség = uralkodó, Fenség = herceg."
+    },
+    {
+      "en": "Your Excellency",
+      "hu": "Excellenciás uram",
+      "context": "magas rangú hivatalnok, kormányzó megszólítása (大人). 1 sorozat; Csongor: „kegyelmes uram”, sorozatban felülírható."
+    },
+    {
+      "en": "His Excellency",
+      "hu": "Őexcellenciája",
+      "context": "harmadik személyben. 1 sorozat."
+    },
+    {
+      "en": "My Lord",
+      "hu": "uram",
+      "context": "nemesúr, hivatalnok megszólítása szolgáktól, beosztottaktól. 1 sorozat; Csongor: „nagyuram” is."
+    },
+    {
+      "en": "Lord",
+      "hu": "nagyúr",
+      "context": "név + nagyúr: „Lord Zhang” = „Zhang nagyúr”. 1 sorozat (több bejegyzéssel); egy másik sorozat „X úr”. Csongor: „nagyúr”."
+    },
+    {
+      "en": "My Lady",
+      "hu": "úrnőm",
+      "context": "nemes asszony, a ház úrnője megszólítása. 1 sorozat."
+    },
+    {
+      "en": "Your Ladyship",
+      "hu": "úrnőm",
+      "context": "1 sorozat."
+    },
+    {
+      "en": "Her Ladyship",
+      "hu": "az úrnő",
+      "context": "harmadik személyben. 1 sorozat."
+    },
+    {
+      "en": "Father",
+      "hu": "apám",
+      "context": "szülő megszólítása a historikus regiszterben; 1 sorozat (magázva). Csongor gyakran „atyám”."
+    },
+    {
+      "en": "Duke",
+      "hu": "herceg",
+      "context": "公; név + herceg. Egybeesik a „Prince” alakjával. 1 sorozat; hu.wiki „Csou herceg” (Duke of Zhou) mintájára."
+    },
+    {
+      "en": "Marquis",
+      "hu": "márki",
+      "context": "侯; név + márki. Eldöntött; hu.wiki: Őrgróf (a 侯-t „általában a márkival azonosítják”). NEM „őrgróf”, NEM „főnemes”."
+    },
+    {
+      "en": "Marquess",
+      "hu": "márki",
+      "context": "mint „Marquis”."
+    },
+    {
+      "en": "Chancellor",
+      "hu": "kancellár",
+      "context": "丞相/宰相, a legfőbb hivatalnok; név + kancellár. Csongor: Vízparti történet (≈80×); hu.wiki: Ming-dinasztia. Döntés (2026-10): külön a Prime Ministertől (főminiszter)."
+    },
+    {
+      "en": "Prime Minister",
+      "hu": "főminiszter",
+      "context": "丞相/宰相 — ha az angol felirat „Prime Minister”-t ír. hu.wiki: Ming-dinasztia, Terebess. Döntés (2026-10): külön a Chancellortól (kancellár), ahogy az angol felirat írja."
+    },
+    {
+      "en": "Minister",
+      "hu": "miniszter",
+      "context": "1 sorozat („my esteemed ministers” = „tisztelt minisztereim”); Csongor."
+    },
+    {
+      "en": "Censor",
+      "hu": "cenzor",
+      "context": "a Cenzori Hivatal tisztviselője (御史). hu.wiki: Ming-dinasztia (Cenzori Hivatal) alapján."
+    },
+    {
+      "en": "Magistrate",
+      "hu": "elöljáró",
+      "context": "helyi hivatalnok-bíró (县令/知县); név + elöljáró. hu.wiki: Ming-dinasztia; Csongor: Vízparti történet."
+    },
+    {
+      "en": "County Magistrate",
+      "hu": "körzeti elöljáró",
+      "context": "hu.wiki: Ming-dinasztia."
+    },
+    {
+      "en": "Governor",
+      "hu": "kormányzó",
+      "context": "1 sorozat; hu.wiki: Ming-dinasztia; Csongor."
+    },
+    {
+      "en": "official",
+      "hu": "hivatalnok",
+      "context": "állami tisztviselő (官); „minor officials” = „kishivatalnokok” (1 sorozat). Csongor."
+    },
+    {
+      "en": "Chamberlain",
+      "hu": "udvarnagy",
+      "context": "Csongor: Vízparti történet."
+    },
+    {
+      "en": "Eunuch",
+      "hu": "eunuch",
+      "context": "névvel a név után: „Li eunuch”. hu.wiki; Csongor."
+    },
+    {
+      "en": "Constable",
+      "hu": "poroszló",
+      "context": "捕快, rendfenntartó. Csongor: Vízparti történet."
+    },
+    {
+      "en": "Commander-in-Chief",
+      "hu": "főparancsnok",
+      "context": "Csongor: Vízparti történet."
+    },
+    {
+      "en": "Marshal",
+      "hu": "marsall",
+      "context": "Csongor: Vízparti történet."
+    },
+    {
+      "en": "army commander",
+      "hu": "hadvezér",
+      "context": "1 sorozat."
+    },
+    {
+      "en": "Marchioness",
+      "hu": "márkiné",
+      "context": "a márki felesége (侯夫人). Döntés (2026-10): a Marquis = márki párja."
+    }
+  ],
+  "place_names": [],
+  "character_names": [],
+  "special_terms": [
+    {
+      "en": "Imperial Guard",
+      "hu": "császári gárda",
+      "context": "Csongor: Vízparti történet (ott „palotatestőrség” is)."
+    },
+    {
+      "en": "Imperial Guards",
+      "hu": "császári gárda",
+      "context": "mint „Imperial Guard”; egyes katonákra „gárdisták”. Csongor."
+    },
+    {
+      "en": "palace guards",
+      "hu": "palotaőrök",
+      "context": "1 sorozat; Csongor: „palotaőr”."
+    },
+    {
+      "en": "Guards",
+      "hu": "őrök",
+      "context": "felkiáltásként „Őrök!” (1 sorozat)."
+    },
+    {
+      "en": "maid",
+      "hu": "szolgálólány",
+      "context": "1 sorozat; Csongor: „szolgálólány”."
+    },
+    {
+      "en": "servant",
+      "hu": "szolga",
+      "context": "férfi szolga; nőnél „szolgáló” (Csongor mindkettőt használja)."
+    },
+    {
+      "en": "steward",
+      "hu": "intéző",
+      "context": "a háztartás vezetője (管家). Csongor: „intéző”."
+    },
+    {
+      "en": "Six Ministries",
+      "hu": "a hat minisztérium",
+      "context": "六部: hivatalnok-, pénz-, szertartás-, had-, igazság-, közmunkaügy."
+    },
+    {
+      "en": "Ministry of Personnel",
+      "hu": "Hivatalnokügyi Minisztérium",
+      "context": "吏部. a hat minisztérium egységes „…ügyi Minisztérium” alakja szerint. Döntés (2026-10): egységes „…ügyi Minisztérium” névforma."
+    },
+    {
+      "en": "Board of Personnel",
+      "hu": "Hivatalnokügyi Minisztérium",
+      "context": "吏部 másik angol alakja. a hat minisztérium egységes „…ügyi Minisztérium” alakja szerint. Döntés (2026-10): egységes „…ügyi Minisztérium” névforma."
+    },
+    {
+      "en": "Ministry of Revenue",
+      "hu": "Pénzügyi Minisztérium",
+      "context": "户部. a hat minisztérium egységes „…ügyi Minisztérium” alakja szerint. Döntés (2026-10): egységes „…ügyi Minisztérium” névforma."
+    },
+    {
+      "en": "Board of Revenue",
+      "hu": "Pénzügyi Minisztérium",
+      "context": "户部 másik angol alakja. a hat minisztérium egységes „…ügyi Minisztérium” alakja szerint. Döntés (2026-10): egységes „…ügyi Minisztérium” névforma."
+    },
+    {
+      "en": "Ministry of Rites",
+      "hu": "Szertartásügyi Minisztérium",
+      "context": "礼部. a hat minisztérium egységes „…ügyi Minisztérium” alakja szerint. A hu.wiki két cikke „Szertartásügyi” / „Szertartásügyek” alakot használ. Döntés (2026-10): egységes „…ügyi Minisztérium” névforma."
+    },
+    {
+      "en": "Board of Rites",
+      "hu": "Szertartásügyi Minisztérium",
+      "context": "礼部 másik angol alakja. a hat minisztérium egységes „…ügyi Minisztérium” alakja szerint. Döntés (2026-10): egységes „…ügyi Minisztérium” névforma."
+    },
+    {
+      "en": "Ministry of War",
+      "hu": "Hadügyi Minisztérium",
+      "context": "兵部. a hat minisztérium egységes „…ügyi Minisztérium” alakja szerint. Döntés (2026-10): egységes „…ügyi Minisztérium” névforma."
+    },
+    {
+      "en": "Board of War",
+      "hu": "Hadügyi Minisztérium",
+      "context": "兵部 másik angol alakja. a hat minisztérium egységes „…ügyi Minisztérium” alakja szerint. Döntés (2026-10): egységes „…ügyi Minisztérium” névforma."
+    },
+    {
+      "en": "Ministry of Justice",
+      "hu": "Igazságügyi Minisztérium",
+      "context": "刑部. a hat minisztérium egységes „…ügyi Minisztérium” alakja szerint. Döntés (2026-10): egységes „…ügyi Minisztérium” névforma."
+    },
+    {
+      "en": "Ministry of Punishments",
+      "hu": "Igazságügyi Minisztérium",
+      "context": "刑部 tükörfordítása; ugyanaz a hivatal, mint a „Ministry of Justice”. Döntés (2026-10): egységes „…ügyi Minisztérium” névforma."
+    },
+    {
+      "en": "Board of Punishments",
+      "hu": "Igazságügyi Minisztérium",
+      "context": "刑部 másik angol alakja. a hat minisztérium egységes „…ügyi Minisztérium” alakja szerint. Döntés (2026-10): egységes „…ügyi Minisztérium” névforma."
+    },
+    {
+      "en": "Ministry of Works",
+      "hu": "Közmunkaügyi Minisztérium",
+      "context": "工部. a hat minisztérium egységes „…ügyi Minisztérium” alakja szerint. Döntés (2026-10): egységes „…ügyi Minisztérium” névforma."
+    },
+    {
+      "en": "Board of Works",
+      "hu": "Közmunkaügyi Minisztérium",
+      "context": "工部 másik angol alakja. a hat minisztérium egységes „…ügyi Minisztérium” alakja szerint. Döntés (2026-10): egységes „…ügyi Minisztérium” névforma."
+    },
+    {
+      "en": "Hanlin Academy",
+      "hu": "Hanlin Akadémia",
+      "context": "Csongor: Vízparti történet."
+    },
+    {
+      "en": "Censorate",
+      "hu": "Cenzori Hivatal",
+      "context": "都察院. hu.wiki: Ming-dinasztia."
+    },
+    {
+      "en": "imperial court",
+      "hu": "császári udvar",
+      "context": "Csongor: „felséges udvar”."
+    },
+    {
+      "en": "morning court",
+      "hu": "reggeli audiencia",
+      "context": "a napi udvari gyűlés (早朝). 1 sorozat („morning assembly”)."
+    },
+    {
+      "en": "morning assembly",
+      "hu": "reggeli audiencia",
+      "context": "1 sorozat."
+    },
+    {
+      "en": "the capital",
+      "hu": "a főváros",
+      "context": "Csongor: Vízparti történet."
+    },
+    {
+      "en": "harem",
+      "hu": "hárem",
+      "context": "hu.wiki: Kínai császár."
+    },
+    {
+      "en": "edict",
+      "hu": "rendelet",
+      "context": "Csongor: „rendelet”."
+    },
+    {
+      "en": "decree",
+      "hu": "rendelet",
+      "context": "1 sorozat; Csongor."
+    },
+    {
+      "en": "tribute",
+      "hu": "hódolati ajándék",
+      "context": "vazallus vagy alattvaló ajándéka az uralkodónak (贡品). Eldöntött."
+    },
+    {
+      "en": "heavenly mandate",
+      "hu": "égi elrendelés",
+      "context": "1 sorozat."
+    },
+    {
+      "en": "taels of silver",
+      "hu": "ezüst tael",
+      "context": "a „taels of gold” = „arany tael” (1 sorozat) mintájára."
+    },
+    {
+      "en": "taels of gold",
+      "hu": "arany tael",
+      "context": "1 sorozat."
+    },
+    {
+      "en": "copper coins",
+      "hu": "rézpénz",
+      "context": "Csongor: Vízparti történet."
+    },
+    {
+      "en": "ancestral temple",
+      "hu": "ősök temploma",
+      "context": "1 sorozat."
+    }
+  ],
+  "phrases": [
+    {
+      "en": "You may rise",
+      "hu": "Felállhattok.",
+      "context": "engedély a felállásra meghajlás után; egy személynek „Felállhatsz.” / magázva „Felállhat.” 1 sorozat."
+    },
+    {
+      "en": "I'll take my leave",
+      "hu": "Engedelmével távozom.",
+      "context": "udvarias búcsú; a regiszter szerint tegezve „Engedelmeddel távozom.” 1 sorozat."
+    },
+    {
+      "en": "Greetings, Your Excellency",
+      "hu": "Üdvözlöm, Excellenciás uram!",
+      "context": "1 sorozat; többes alanyú köszöntésnél „Üdvözöljük…”."
+    },
+    {
+      "en": "my esteemed ministers",
+      "hu": "tisztelt minisztereim",
+      "context": "az uralkodó az udvarhoz szól. 1 sorozat."
+    }
+  ]
+}

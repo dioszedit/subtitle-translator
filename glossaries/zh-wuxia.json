@@ -1,0 +1,287 @@
+{
+  "meta": {
+    "id": "zh-wuxia",
+    "title": "Wuxia: jianghu, harcművészeti irányzatok, belső erő",
+    "lang": "zh",
+    "description": "Sorozatfüggetlen wuxia-terminusok: jianghu, harcművészet, belső erő, akupontok, rendek/iskolák, esküdt testvérek, betyárvilág. Fő forrás Csongor Vízparti történet-fordítása; a xianxia-eredetű tételek jelölve. TERVEZET.",
+    "version": "1.0"
+  },
+  "honorifics": [
+    {
+      "en": "Master",
+      "hu": "Mester",
+      "context": "a tanítvány megszólítása a mestere (师父) felé; névvel: „X mester”. Forrás: Csongor: Vízparti történet, Csongor: Nyugati utazás („mesterem”); egy xianxia sorozat glossaryja alapján (xianxia-forrás)"
+    },
+    {
+      "en": "Senior Brother",
+      "hu": "bátyám",
+      "context": "idősebb férfi tanítványtárs (师兄); névvel: „X bátyám”. egy xianxia sorozat glossaryja alapján (xianxia-forrás); a testvéri „bátyám” megszólítás: Csongor: Vízparti történet"
+    },
+    {
+      "en": "Senior Sister",
+      "hu": "néném",
+      "context": "idősebb női tanítványtárs (师姐). egy xianxia sorozat glossaryja alapján (xianxia-forrás)"
+    },
+    {
+      "en": "Junior Brother",
+      "hu": "öcsém",
+      "context": "fiatalabb férfi tanítványtárs (师弟). egy xianxia sorozat glossaryja alapján (xianxia-forrás); „öcsém” megszólítás: Csongor: Vízparti történet"
+    },
+    {
+      "en": "Junior Sister",
+      "hu": "húgom",
+      "context": "fiatalabb női tanítványtárs (师妹). egy xianxia sorozat glossaryja alapján (xianxia-forrás)"
+    },
+    {
+      "en": "Martial Uncle",
+      "hu": "bácsi",
+      "context": "a mester rendtársa (师叔/师伯); névvel: „X bácsi”. egy xianxia sorozat glossaryja alapján (xianxia-forrás); sorozatban felülírható"
+    },
+    {
+      "en": "Big Brother",
+      "hu": "bátyám",
+      "context": "大哥/哥哥: esküdt testvérek, betyárcsapat vezérének megszólítása. Forrás: Csongor: Vízparti történet; sorozatban felülírható"
+    },
+    {
+      "en": "Sister-in-law",
+      "hu": "sógorasszony",
+      "context": "嫂子: a báty (esküdt báty) feleségének megszólítása. Forrás: Csongor: Vízparti történet"
+    },
+    {
+      "en": "hero",
+      "hu": "vitéz",
+      "context": "好汉/侠: a jianghu becsületes hőse, megszólításként is. Forrás: Csongor: Vízparti történet. Általános „hős” (英雄) értelemben: „hős” — sorozatban felülírható"
+    },
+    {
+      "en": "Sect Leader",
+      "hu": "a rend vezetője",
+      "context": "掌门. A „sect” alapalakjához igazítva; zh-xianxia). Döntés (2026-10): a Sect = rend döntésből."
+    },
+    {
+      "en": "Elder",
+      "hu": "vén",
+      "context": "rendi/klánbeli elöljáró; névvel a név UTÁN: „X vén”. egy xianxia sorozat glossaryja alapján (xianxia-forrás); egy kínai történelmi sorozat glossaryja alapján"
+    },
+    {
+      "en": "Abbot",
+      "hu": "főapát",
+      "context": "方丈/住持: kolostor vezetője. Forrás: Csongor: Vízparti történet"
+    },
+    {
+      "en": "innkeeper",
+      "hu": "fogadós",
+      "context": "掌柜/店家. Forrás: Csongor: Vízparti történet"
+    },
+    {
+      "en": "chief",
+      "hu": "vezér",
+      "context": "寨主/头领: betyárcsapat, hegyi tábor vezetője. Forrás: Csongor: Vízparti történet („vezér”, „rablóvezér”); sorozatban felülírható"
+    }
+  ],
+  "place_names": [],
+  "character_names": [],
+  "special_terms": [
+    {
+      "en": "jianghu",
+      "hu": "a folyók és tavak világa",
+      "context": "江湖: a vándorharcosok, betyárok, harcművészek világa. Csongor: Vízparti történet („a folyók és tavak népe/vitézei”) alapján;"
+    },
+    {
+      "en": "people of the jianghu",
+      "hu": "a folyók és tavak népe",
+      "context": "江湖人. Forrás: Csongor: Vízparti történet"
+    },
+    {
+      "en": "heroes of the jianghu",
+      "hu": "a folyók és tavak vitézei",
+      "context": "江湖好汉. Forrás: Csongor: Vízparti történet"
+    },
+    {
+      "en": "martial arts",
+      "hu": "harcművészet",
+      "context": "武功/武术. egy kínai történelmi sorozat glossaryja alapján („martial arts tournament” = „harcművészeti torna”); fegyveres értelemben Csongor: Vízparti történet „fegyverforgatás”"
+    },
+    {
+      "en": "martial arts instructor",
+      "hu": "vívómester",
+      "context": "教头/武师. Forrás: Csongor: Vízparti történet"
+    },
+    {
+      "en": "weapon skills",
+      "hu": "fegyverforgatás",
+      "context": "兵器功夫. Forrás: Csongor: Vízparti történet („a fegyverforgatás művészete”)"
+    },
+    {
+      "en": "martial arts tournament",
+      "hu": "harcművészeti torna",
+      "context": "比武大会. Forrás: egy kínai történelmi sorozat glossaryja alapján"
+    },
+    {
+      "en": "spar",
+      "hu": "megküzd",
+      "context": "切磋: baráti erőpróba; „összecsapás” is lehet. Forrás: egy xianxia sorozat glossaryja alapján (xianxia-forrás)"
+    },
+    {
+      "en": "martial honor",
+      "hu": "harcosbecsület",
+      "context": "武德. Forrás: egy xianxia sorozat glossaryja alapján (xianxia-forrás)"
+    },
+    {
+      "en": "qi",
+      "hu": "qi",
+      "context": "气; kisbetűvel, ragozva „qit”, „qije”. egy xianxia sorozat glossaryja alapján (xianxia-forrás); zh-xianxia)"
+    },
+    {
+      "en": "dantian",
+      "hu": "cinóber mező",
+      "context": "丹田. Forrás: Csongor: Nyugati utazás; zh-xianxia)"
+    },
+    {
+      "en": "fist",
+      "hu": "ököl",
+      "context": "拳; „fist strike” = „ökölcsapás”. Forrás: Csongor: Vízparti történet"
+    },
+    {
+      "en": "hidden weapon",
+      "hu": "rejtett fegyver",
+      "context": "暗器. egy xianxia sorozat glossaryja alapján (xianxia-forrás) (egy tárgy leírásában)"
+    },
+    {
+      "en": "poison",
+      "hu": "méreg",
+      "context": "毒. Forrás: Csongor: Vízparti történet"
+    },
+    {
+      "en": "poisoned",
+      "hu": "mérgezett",
+      "context": "中毒. Forrás: Csongor: Vízparti történet"
+    },
+    {
+      "en": "antidote",
+      "hu": "ellenszer",
+      "context": "解药. Forrás: egy xianxia sorozat glossaryja alapján (xianxia-forrás)"
+    },
+    {
+      "en": "knockout drug",
+      "hu": "bódítószer",
+      "context": "蒙汗药. Forrás: Csongor: Vízparti történet"
+    },
+    {
+      "en": "sect",
+      "hu": "rend",
+      "context": "门派; sorozatban felülírható. Döntés (2026-10): a „szekta” helyett — semleges, a magyarban nincs vallási-pejoratív felhangja; nagybetűvel, ha a név része („a Felhő Rend”)."
+    },
+    {
+      "en": "clan",
+      "hu": "klán",
+      "context": "家族/族. egy xianxia sorozat glossaryja alapján (xianxia-forrás) („Dragon Clan” = „Sárkányklán”); sorozatban felülírható"
+    },
+    {
+      "en": "unorthodox path",
+      "hu": "eretnek út",
+      "context": "邪道/旁门左道. Forrás: egy xianxia sorozat glossaryja alapján (xianxia-forrás) („heterodox ways” = „eretnek utak”)"
+    },
+    {
+      "en": "heterodox",
+      "hu": "eretnek",
+      "context": "邪/旁门. Forrás: egy xianxia sorozat glossaryja alapján (xianxia-forrás)"
+    },
+    {
+      "en": "sworn brother",
+      "hu": "esküdt testvér",
+      "context": "结拜兄弟. Forrás: Csongor: Vízparti történet"
+    },
+    {
+      "en": "sworn brotherhood",
+      "hu": "esküdt testvériség",
+      "context": "结义. Csongor: Vízparti történet („testvériséget fogadtak”) alapján"
+    },
+    {
+      "en": "outlaw",
+      "hu": "betyár",
+      "context": "好汉/草寇 a Vízparti-típusú történetekben. Forrás: Csongor: Vízparti történet; köznapi rablónál „rabló”; sorozatban felülírható"
+    },
+    {
+      "en": "bandit",
+      "hu": "rabló",
+      "context": "强盗/山贼. Csongor: Vízparti történet („rablóvezér”); sorozatban felülírható"
+    },
+    {
+      "en": "mountain stronghold",
+      "hu": "hegyi tábor",
+      "context": "山寨: betyárok erődítménye. Forrás: Csongor: Vízparti történet"
+    },
+    {
+      "en": "inn",
+      "hu": "fogadó",
+      "context": "客栈. Forrás: Csongor: Vízparti történet"
+    },
+    {
+      "en": "tavern",
+      "hu": "kocsma",
+      "context": "酒馆/酒店. Forrás: Csongor: Vízparti történet"
+    },
+    {
+      "en": "monastery",
+      "hu": "kolostor",
+      "context": "寺. Forrás: Csongor: Vízparti történet, Csongor: Nyugati utazás"
+    },
+    {
+      "en": "monk",
+      "hu": "szerzetes",
+      "context": "和尚/僧. Forrás: Csongor: Vízparti történet, Csongor: Nyugati utazás"
+    },
+    {
+      "en": "Taoist",
+      "hu": "taoista",
+      "context": "道士. Forrás: Csongor: Vízparti történet, Csongor: Nyugati utazás"
+    },
+    {
+      "en": "blood feud",
+      "hu": "vérbosszú",
+      "context": "血仇. Forrás: Csongor: Vízparti történet"
+    },
+    {
+      "en": "disciple",
+      "hu": "tanítvány",
+      "context": "弟子. Forrás: Csongor: Nyugati utazás; egy xianxia sorozat glossaryja alapján (xianxia-forrás)"
+    }
+  ],
+  "phrases": [
+    {
+      "en": "become sworn brothers",
+      "hu": "testvériséget fogadnak",
+      "context": "结拜. Forrás: Csongor: Vízparti történet"
+    },
+    {
+      "en": "roam the jianghu",
+      "hu": "a folyók és tavak világát járja",
+      "context": "闯荡江湖. Csongor: Vízparti történet alapján; a „jianghu” döntéséhez igazítandó"
+    },
+    {
+      "en": "seek revenge",
+      "hu": "bosszút áll",
+      "context": "报仇. Forrás: Csongor: Vízparti történet („bosszút”)"
+    },
+    {
+      "en": "Please enlighten me.",
+      "hu": "Kérem, tanítson!",
+      "context": "请赐教: harc előtti udvarias formula. egy xianxia sorozat glossaryja alapján (xianxia-forrás) („Please instruct me, seniors.”) alapján"
+    },
+    {
+      "en": "You are courting death.",
+      "hu": "A halálodat keresed.",
+      "context": "找死: műfaji állandó fordulat. egy xianxia sorozat glossaryja alapján (xianxia-forrás)"
+    },
+    {
+      "en": "show mercy",
+      "hu": "kegyelmezzen",
+      "context": "手下留情; regiszter szerint „kegyelmezz”. Forrás: egy xianxia sorozat glossaryja alapján (xianxia-forrás)"
+    },
+    {
+      "en": "sneak attack",
+      "hu": "alattomos támadás",
+      "context": "偷袭. Forrás: egy xianxia sorozat glossaryja alapján (xianxia-forrás)"
+    }
+  ]
+}

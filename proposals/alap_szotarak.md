@@ -1,7 +1,16 @@
 # Alap-szótárak (műfaj × kultúra) — terv
 
-Állapot: **1–2. fázis kész** — mechanizmus (`subtr/glossary.py` `with_bases()`) és
-`tmdb-init`-javaslat (`glossaries/index.json`, `--base`). A 3–5. fázis hátravan.
+Állapot: **1–3. fázis kész** — mechanizmus, `tmdb-init`-javaslat és az első hat
+alap (`zh-common`, `zh-historical`, `zh-wuxia`, `zh-xianxia`, `ko-common`,
+`ko-modern`; 416 bejegyzés, v1.0). A 4–5. fázis (futó sorozatok átállítása,
+`promote`) hátravan.
+
+Az első kiadás döntései (2026-10): csak forrással alátámasztott vagy sorozatban
+bevált bejegyzés került be (a ~200 forrás nélküli javaslat kimaradt); Chancellor =
+kancellár és Prime Minister = főminiszter külön; Marquis = márki; cultivation =
+kultiváció; Sect = rend; Dao = Tao; Elder = vén; a hat minisztérium „…ügyi
+Minisztérium”; a koreai megszólítások (oppa, unnie, sunbae, -ssi…) koreaiul
+maradnak. Kimaradt: `ja-common`, `ko-sageuk` (nincs még forrásanyag).
 
 ## Cél
 

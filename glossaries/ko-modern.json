@@ -1,0 +1,272 @@
+{
+  "meta": {
+    "id": "ko-modern",
+    "title": "Koreai modern: irodai beosztások, chaebol, jog, kórház, egyetem",
+    "lang": "ko",
+    "description": "Mai koreai drámák visszatérő terminusai: irodai beosztás-létra, cégvezetés és chaebol, jogi és rendőrségi, kórházi, valamint iskolai/egyetemi szavak az angol felirat alakjában. TERVEZET — átnézésre.",
+    "version": "1.0"
+  },
+  "honorifics": [
+    {
+      "en": "Team Leader",
+      "hu": "csoportvezető",
+      "context": "팀장; névvel: „Team Leader X” = „X csoportvezető”, megszólításban „csoportvezető úr/asszony”. NE „csapatvezető” — egy koreai egyetemi/laborbeli romantikus sorozat glossaryja alapján. Felfelé magáz"
+    },
+    {
+      "en": "Director",
+      "hu": "igazgató",
+      "context": "이사; „Chief” → „igazgató” (egy koreai jogi-misztikus sorozat glossaryja alapján), „creative director” → „kreatív igazgató”, „lab director” → „laboratóriumi igazgató” (egy koreai jogi-misztikus sorozat kész fordítása alapján, egy koreai egyetemi romantikus sorozat kész fordítása alapján). FILMES kontextusban „rendező”!"
+    },
+    {
+      "en": "CEO",
+      "hu": "vezérigazgató",
+      "context": "névvel „X vezérigazgató”; egységesen, NE „cégvezető” — egy koreai jogi-misztikus sorozat glossaryja alapján"
+    },
+    {
+      "en": "Chairman",
+      "hu": "elnök",
+      "context": "회장 (cégcsoport/ügyvédi iroda elnöke); megszólításban „elnök úr” — egy koreai jogi-misztikus sorozat glossaryja alapján. Bírót SOHA nem „elnök úr” (lásd Your Honor)."
+    },
+    {
+      "en": "Chief",
+      "hu": "igazgató",
+      "context": "intézmény/labor vezetője névvel: „Chief Kim” = „Kim igazgató”; egységesen, ne váltogasd „vezető”-vel — egy koreai jogi-misztikus sorozat glossaryja alapján"
+    },
+    {
+      "en": "Professor",
+      "hu": "professzor",
+      "context": "névvel „X professzor”; megszólításban „professzor úr” / „professzor asszony” — egy koreai egyetemi/laborbeli romantikus sorozat glossaryja alapján. Hallgató → professzor: magáz"
+    },
+    {
+      "en": "Attorney",
+      "hu": "ügyvéd",
+      "context": "a név ELŐRE kerül: „Attorney X” = „X ügyvéd”; megszólításban „ügyvéd úr” / „ügyvéd asszony”; nőre is „ügyvéd”, NE „ügyvédnő” — egy koreai jogi-misztikus sorozat glossaryja alapján"
+    },
+    {
+      "en": "Prosecutor",
+      "hu": "ügyész",
+      "context": "„Prosecutor Kim” = „Kim ügyész” — egy koreai jogi-misztikus sorozat glossaryja alapján"
+    },
+    {
+      "en": "Chief Prosecutor",
+      "hu": "főügyész",
+      "context": "egységesen, NE „ügyészfőnök” — egy koreai jogi-misztikus sorozat glossaryja alapján"
+    },
+    {
+      "en": "Detective",
+      "hu": "nyomozó",
+      "context": "„Detective X” = „X nyomozó”, megszólításban „nyomozó úr” — egy koreai jogi-misztikus sorozat glossaryja alapján"
+    },
+    {
+      "en": "Lieutenant",
+      "hu": "hadnagy",
+      "context": "rendőrségi rang; megszólításban „hadnagy úr” — egy koreai jogi-misztikus sorozat kész fordítása alapján"
+    },
+    {
+      "en": "Officer",
+      "hu": "rendőr",
+      "context": "megszólításként „rendőr úr”; beszélőcímkében [rendőr] — két koreai sorozat alapján"
+    },
+    {
+      "en": "Your Honor",
+      "hu": "Tisztelt Bíróság",
+      "context": "tárgyalóteremben; röviden „bíró úr” / „bírónő”. SOHA nem „elnök úr” — egy koreai jogi-misztikus sorozat glossaryja alapján"
+    },
+    {
+      "en": "Doctor",
+      "hu": "doktor úr",
+      "context": "megszólításként „doktor úr” / „doktornő” (egy koreai egyetemi romantikus sorozat kész fordítása alapján); említve, beszélőcímkében „orvos”"
+    },
+    {
+      "en": "Nurse",
+      "hu": "nővér",
+      "context": "névvel/megszólításban „X nővér”; köznévként „ápoló(nő)” — egy koreai jogi-misztikus sorozat kész fordítása alapján"
+    }
+  ],
+  "place_names": [],
+  "character_names": [],
+  "special_terms": [
+    {
+      "en": "board of directors",
+      "hu": "igazgatótanács",
+      "context": "Döntés (2026-10): egységes „…ügyi Minisztérium” névforma."
+    },
+    {
+      "en": "chaebol",
+      "hu": "csebol",
+      "context": "családi alapítású dél-koreai óriásvállalat — hu.wikipedia: Csebol (nemzetközi átírás: chaebol)."
+    },
+    {
+      "en": "law firm",
+      "hu": "ügyvédi iroda",
+      "context": "egy koreai jogi-misztikus sorozat glossaryja alapján"
+    },
+    {
+      "en": "Managing Partner",
+      "hu": "képviselő ügyvéd",
+      "context": "대표변호사; NE „vezető ügyvéd” — egy koreai jogi-misztikus sorozat glossaryja alapján"
+    },
+    {
+      "en": "paralegal",
+      "hu": "jogsegéd",
+      "context": "egy jeleneten belül ne váltogasd „munkatárs”/„jogi asszisztens”-sel — egy koreai jogi-misztikus sorozat glossaryja alapján"
+    },
+    {
+      "en": "Bar Association",
+      "hu": "Ügyvédi Kamara",
+      "context": "egy koreai jogi-misztikus sorozat glossaryja alapján"
+    },
+    {
+      "en": "prosecutors' office",
+      "hu": "ügyészség",
+      "context": "egy koreai jogi-misztikus sorozat glossaryja alapján"
+    },
+    {
+      "en": "defendant",
+      "hu": "vádlott",
+      "context": "büntetőperben „vádlott”, polgári perben „alperes” — egy koreai jogi-misztikus sorozat glossaryja alapján; a szerepeket a forráshoz mérd"
+    },
+    {
+      "en": "plaintiff",
+      "hu": "felperes",
+      "context": "egy koreai jogi-misztikus sorozat glossaryja alapján"
+    },
+    {
+      "en": "trial",
+      "hu": "tárgyalás",
+      "context": "egy koreai jogi-misztikus sorozat glossaryja alapján"
+    },
+    {
+      "en": "verdict",
+      "hu": "ítélet",
+      "context": "egy koreai jogi-misztikus sorozat glossaryja alapján"
+    },
+    {
+      "en": "appeal",
+      "hu": "fellebbezés",
+      "context": "egy koreai jogi-misztikus sorozat glossaryja alapján"
+    },
+    {
+      "en": "acquittal",
+      "hu": "felmentés",
+      "context": "egy koreai jogi-misztikus sorozat glossaryja alapján"
+    },
+    {
+      "en": "detention",
+      "hu": "előzetes letartóztatás",
+      "context": "egy koreai jogi-misztikus sorozat glossaryja alapján"
+    },
+    {
+      "en": "lawsuit",
+      "hu": "per",
+      "context": "„lawsuit for damages” = „kártérítési per” — egy koreai jogi-misztikus sorozat kész fordítása alapján"
+    },
+    {
+      "en": "settlement agreement",
+      "hu": "egyezségi megállapodás",
+      "context": "egy koreai jogi-misztikus sorozat kész fordítása alapján"
+    },
+    {
+      "en": "arrest warrant",
+      "hu": "elfogatóparancs",
+      "context": "egy koreai jogi-misztikus sorozat kész fordítása alapján"
+    },
+    {
+      "en": "autopsy",
+      "hu": "boncolás",
+      "context": "„autopsy report” = „boncolási jelentés” — egy koreai jogi-misztikus sorozat kész fordítása alapján"
+    },
+    {
+      "en": "suspect",
+      "hu": "gyanúsított",
+      "context": "egy koreai jogi-misztikus sorozat kész fordítása alapján; egy koreai egyetemi/laborbeli romantikus sorozat glossaryja alapján"
+    },
+    {
+      "en": "witness",
+      "hu": "tanú",
+      "context": "„witness stand” = „tanúpad” — egy koreai egyetemi/laborbeli romantikus sorozat glossaryja alapján; egy koreai jogi-misztikus sorozat kész fordítása alapján"
+    },
+    {
+      "en": "testimony",
+      "hu": "vallomás",
+      "context": "egy koreai jogi-misztikus sorozat kész fordítása alapján"
+    },
+    {
+      "en": "police station",
+      "hu": "rendőrőrs",
+      "context": "névvel „X Rendőrőrs”; „vigyétek a rendőrségre” fordulatban „rendőrség” — egy koreai jogi-misztikus sorozat kész fordítása alapján"
+    },
+    {
+      "en": "forensic",
+      "hu": "igazságügyi",
+      "context": "„forensic analysis” = „igazságügyi elemzés” — egy koreai jogi-misztikus sorozat kész fordítása alapján (ott „törvényszéki” is előfordult)"
+    },
+    {
+      "en": "surgery",
+      "hu": "műtét",
+      "context": "egy koreai jogi-misztikus sorozat kész fordítása alapján"
+    },
+    {
+      "en": "grad school",
+      "hu": "mesterképzés",
+      "context": "doktori képzés esetén „doktori képzés” — egy koreai egyetemi/laborbeli romantikus sorozat glossaryja alapján"
+    },
+    {
+      "en": "undergrad",
+      "hu": "alapképzés",
+      "context": "„back in undergrad” = „az alapképzésben” — egy koreai egyetemi/laborbeli romantikus sorozat glossaryja alapján"
+    },
+    {
+      "en": "PhD",
+      "hu": "doktori",
+      "context": "„doing my PhD” = „doktorálok”, „have a PhD” = „doktorált” — egy koreai egyetemi romantikus sorozat kész fordítása alapján"
+    },
+    {
+      "en": "lab",
+      "hu": "labor",
+      "context": "kutatócsoport/laboratórium — egy koreai egyetemi/laborbeli romantikus sorozat glossaryja alapján"
+    },
+    {
+      "en": "lab assistant",
+      "hu": "laborasszisztens",
+      "context": "egy koreai egyetemi/laborbeli romantikus sorozat glossaryja alapján"
+    },
+    {
+      "en": "assistant professor",
+      "hu": "adjunktus",
+      "context": "egy koreai egyetemi/laborbeli romantikus sorozat glossaryja alapján"
+    },
+    {
+      "en": "senior researcher",
+      "hu": "vezető kutató",
+      "context": "egy koreai jogi-misztikus sorozat kész fordítása alapján"
+    },
+    {
+      "en": "major",
+      "hu": "szak",
+      "context": "„second major” = „másodszak” — egy koreai egyetemi romantikus sorozat kész fordítása alapján"
+    },
+    {
+      "en": "top of the class",
+      "hu": "évfolyamelső",
+      "context": "egy koreai egyetemi romantikus sorozat kész fordítása alapján"
+    },
+    {
+      "en": "homeroom teacher",
+      "hu": "osztályfőnök",
+      "context": "egy koreai jogi-misztikus sorozat kész fordítása alapján"
+    },
+    {
+      "en": "impact factor",
+      "hu": "impakt faktor",
+      "context": "egy koreai egyetemi/laborbeli romantikus sorozat glossaryja alapján"
+    }
+  ],
+  "phrases": [
+    {
+      "en": "I object.",
+      "hu": "Tiltakozom.",
+      "context": "tárgyalótermi formula — egy koreai jogi-misztikus sorozat glossaryja alapján"
+    }
+  ]
+}

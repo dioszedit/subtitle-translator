@@ -1,0 +1,197 @@
+{
+  "meta": {
+    "id": "ko-common",
+    "title": "Koreai közös: megszólítások, rokoni és társasági formák",
+    "lang": "ko",
+    "description": "Koreai megszólítások és utótagok (oppa, unnie, hyung, sunbae, -ssi, -nim), családi és társasági megszólítások, gyakori koreai helynevek és köznevek, ahogy az angol felirat visszaadja őket. TERVEZET — átnézésre.",
+    "version": "1.0"
+  },
+  "honorifics": [
+    {
+      "en": "oppa",
+      "hu": "oppa",
+      "context": "nő → idősebb férfi (báty, barát, kedves); koreai alak marad, kurziválva — egy koreai egyetemi/laborbeli romantikus sorozat glossaryja alapján. Közeli, de aszimmetrikus viszony: a magázást NEM zárja ki (TRANSLATION.md); a regiszter dönt"
+    },
+    {
+      "en": "unnie",
+      "hu": "unnie",
+      "context": "nő → idősebb nő (nővér, barátnő); a gyakorlat (alap_szotarak kutatás) szerint a koreai alak marad, kurziválva, ha az angol felirat is meghagyta; saját sorozatban még nem fordult elő. Aszimmetrikus viszony, a tegezés nem következik belőle automatikusan"
+    },
+    {
+      "en": "eonni",
+      "hu": "eonni",
+      "context": "az unnie másik átírása; a felirat alakját kövesd; a gyakorlat (alap_szotarak kutatás) szerint a koreai alak marad, kurziválva, ha az angol felirat is meghagyta"
+    },
+    {
+      "en": "hyung",
+      "hu": "hyung",
+      "context": "férfi → idősebb férfi; a gyakorlat (alap_szotarak kutatás) szerint a koreai alak marad, kurziválva, ha az angol felirat is meghagyta. Az angol felirat gyakran a keresztnévre cseréli (형 → név) — ilyenkor nincs teendő. Aszimmetrikus viszony (TRANSLATION.md)"
+    },
+    {
+      "en": "noona",
+      "hu": "noona",
+      "context": "férfi → idősebb nő; a gyakorlat (alap_szotarak kutatás) szerint a koreai alak marad, kurziválva, ha az angol felirat is meghagyta. Az angol felirat gyakran névre cseréli. Aszimmetrikus viszony"
+    },
+    {
+      "en": "nuna",
+      "hu": "nuna",
+      "context": "a noona másik átírása; a felirat alakját kövesd; a gyakorlat (alap_szotarak kutatás) szerint a koreai alak marad, kurziválva, ha az angol felirat is meghagyta"
+    },
+    {
+      "en": "sunbae",
+      "hu": "sunbae",
+      "context": "felsőbbéves/idősebb kolléga (선배; -nim-mel: sunbaenim); a gyakorlat (alap_szotarak kutatás) szerint a koreai alak marad, kurziválva, ha az angol felirat is meghagyta. Ha az angol „senior”-t ír, az a ko-modern szerint ( Fiatalabb → sunbae irányban jellemzően magáz (egy koreai egyetemi/laborbeli romantikus sorozat glossaryja alapján regisztere szerint), de a sorozat regisztere dönt"
+    },
+    {
+      "en": "Mom",
+      "hu": "anya",
+      "context": "megszólításként „anya”, említve „anyám” / „az anyja” — egy koreai jogi-misztikus sorozat glossaryja alapján; egy koreai egyetemi romantikus sorozat kész fordítása alapján is így. Nagybetű csak mondat elején"
+    },
+    {
+      "en": "Dad",
+      "hu": "apa",
+      "context": "megszólításként „apa”, említve „apám” / „az apja” — egy koreai jogi-misztikus sorozat glossaryja alapján"
+    },
+    {
+      "en": "Uncle",
+      "hu": "nagybácsi",
+      "context": "rokon nagybácsi — egy koreai jogi-misztikus sorozat glossaryja alapján. Nem rokon idősebb férfira (koreai 삼촌/아저씨 családbarátként) „bácsi” is lehet; sorozatban felülírható"
+    },
+    {
+      "en": "Auntie",
+      "hu": "néni",
+      "context": "nem rokon asszony megszólítása gyerek szájából („X néni”) — egy koreai jogi-misztikus sorozat kész fordítása alapján. Rokon nagynénire „nagynéni”; sorozatban felülírható"
+    },
+    {
+      "en": "Mister",
+      "hu": "uram",
+      "context": "ismeretlen férfi megszólítása — egy koreai jogi-misztikus sorozat glossaryja alapján; gyerek szájából „bácsi” (egy koreai jogi-misztikus sorozat kész fordítása alapján)"
+    },
+    {
+      "en": "sir",
+      "hu": "uram",
+      "context": "önálló megszólítás — egy koreai jogi-misztikus sorozat glossaryja alapján. Magázás felé mutat. Ha erőltetett, a megszólítás el is hagyható"
+    },
+    {
+      "en": "ma'am",
+      "hu": "asszonyom",
+      "context": "önálló megszólítás — egy koreai jogi-misztikus sorozat glossaryja alapján. Boltos/vendéglős (사장님) köszöntésénél gyakran elhagyható („Jó napot kívánok!”) — egy koreai egyetemi romantikus sorozat kész fordítása alapján"
+    },
+    {
+      "en": "Mr.",
+      "hu": "úr",
+      "context": "név után: „Mr. Kim” = „Kim úr”, „Mr. X” = „X úr”; titulussal: „Mr. Attorney” = „ügyvéd úr” — egy koreai jogi-misztikus sorozat glossaryja alapján és egy koreai egyetemi/laborbeli romantikus sorozat glossaryja alapján. Magázás felé mutat"
+    },
+    {
+      "en": "Ms.",
+      "hu": "asszony",
+      "context": "név után: „Ms. Kim” = „Kim asszony” — egy koreai jogi-misztikus sorozat glossaryja alapján; NE „asszonyság”; „kisasszony” csak egyértelműen fiatal, hajadon nőnél. Egy másik sorozatban „X kisasszony” is előfordult → Soha ne maradjon angolul „Ms.”"
+    },
+    {
+      "en": "Madam",
+      "hu": "asszony",
+      "context": "név előtt: „Madam X” = „X asszony” — egy koreai jogi-misztikus sorozat kész fordítása alapján"
+    },
+    {
+      "en": "Honey",
+      "hu": "drágám",
+      "context": "házastársak/párok egymás közt — egy koreai jogi-misztikus sorozat glossaryja alapján és egy koreai egyetemi/laborbeli romantikus sorozat glossaryja alapján"
+    },
+    {
+      "en": "young man",
+      "hu": "fiatalember",
+      "context": "idősebb szájából — egy koreai jogi-misztikus sorozat kész fordítása alapján"
+    },
+    {
+      "en": "older brother",
+      "hu": "báty",
+      "context": "rokoni viszony; birtokosan „bátyám”, „a bátyja” — egy koreai egyetemi/laborbeli romantikus sorozat glossaryja alapján alapján"
+    },
+    {
+      "en": "older sister",
+      "hu": "nővér",
+      "context": "rokoni viszony: „a nővérem” — egy koreai jogi-misztikus sorozat kész fordítása alapján"
+    },
+    {
+      "en": "younger sister",
+      "hu": "húg",
+      "context": "rokoni viszony: „a húga” — egy koreai jogi-misztikus sorozat kész fordítása alapján"
+    },
+    {
+      "en": "brother-in-law",
+      "hu": "sógor",
+      "context": "egy koreai jogi-misztikus sorozat kész fordítása alapján"
+    },
+    {
+      "en": "mother-in-law",
+      "hu": "anyós",
+      "context": "egy koreai jogi-misztikus sorozat kész fordítása alapján. Figyelem: a meny/vő gyakran „Mother”-nek szólítja az anyóst — ilyenkor „anyám”/„mama”, nem „anyós”"
+    }
+  ],
+  "place_names": [
+    {
+      "en": "Seoul",
+      "hu": "Szöul",
+      "context": "a magyar helyesírás szerinti alak — egy koreai jogi-misztikus sorozat glossaryja alapján"
+    },
+    {
+      "en": "Incheon",
+      "hu": "Incheon",
+      "context": "NE „Incshon”; toldalék: incheoni, Incheonban — egy koreai jogi-misztikus sorozat glossaryja alapján"
+    },
+    {
+      "en": "Daejeon",
+      "hu": "Daejeon",
+      "context": "a felirat latin alakja marad (nem „Tedzson”) — két koreai sorozat glossaryja alapján"
+    },
+    {
+      "en": "Gangnam",
+      "hu": "Gangnam",
+      "context": "szöuli kerület, változatlanul — egy koreai jogi-misztikus sorozat glossaryja alapján"
+    },
+    {
+      "en": "Busan",
+      "hu": "Busan",
+      "context": "változatlanul, toldalék: Busanban — egy koreai egyetemi/laborbeli romantikus sorozat glossaryja alapján; a régi „Pusan” csak intézménynévben, ha a felirat úgy írja"
+    },
+    {
+      "en": "Jeju",
+      "hu": "Jeju",
+      "context": "„Jeju-sziget”, toldalék kötőjel nélkül: jejui — egy koreai egyetemi/laborbeli romantikus sorozat glossaryja alapján"
+    },
+    {
+      "en": "North Korea",
+      "hu": "Észak-Korea",
+      "context": "egy koreai jogi-misztikus sorozat glossaryja alapján"
+    },
+    {
+      "en": "South Korea",
+      "hu": "Dél-Korea",
+      "context": "általános magyar alak"
+    }
+  ],
+  "character_names": [],
+  "special_terms": [
+    {
+      "en": "won",
+      "hu": "von",
+      "context": "koreai pénznem, kisbetűvel: „10 millió von” — egy koreai jogi-misztikus sorozat glossaryja alapján"
+    },
+    {
+      "en": "doenjang",
+      "hu": "doenjang",
+      "context": "erjesztett szójapaszta; dőlt betűvel, változatlanul — egy koreai egyetemi/laborbeli romantikus sorozat glossaryja alapján"
+    },
+    {
+      "en": "meju",
+      "hu": "meju",
+      "context": "erjesztett szójatömb; dőlt betűvel, változatlanul — egy koreai egyetemi/laborbeli romantikus sorozat glossaryja alapján"
+    },
+    {
+      "en": "pork belly",
+      "hu": "császárszalonna",
+      "context": "a samgyeopsal angol neve; a sima „pork” = sertéshús — egy koreai jogi-misztikus sorozat glossaryja alapján"
+    }
+  ],
+  "phrases": []
+}

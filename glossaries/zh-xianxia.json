@@ -1,0 +1,742 @@
+{
+  "meta": {
+    "id": "zh-xianxia",
+    "title": "Xianxia: kultiváció, rendek, szintek, halhatatlanok",
+    "lang": "zh",
+    "description": "Sorozatfüggetlen xianxia/daoista fantasy terminusok: kultiváció, szintek, rendi rangsor és -megszólítások, kincsek, alkímia, megpróbáltatás, kozmológia. TERVEZET — a DÖNTENDŐ jelölésű tételek átnézésre várnak.",
+    "version": "1.0"
+  },
+  "honorifics": [
+    {
+      "en": "Master",
+      "hu": "Mester",
+      "context": "a tanítvány megszólítása a saját mestere (师父) felé; névvel: „X mester”; kisbetűvel, ha nem megszólítás. Forrás: Csongor: Nyugati utazás; egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "Mentor",
+      "hu": "Mester",
+      "context": "a 师父 másik angol alakja; ugyanaz, mint a „Master”. Forrás: egy xianxia sorozat glossaryja alapján (két sorozat egyezően)"
+    },
+    {
+      "en": "Grandmaster",
+      "hu": "nagymester",
+      "context": "a mester mestere (师祖), ill. kiemelkedő mester címe; a magyar The Untamed-kiadás címében is „nagymester”. Eltérés: a forrás-sorozat a mester mesterére „Dédmester”-t használt — sorozatban felülírható"
+    },
+    {
+      "en": "Martial Uncle",
+      "hu": "bácsi",
+      "context": "a mester rendtársa (师叔/师伯); névvel a név UTÁN: „X bácsi”; jellemzően magázás jár felé. Forrás: egy xianxia sorozat glossaryja alapján („Uncle” = „bácsi”); sorozatban felülírható"
+    },
+    {
+      "en": "Martial Aunt",
+      "hu": "néni",
+      "context": "a mester női rendtársa (师姑); névvel: „X néni”. Forrás: egy xianxia sorozat glossaryja alapján („Aunt” = „néni”)"
+    },
+    {
+      "en": "Martial Granduncle",
+      "hu": "nagybácsi",
+      "context": "egy nemzedékkel a „bácsi” fölött (师叔祖). Forrás: egy xianxia sorozat glossaryja alapján („Granduncle” = „nagybácsi”)"
+    },
+    {
+      "en": "Senior Brother",
+      "hu": "bátyám",
+      "context": "idősebb férfi tanítványtárs (师兄) megszólítása; névvel: „X bátyám”. Forrás: egy xianxia sorozat glossaryja alapján; a testvéri „bátyám” megszólítás Csongor Vízparti történetében is általános"
+    },
+    {
+      "en": "Senior Sister",
+      "hu": "néném",
+      "context": "idősebb női tanítványtárs (师姐); névvel: „X néném”. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "Junior Brother",
+      "hu": "öcsém",
+      "context": "fiatalabb férfi tanítványtárs (师弟); névvel: „X öcsém”. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "Junior Sister",
+      "hu": "húgom",
+      "context": "fiatalabb női tanítványtárs (师妹); névvel: „X húgom”. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "Shixiong",
+      "hu": "bátyám",
+      "context": "a „Senior Brother” pinyin alakja, ha a felirat meghagyja. Forrás: egy xianxia sorozat glossaryja alapján (a Senior Brother mintájára)"
+    },
+    {
+      "en": "Shijie",
+      "hu": "néném",
+      "context": "a „Senior Sister” pinyin alakja. Forrás: egy xianxia sorozat glossaryja alapján (a Senior Sister mintájára)"
+    },
+    {
+      "en": "Shidi",
+      "hu": "öcsém",
+      "context": "a „Junior Brother” pinyin alakja. Forrás: egy xianxia sorozat glossaryja alapján (a Junior Brother mintájára)"
+    },
+    {
+      "en": "Shimei",
+      "hu": "húgom",
+      "context": "a „Junior Sister” pinyin alakja. Forrás: egy xianxia sorozat glossaryja alapján (a Junior Sister mintájára)"
+    },
+    {
+      "en": "Shifu",
+      "hu": "Mester",
+      "context": "a „Master” pinyin alakja. Forrás: Csongor: Nyugati utazás („mesterem”); egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "Elder",
+      "hu": "vén",
+      "context": "rendbeli elöljáró rangja; névvel a név UTÁN: „X vén”; soha ne maradjon angolul. Forrás: egy xianxia sorozat glossaryja alapján; egy kínai történelmi sorozat glossaryja is „vén” (Három Vén); sorozatban felülírható"
+    },
+    {
+      "en": "Elders",
+      "hu": "vének",
+      "context": "az „Elder” többes száma. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "Supreme Elder",
+      "hu": "Legfelsőbb Vén",
+      "context": "a vének fölötti rang (太上长老). Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "Sect Leader",
+      "hu": "a rend vezetője",
+      "context": "a rend feje (掌门/宗主); megszólításként „Vezető” helyett inkább a cím + név. A „Sect” alapalakjához igazítva; ha a sorozat „Rend”-et használ: „rendfő” / „Rendmester”. sorozatban felülírható. Döntés (2026-10): a Sect = rend döntésből."
+    },
+    {
+      "en": "Sect Master",
+      "hu": "Rendmester",
+      "context": "a „Sect Leader” másik angol alakja. Egy kínai sorozat glossaryja (Sect = Rend) „Rendmester”-t használt. sorozatban felülírható. Döntés (2026-10): a Sect = rend döntésből."
+    },
+    {
+      "en": "Patriarch",
+      "hu": "pátriárka",
+      "context": "a rend alapítója vagy ősmestere (祖师/老祖). Forrás: Csongor: Nyugati utazás („halhatatlan pátriárka”)"
+    },
+    {
+      "en": "Immortal",
+      "hu": "halhatatlan",
+      "context": "仙/仙人/仙长: halhatatlanná vált lény, megszólításként és címként is; névvel: „X halhatatlan”; „lesser immortal” = „kis halhatatlan”, „great immortal” = „nagy halhatatlan”. Forrás: Csongor: Nyugati utazás; egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "High Immortal",
+      "hu": "fő halhatatlan",
+      "context": "magas rangú égi halhatatlan (上仙), megszólításként is. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "Fairy",
+      "hu": "tündér",
+      "context": "női halhatatlan (仙子) címe; névvel: „X tündér”, önálló megszólításként „Tündérnő”. Forrás: egy xianxia sorozat glossaryja alapján; a 仙 „tündér-” előtagként Csongor: Nyugati utazás is („tündérsziget”); sorozatban felülírható"
+    },
+    {
+      "en": "Celestial Master",
+      "hu": "Mennyei Mester",
+      "context": "daoista főpapi cím (天师). Forrás: Csongor: Nyugati utazás"
+    },
+    {
+      "en": "Star Lord",
+      "hu": "Csillagúr",
+      "context": "égi tisztség (星君). Forrás: egy xianxia sorozat glossaryja alapján; Csongor: Nyugati utazás a csillagistenségeket „csillagisten”-nek nevezi — sorozatban felülírható"
+    },
+    {
+      "en": "Demon King",
+      "hu": "démonkirály",
+      "context": "démonok uralkodója (妖王/魔王). Forrás: Csongor: Nyugati utazás"
+    },
+    {
+      "en": "Dragon King",
+      "hu": "Sárkánykirály",
+      "context": "tengeri sárkányuralkodó (龙王). Forrás: Csongor: Nyugati utazás (kisbetűvel „sárkánykirály”); egy xianxia sorozat glossaryja alapján (címként nagybetűvel)"
+    },
+    {
+      "en": "Saint",
+      "hu": "szent",
+      "context": "a legfelső kozmikus rang (圣人); „Quasi-Saint” = „kvázi-szent”. Forrás: egy xianxia sorozat glossaryja alapján; Csongor: Nyugati utazás („Nagy Szent”)"
+    },
+    {
+      "en": "Taoist",
+      "hu": "taoista",
+      "context": "daoista szerzetes/pap megnevezése és megszólítása (道士/道长). Forrás: Csongor: Nyugati utazás; Csongor: Vízparti történet"
+    },
+    {
+      "en": "Fellow Cultivator",
+      "hu": "kultivátortárs",
+      "context": "kultivátorok egymás közti megszólítása. egy xianxia sorozat glossaryja alapján („önművelőtárs”, a „cultivation” döntéséhez igazítva)"
+    }
+  ],
+  "place_names": [],
+  "character_names": [],
+  "special_terms": [
+    {
+      "en": "cultivation",
+      "hu": "kultiváció",
+      "context": "a műfaj központi fogalma (修炼/修仙). Forrás: magyar The Untamed-kiadás. A forrás-sorozat „önművelés”-t használt — sorozatban felülírható. Döntés (2026-10): kultiváció (nem „önművelés”)."
+    },
+    {
+      "en": "cultivator",
+      "hu": "kultivátor",
+      "context": "aki kultivációt folytat (修士). Forrás: magyar The Untamed-kiadás. A forrás-sorozat: „önművelő”"
+    },
+    {
+      "en": "cultivation level",
+      "hu": "kultivációs szint",
+      "context": "a kultivátor ereje/foka. egy xianxia sorozat glossaryja alapján („önművelési szint”), a „cultivation” döntéséhez igazítva"
+    },
+    {
+      "en": "cultivation base",
+      "hu": "kultivációs alap",
+      "context": "a felhalmozott erő alapja (修为/根基). egy xianxia sorozat glossaryja alapján, a „cultivation” döntéséhez igazítva"
+    },
+    {
+      "en": "cultivation world",
+      "hu": "a kultivátorok világa",
+      "context": "a kultivátorok közössége (修真界). egy xianxia sorozat glossaryja alapján („önművelő világ”), igazítva"
+    },
+    {
+      "en": "immortal cultivator",
+      "hu": "halhatatlanságra törő kultivátor",
+      "context": "修仙者. egy xianxia sorozat glossaryja alapján („halhatatlanságra törekvő önművelő”), igazítva"
+    },
+    {
+      "en": "demonic cultivation",
+      "hu": "démoni kultiváció",
+      "context": "a tiltott/sötét kultivációs út (魔道/鬼道). Forrás: magyar The Untamed-kiadás (a cím szerint)"
+    },
+    {
+      "en": "demonic cultivator",
+      "hu": "démoni kultivátor",
+      "context": "魔修. A magyar The Untamed-kiadás „démoni kultiváció” alakjához igazítva"
+    },
+    {
+      "en": "Qi",
+      "hu": "qi",
+      "context": "életenergia (气); kisbetűvel, ragozva: „qit”, „qije”. Forrás: egy xianxia sorozat glossaryja alapján. Alternatíva: „csi” (magyaros átírás), „életerő” —"
+    },
+    {
+      "en": "spiritual qi",
+      "hu": "szellemi energia",
+      "context": "a világban áramló kultivációs energia (灵气). egy xianxia sorozat glossaryja alapján („spiritual energy” = „szellemi energia”)"
+    },
+    {
+      "en": "spiritual energy",
+      "hu": "szellemi energia",
+      "context": "灵气/灵力. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "spiritual power",
+      "hu": "szellemi erő",
+      "context": "a kultivátorban felhalmozott, elhasználható erő (灵力/法力). Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "spiritual sense",
+      "hu": "szellemi érzék",
+      "context": "érzékelés a szellemi erővel (神识/灵识); a „divine sense” is ez. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "divine sense",
+      "hu": "szellemi érzék",
+      "context": "神识; a „spiritual sense” másik angol alakja. egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "magic power",
+      "hu": "varázserő",
+      "context": "法力. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "dantian",
+      "hu": "cinóber mező",
+      "context": "az energiaközpont az alhasban (丹田). Forrás: Csongor: Nyugati utazás („cinóber mező, életerőd központja”). Alternatíva: pinyin „dantian” —"
+    },
+    {
+      "en": "spiritual root",
+      "hu": "szellemgyökér",
+      "context": "a kultivációs tehetség veleszületett alapja (灵根); többes számban „szellemgyökerek”. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "foundation",
+      "hu": "alap",
+      "context": "a kultiváció alapja (根基/道基); „damaged foundation” = „sérült alap”. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "comprehension",
+      "hu": "felfogóképesség",
+      "context": "a tanítvány tehetségének mérője (悟性). Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "seclusion",
+      "hu": "elvonulás",
+      "context": "zárt kultiváció (闭关); „emerge from seclusion” = „előjön az elvonulásból”. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "secluded cultivation",
+      "hu": "elvonult kultiváció",
+      "context": "闭关修炼. egy xianxia sorozat glossaryja alapján („elvonult önművelés”), igazítva"
+    },
+    {
+      "en": "inner demon",
+      "hu": "belső démon",
+      "context": "心魔: a kultivátor saját kísértése, kétsége. Forrás: egy xianxia sorozat glossaryja alapján („inner demons” = „belső démonok”)"
+    },
+    {
+      "en": "heart demon",
+      "hu": "belső démon",
+      "context": "心魔; az „inner demon” másik angol alakja. egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "enlightenment",
+      "hu": "megvilágosodás",
+      "context": "悟/顿悟; „sudden enlightenment” = „hirtelen megvilágosodás”. Forrás: Csongor: Nyugati utazás; egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "immortality",
+      "hu": "halhatatlanság",
+      "context": "„attain immortality” = „elnyerni a halhatatlanságot”. Forrás: Csongor: Nyugati utazás („halhatatlanná tesz”); egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "path to immortality",
+      "hu": "a halhatatlanság útja",
+      "context": "仙途/仙道. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "ascension",
+      "hu": "felemelkedés",
+      "context": "飞升: átlépés a halhatatlanok világába. egy xianxia sorozat glossaryja alapján („ascension plan” = „felemelkedési terv”); sorozatban felülírható"
+    },
+    {
+      "en": "mortal",
+      "hu": "halandó",
+      "context": "凡人: nem kultiváló ember. Forrás: Csongor: Nyugati utazás; egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "mortal realm",
+      "hu": "a halandók világa",
+      "context": "凡间/人间. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "true form",
+      "hu": "valódi alak",
+      "context": "本相/真身: egy lény eredeti alakja. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "stage",
+      "hu": "fokozat",
+      "context": "egy szinten belüli fokozat (期/层). Forrás: egy xianxia sorozat glossaryja alapján (a szintek egységesen „fokozat”);"
+    },
+    {
+      "en": "Qi Refining",
+      "hu": "Qi-finomítás",
+      "context": "az első kultivációs szint (炼气). egy xianxia sorozat glossaryja alapján („Qi refiner” = „qi-finomító”);"
+    },
+    {
+      "en": "Golden Core",
+      "hu": "Aranymag",
+      "context": "a harmadik szint (金丹). Forrás: egy xianxia sorozat glossaryja alapján (a szint magyar neve „Aranymag fokozat” volt);"
+    },
+    {
+      "en": "True Immortal",
+      "hu": "igaz halhatatlan",
+      "context": "真仙. Forrás: egy xianxia sorozat glossaryja alapján („Verity Immortal” = „igaz halhatatlan”)"
+    },
+    {
+      "en": "Golden Immortal",
+      "hu": "arany halhatatlan",
+      "context": "金仙. egy xianxia sorozat glossaryja alapján („Aureate Immortal” = „aranyló halhatatlan”) —"
+    },
+    {
+      "en": "Quasi-Saint",
+      "hu": "kvázi-szent",
+      "context": "准圣. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "tribulation",
+      "hu": "megpróbáltatás",
+      "context": "劫: a szintlépést kísérő égi próba; „survive the tribulation” = „kiállja a megpróbáltatást” (ne „túléli”). Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "heavenly tribulation",
+      "hu": "égi megpróbáltatás",
+      "context": "天劫. egy xianxia sorozat glossaryja alapján („tribulation” = „megpróbáltatás”)"
+    },
+    {
+      "en": "lightning tribulation",
+      "hu": "villám-megpróbáltatás",
+      "context": "雷劫. egy xianxia sorozat glossaryja alapján („tribulation” = „megpróbáltatás”, „lightning strike” = „villámcsapás”)"
+    },
+    {
+      "en": "Great Tribulation",
+      "hu": "Nagy Megpróbáltatás",
+      "context": "大劫: világméretű csapás. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "karma",
+      "hu": "karma",
+      "context": "因果/业. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "reincarnation",
+      "hu": "újjászületés",
+      "context": "转世/轮回. Forrás: Csongor: Nyugati utazás („új testben újjászület”); egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "past life",
+      "hu": "előző élet",
+      "context": "前世. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "heavenly mandate",
+      "hu": "égi elrendelés",
+      "context": "天命. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "Heaven's will",
+      "hu": "az ég akarata",
+      "context": "天意. Forrás: egy xianxia sorozat glossaryja alapján; egy kínai történelmi sorozat glossaryja („az Ég akarata”)"
+    },
+    {
+      "en": "sect",
+      "hu": "rend",
+      "context": "kultivációs közösség (宗/门/派). sorozatban felülírható. Döntés (2026-10): a „szekta” helyett — semleges, a magyarban nincs vallási-pejoratív felhangja; nagybetűvel, ha a név része („a Felhő Rend”)."
+    },
+    {
+      "en": "disciple",
+      "hu": "tanítvány",
+      "context": "弟子/徒弟. Forrás: Csongor: Nyugati utazás; egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "outer disciple",
+      "hu": "külső tanítvány",
+      "context": "外门弟子. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "head disciple",
+      "hu": "fő tanítvány",
+      "context": "首席/大弟子. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "formal disciple",
+      "hu": "teljes jogú tanítvány",
+      "context": "正式弟子, a próbatanítvánnyal szemben. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "fellow disciple",
+      "hu": "tanítványtárs",
+      "context": "同门. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "sect rules",
+      "hu": "a rend szabályai",
+      "context": "门规. egy xianxia sorozat glossaryja alapján („sect's laws” — ott „a Rend törvényei”); a „sect” döntéséhez igazítandó. Döntés (2026-10): a Sect = rend döntésből."
+    },
+    {
+      "en": "Discipline Hall",
+      "hu": "Fegyelmi Csarnok",
+      "context": "戒律堂: a rend fegyelmi testülete; sok xianxiában visszatér. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "immortal seedling",
+      "hu": "halhatatlan-palánta",
+      "context": "仙苗: ígéretes fiatal tehetség. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "pill",
+      "hu": "pirula",
+      "context": "丹/丹药. Forrás: egy xianxia sorozat glossaryja alapján; Csongor: Nyugati utazás régies alakja „labdacs”"
+    },
+    {
+      "en": "elixir",
+      "hu": "elixír",
+      "context": "丹/仙丹. Forrás: Csongor: Nyugati utazás; egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "immortal elixir",
+      "hu": "halhatatlanság-elixír",
+      "context": "仙丹. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "alchemy",
+      "hu": "elixírfőzés",
+      "context": "炼丹. Forrás: egy xianxia sorozat glossaryja alapján; alternatíva: „alkímia”; sorozatban felülírható"
+    },
+    {
+      "en": "spirit herb",
+      "hu": "szellemfű",
+      "context": "灵草/灵药. Forrás: egy kínai történelmi sorozat glossaryja („spiritual herb” = „szellemfű”)"
+    },
+    {
+      "en": "spirit stone",
+      "hu": "szellemkő",
+      "context": "灵石: a kultivátorok fizetőeszköze és energiaforrása; többes számban „szellemkövek”. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "talisman",
+      "hu": "talizmán",
+      "context": "符/符箓. Forrás: Csongor: Nyugati utazás; egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "formation",
+      "hu": "formáció",
+      "context": "阵/阵法: mágikus alakzat; „break the formation” = „feltörni a formációt”. Forrás: egy xianxia sorozat glossaryja alapján;"
+    },
+    {
+      "en": "array",
+      "hu": "formáció",
+      "context": "阵: a „formation” másik angol alakja. egy xianxia sorozat glossaryja alapján (ott „alakzat” és „formáció” is) —"
+    },
+    {
+      "en": "protective formation",
+      "hu": "védőformáció",
+      "context": "护山/护宗大阵. egy xianxia sorozat glossaryja alapján („Protective Array”) alapján, a „formation” döntéséhez igazítva"
+    },
+    {
+      "en": "seal",
+      "hu": "pecsét",
+      "context": "封印; „break the seal” = „feltörni a pecsétet”. Forrás: egy xianxia sorozat glossaryja alapján; Csongor: Nyugati utazás („pecsét”)"
+    },
+    {
+      "en": "magic instrument",
+      "hu": "mágikus eszköz",
+      "context": "法器. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "artifact",
+      "hu": "ereklye",
+      "context": "法宝/神器. Forrás: egy xianxia sorozat glossaryja alapján (ott is jelezve, hogy egybeeshet a „magic instrument”-tel) —"
+    },
+    {
+      "en": "spirit treasure",
+      "hu": "szellemkincs",
+      "context": "灵宝. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "innate treasure",
+      "hu": "veleszületett kincs",
+      "context": "先天灵宝. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "sword flight",
+      "hu": "kardrepülés",
+      "context": "御剑飞行. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "spell",
+      "hu": "varázslat",
+      "context": "法术/术. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "incantation",
+      "hu": "varázsige",
+      "context": "咒/咒语. Forrás: Csongor: Nyugati utazás („varázsigét mond”); egy xianxia sorozat glossaryja alapján („mystic incantations” = „titkos igék”)"
+    },
+    {
+      "en": "secret art",
+      "hu": "titkos művészet",
+      "context": "秘术. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "voice transmission",
+      "hu": "hangátvitel",
+      "context": "传音: gondolati/mágikus üzenetküldés. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "divination",
+      "hu": "jóslás",
+      "context": "卜算/推演. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "Five Elements",
+      "hu": "Öt Elem",
+      "context": "五行. Forrás: egy xianxia sorozat glossaryja alapján; egy másik kínai sorozat glossaryja is"
+    },
+    {
+      "en": "demon",
+      "hu": "démon",
+      "context": "妖/魔; „demoness” = „démonnő”. Forrás: Csongor: Nyugati utazás (a 妖-lényekre is „démon”); egy xianxia sorozat glossaryja alapján;"
+    },
+    {
+      "en": "devil",
+      "hu": "ördög",
+      "context": "魔 (ha az angol felirat elkülöníti a „demon”-tól). Forrás: Csongor: Nyugati utazás („ördög”);"
+    },
+    {
+      "en": "demon beast",
+      "hu": "démonfenevad",
+      "context": "妖兽. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "demon core",
+      "hu": "démonmag",
+      "context": "妖丹. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "evil spirit",
+      "hu": "gonosz szellem",
+      "context": "邪祟. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "ghost",
+      "hu": "szellem",
+      "context": "鬼; „kísértet” is lehet. Forrás: Csongor: Nyugati utazás („szellem”); sorozatban felülírható"
+    },
+    {
+      "en": "deity",
+      "hu": "istenség",
+      "context": "神. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "Earth Deity",
+      "hu": "földisten",
+      "context": "土地: helyi alacsony rangú istenség. Forrás: Csongor: Nyugati utazás; egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "celestial soldiers",
+      "hu": "mennyei katonák",
+      "context": "天兵. Csongor: Nyugati utazás („mennyei katonaság”); a forrás-sorozat „égi katonák”-at használt"
+    },
+    {
+      "en": "Heavenly Court",
+      "hu": "Mennyei Udvar",
+      "context": "天庭. Forrás: egy xianxia sorozat glossaryja alapján („Celestial Court” = „Mennyei Udvar”)"
+    },
+    {
+      "en": "Celestial Court",
+      "hu": "Mennyei Udvar",
+      "context": "天庭; a „Heavenly Court” másik angol alakja. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "Celestial Realm",
+      "hu": "Mennyei Birodalom",
+      "context": "仙界/天界. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "Three Realms",
+      "hu": "Három Világ",
+      "context": "三界. Forrás: Csongor: Nyugati utazás („Három világ”); egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "Nine Heavens",
+      "hu": "Kilenc Ég",
+      "context": "九天. egy xianxia sorozat glossaryja alapján („Ninth Heaven” = „Kilencedik Ég”)"
+    },
+    {
+      "en": "underworld",
+      "hu": "alvilág",
+      "context": "地府/阴间. Forrás: Csongor: Nyugati utazás; egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "Jade Emperor",
+      "hu": "Jáde Császár",
+      "context": "玉帝: a Mennyei Udvar uralkodója. Forrás: Csongor: Nyugati utazás"
+    },
+    {
+      "en": "Three Pure Ones",
+      "hu": "a Három Tiszta",
+      "context": "三清: a daoizmus három legfőbb istensége. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "Dragon Palace",
+      "hu": "Sárkánypalota",
+      "context": "龙宫: a sárkánykirály tenger alatti palotája. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "primal chaos",
+      "hu": "őskáosz",
+      "context": "混沌. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "Dao",
+      "hu": "Tao",
+      "context": "道; névelővel: „a Tao”. Bevett magyar alak (taoizmus, Tao Te King); Csongor: Nyugati utazás „a Tan”."
+    },
+    {
+      "en": "the Way",
+      "hu": "az Út",
+      "context": "道, ha az angol felirat „Way”-nek fordítja; „seek the Way” = „az Utat keresni”. Forrás: egy xianxia sorozat glossaryja alapján"
+    }
+  ],
+  "phrases": [
+    {
+      "en": "attain immortality",
+      "hu": "elnyerni a halhatatlanságot",
+      "context": "Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "survive the tribulation",
+      "hu": "kiállja a megpróbáltatást",
+      "context": "állandó kollokáció, ne „túléli”. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "emerge from seclusion",
+      "hu": "előjön az elvonulásból",
+      "context": "出关. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "join the sect",
+      "hu": "belép a rendbe",
+      "context": "入门. egy xianxia sorozat glossaryja alapján („joins the sect” — ott „belép a Rendbe”); a „sect” döntéséhez igazítandó. Döntés (2026-10): a Sect = rend döntésből."
+    },
+    {
+      "en": "take as disciple",
+      "hu": "tanítványává fogad",
+      "context": "收徒. egy xianxia sorozat glossaryja alapján („take him as my mentor” = „mesteremnek fogadom”)"
+    },
+    {
+      "en": "Please accept me as your disciple.",
+      "hu": "Kérem, fogadjon el tanítványának.",
+      "context": "visszatérő műfaji kérés. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "Your disciple pays respects.",
+      "hu": "Tanítványa tiszteleg.",
+      "context": "formális köszöntés a mesternek. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "seek the Way",
+      "hu": "az Utat keresni",
+      "context": "求道. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "cultivate the Way",
+      "hu": "járni az Utat",
+      "context": "修道. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "You are courting death.",
+      "hu": "A halálodat keresed.",
+      "context": "找死: műfaji állandó fordulat. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "Heaven's will cannot be defied.",
+      "hu": "Az ég akaratával nem lehet szembeszállni.",
+      "context": "Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "the strong are revered",
+      "hu": "az erőseké a tisztelet",
+      "context": "强者为尊. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "break the formation",
+      "hu": "feltörni a formációt",
+      "context": "破阵. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "His foundation is ruined.",
+      "hu": "Odalett az alapja.",
+      "context": "根基尽毁. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "hide one's cultivation",
+      "hu": "rejtegeti a kultivációs szintjét",
+      "context": "隐藏修为. egy xianxia sorozat glossaryja alapján („hide his cultivation”), igazítva"
+    },
+    {
+      "en": "This humble one",
+      "hu": "E csekélység",
+      "context": "贫道/在下 típusú önlekicsinylő önmegnevezés. Forrás: egy xianxia sorozat glossaryja alapján"
+    },
+    {
+      "en": "Ancestral masters above!",
+      "hu": "Ősmesterek odafent!",
+      "context": "祖师爷在上: műfaji felkiáltás. Forrás: egy xianxia sorozat glossaryja alapján"
+    }
+  ]
+}
