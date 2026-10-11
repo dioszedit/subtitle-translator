@@ -11,15 +11,14 @@ kapcsolóval megadva — ha mégis másolatba írna, figyelmeztet.
 """
 
 import argparse
-import glob
 import json
 import os
-import re
-import shutil
 import sys
 
+from subtr import config
 from subtr import glossary as g
 from subtr.config import GLOSSARIES_DIR, GLOSSARY_PATH
+from subtr.srt import parse_by_index
 
 
 def _bases_dir_for(glossary_path: str) -> str:
@@ -37,15 +36,16 @@ def _in_git_repo(path: str) -> bool:
         path = parent
 
 
-def _write_json(path: str, data: dict) -> None:
-    if os.path.exists(path):
-        shutil.copy2(path, path + ".bak")
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
-
-
-def _count(data: dict) -> int:
-    return sum(len(data.get(c, []) or []) for c in g.CATEGORIES)
+def _read_json(path: str):
+    """(adat, hiba) — a hiba olvasható szöveg, ha a fájl nem olvasható / nem objektum."""
+    try:
+        with open(path, encoding="utf-8-sig") as f:
+            data = json.load(f)
+    except (OSError, json.JSONDecodeError) as e:
+        return None, str(e)
+    if not isinstance(data, dict):
+        return None, "a gyökér nem JSON-objektum"
+    return data, None
 
 
 # ── list ────────────────────────────────────────────────────────────────────
@@ -59,15 +59,19 @@ def cmd_list(args) -> int:
     for base in index:
         base_id = base["id"]
         listed.add(base_id)
-        data = g.load_base(base_id, directory) if os.path.isfile(
-            os.path.join(directory, base_id + ".json")) else None
-        count = f"{_count(data):4} bejegyzés" if data else "   — még nincs fájl"
+        path = os.path.join(directory, base_id + ".json")
+        if not os.path.isfile(path):
+            count = "   — még nincs fájl"
+        else:
+            data, err = _read_json(path)
+            count = f"   HIBÁS FÁJL: {err}" if err else f"{g.count_entries(data):4} bejegyzés"
         mark = "  ← ez a sorozat használja" if base_id in used else ""
         print(f"  {base_id:<14} {count}  {base.get('title', '')}{mark}")
-    for path in sorted(glob.glob(os.path.join(directory, "*.json"))):
-        base_id = os.path.splitext(os.path.basename(path))[0]
-        if base_id != "index" and base_id not in listed:
-            print(f"  {base_id:<14} (nincs az index.json-ban)")
+    if os.path.isdir(directory):
+        for name in sorted(os.listdir(directory)):
+            base_id, ext = os.path.splitext(name)
+            if ext == ".json" and base_id != "index" and base_id not in listed:
+                print(f"  {base_id:<14} (nincs az index.json-ban)")
     print(f"\nA sorozat ({args.glossary}) meta.bases: {', '.join(used) or '—'}")
     return 0
 
@@ -82,14 +86,14 @@ def promote(project: dict, base: dict, terms: list[str], context: str | None = N
     helyben módosítja; íráshoz a hívó felel.
     """
     moved, errors = [], []
-    base_keys = {g.normalize_for_match(e.get("en", "")): (c, i)
+    base_keys = {g.match_key(e): (c, i)
                  for c in g.CATEGORIES for i, e in enumerate(base.get(c, []) or [])}
     for term in terms:
-        key = g.normalize_for_match(term)
+        key = g.normalize_for_match(term).strip()
         found = None
         for category in g.CATEGORIES:
             for i, entry in enumerate(project.get(category, []) or []):
-                if g.normalize_for_match(entry.get("en", "")) == key:
+                if g.match_key(entry) == key:
                     found = (category, i, entry)
                     break
             if found:
@@ -98,7 +102,7 @@ def promote(project: dict, base: dict, terms: list[str], context: str | None = N
             errors.append(f"„{term}” nincs a sorozat glossaryjában")
             continue
         category, index, entry = found
-        new_entry = {"en": entry["en"], "hu": entry["hu"],
+        new_entry = {"en": entry["en"].strip(), "hu": entry["hu"],
                      "context": context if context is not None else entry.get("context", "")}
         if key in base_keys:
             if not replace:
@@ -115,6 +119,38 @@ def promote(project: dict, base: dict, terms: list[str], context: str | None = N
             project[category].pop(index)
         moved.append((category, new_entry))
     return moved, errors
+
+
+def _upsert(base: dict, category: str, entry: dict) -> None:
+    """A bejegyzés felvétele vagy cseréje (az `en` kulcs szerint) az alapban."""
+    key = g.match_key(entry)
+    for c in g.CATEGORIES:
+        for i, e in enumerate(base.get(c, []) or []):
+            if g.match_key(e) == key:
+                base[c][i] = entry
+                return
+    base.setdefault(category, []).append(entry)
+
+
+def _removal_blockers(project: dict, base_id: str, directory: str, terms_moved) -> list[str]:
+    """Miért NEM vehető ki a terminus a sorozatból (különben elveszne / megváltozna)."""
+    if base_id not in g.base_ids(project):
+        return [f"a sorozat nem használja a(z) {base_id} alapot (meta.bases: "
+                f"{', '.join(g.base_ids(project)) or '—'}) — kivéve a terminus eltűnne a promptból"]
+    # Ha egy erősebb (később felsorolt) alap ugyanarra az en-re mást ad, a kivétel
+    # után az érvényesülne.
+    blockers = []
+    later = g.base_ids(project)[g.base_ids(project).index(base_id) + 1:]
+    for other in later:
+        data = g.load_base(other, directory) or {}
+        other_map = {g.match_key(e): e.get("hu", "") for c in g.CATEGORIES
+                     for e in data.get(c, []) or []}
+        for _, entry in terms_moved:
+            hu = other_map.get(g.match_key(entry))
+            if hu is not None and hu.strip().lower() != entry["hu"].strip().lower():
+                blockers.append(f"„{entry['en']}”: a később felsorolt {other} alap „{hu}”-t ad "
+                                f"— kivéve az érvényesülne")
+    return blockers
 
 
 def cmd_promote(args) -> int:
@@ -137,16 +173,37 @@ def cmd_promote(args) -> int:
             print("  Ha mégis ide akarsz írni: --force")
             return 1
 
-    with open(args.glossary, encoding="utf-8-sig") as f:
-        project = json.load(f)
-    with open(base_path, encoding="utf-8-sig") as f:
-        base = json.load(f)
+    project, err = _read_json(args.glossary)
+    base, err2 = _read_json(base_path)
+    if err or err2:
+        print(f"HIBA: {args.glossary if err else base_path}: {err or err2}")
+        return 1
 
-    moved, errors = promote(project, base, args.terms, args.context, args.replace, args.keep)
-    for err in errors:
-        print(f"HIBA: {err}")
+    moved, errors = promote(project, base, args.terms, args.context, args.replace, keep=True)
+    for msg in errors:
+        print(f"HIBA: {msg}")
     if not moved:
         return 1
+
+    # A sorozat-mappa saját glossaries/-másolata: a promote azt is frissíti, különben
+    # a kivett terminus a következő kód-szinkronig eltűnne a sorozatból.
+    series_dir = _bases_dir_for(args.glossary)
+    series_copy = os.path.join(series_dir, args.to + ".json")
+    copy_target = None
+    if os.path.isfile(series_copy) and \
+            os.path.realpath(series_copy) != os.path.realpath(base_path):
+        copy_target = series_copy
+
+    keep = args.keep
+    if not keep:
+        blockers = _removal_blockers(project, args.to, series_dir, moved)
+        if blockers:
+            print("A terminus a sorozatban MARAD (nem vehető ki biztonságosan):")
+            for b in blockers:
+                print(f"  - {b}")
+            keep = True
+    if not keep:
+        promote(project, {}, [e["en"] for _, e in moved], keep=False)   # kivétel a sorozatból
 
     print(f"Az alapba ({args.to}) kerülne — a repo NYILVÁNOS, a context ne tartalmazzon"
           f" sorozat- vagy szereplőnevet:")
@@ -165,10 +222,17 @@ def cmd_promote(args) -> int:
             print("Megszakítva, semmi nem módosult.")
             return 1
 
-    _write_json(base_path, base)
+    g.write_json_atomic(base_path, base)
     print(f"Mentve: {base_path} (+ .bak)")
-    if not args.keep:
-        _write_json(args.glossary, project)
+    if copy_target:
+        copy, _ = _read_json(copy_target)
+        if copy is not None:
+            for category, entry in moved:
+                _upsert(copy, category, entry)
+            g.write_json_atomic(copy_target, copy)
+            print(f"A sorozat alap-másolata is frissítve: {copy_target}")
+    if not keep:
+        g.write_json_atomic(args.glossary, project)
         print(f"Kivéve a sorozatból: {args.glossary} (+ .bak) — mostantól az alapból jön.")
     print("Ne felejtsd: commit a repóban, majd kód-szinkron a sorozat-mappákba.")
     return 1 if errors else 0
@@ -176,69 +240,83 @@ def cmd_promote(args) -> int:
 
 # ── check ───────────────────────────────────────────────────────────────────
 
-def _cues(path: str) -> dict:
-    out = {}
-    with open(path, encoding="utf-8-sig") as f:
-        content = f.read()
-    for block in re.split(r"\n\s*\n", content.strip()):
-        lines = block.split("\n")
-        if len(lines) >= 3 and lines[0].strip().isdigit():
-            out[int(lines[0])] = " ".join(lines[2:])
-    return out
+def _source_for(project_dir: str, stem: str) -> str | None:
+    """A kész magyar SRT forrása az input/-ban: <stem>.<nyelvkód>.srt, angol előnyben."""
+    order = ["eng"] + [c for c in config.SOURCE_LANGS if c != "eng"]
+    for code in order:
+        path = os.path.join(project_dir, "input", f"{stem}.{code}.srt")
+        if os.path.isfile(path):
+            return path
+    return None
 
 
 def _translated_pairs(project_dir: str) -> list[tuple[str, str]]:
-    """(forrás-SRT, kész magyar SRT) párok a sorozat-mappából, 1:1 cue-számmal."""
+    """(forrás-SRT, kész magyar SRT) párok; az output/ elsőbbséget élvez a Season 01/-gyel szemben."""
     pairs, seen = [], set()
-    candidates = sorted(glob.glob(os.path.join(project_dir, "output", "*.hun.srt"))
-                        + glob.glob(os.path.join(project_dir, "Season 01", "*.hun.srt")))
-    for hun in candidates:
-        stem = os.path.basename(hun)[:-len(".hun.srt")]
-        if stem in seen:
+    for sub in ("output", "Season 01"):
+        folder = os.path.join(project_dir, sub)
+        if not os.path.isdir(folder):
             continue
-        sources = [p for p in glob.glob(os.path.join(project_dir, "input", stem + ".*.srt"))
-                   if ".hun." not in p and ".clean." not in p]
-        if sources:
-            seen.add(stem)
-            pairs.append((sources[0], hun))
+        for name in sorted(os.listdir(folder)):
+            if not name.endswith(".hun.srt"):
+                continue
+            stem = name[:-len(".hun.srt")]
+            source = _source_for(project_dir, stem)
+            if stem not in seen and source:
+                seen.add(stem)
+                pairs.append((source, os.path.join(folder, name)))
     return pairs
 
 
-def check(project: dict, directory: str, project_dir: str, limit: int = 20) -> dict:
-    """Az alapok és a sorozat viszonya: egyezés, felülírás, eltérés a kész fordításokban."""
-    project_map = {g.normalize_for_match(e.get("en", "")): e.get("hu", "")
-                   for c in g.CATEGORIES for e in project.get(c, []) or []}
-    same, overridden, new = [], [], []
-    for base_id in g.base_ids(project):
-        data = g.load_base(base_id, directory) or {}
-        for c in g.CATEGORIES:
-            for e in data.get(c, []) or []:
-                key = g.normalize_for_match(e.get("en", ""))
-                if key in project_map:
-                    if project_map[key].strip().lower() == e.get("hu", "").strip().lower():
-                        same.append((base_id, e))
-                    else:
-                        overridden.append((base_id, e, project_map[key]))
-                else:
-                    new.append((base_id, e))
+def check(project: dict, directory: str, project_dir: str) -> dict:
+    """Az alapok és a sorozat viszonya — az ÖSSZEFÉSÜLT (érvényes) alap szerint.
 
-    mismatches = []
-    pairs = _translated_pairs(project_dir)
-    for src, hun in pairs:
-        source, target = _cues(src), _cues(hun)
-        if len(source) != len(target):
+    same:       a sorozat bejegyzése megegyezik azzal, amit az alap adna (törölhető)
+    overridden: a sorozat mást ad, mint az érvényes alap-bejegyzés
+    new:        csak az alapból jön
+    mismatches: a kész fordításokban a `new` terminus helyén más magyar alak áll
+    """
+    only_bases = g.with_bases({"meta": project.get("meta") or {}}, directory)
+    effective = {g.match_key(e): e for c in g.CATEGORIES for e in only_bases.get(c, [])}
+    project_map = {g.match_key(e): e.get("hu", "") for c in g.CATEGORIES
+                   for e in project.get(c, []) or []}
+    same, overridden, new = [], [], []
+    for key, e in effective.items():
+        base_id = e["_source"].split(":", 1)[1]
+        if key in project_map:
+            if project_map[key].strip().lower() == e.get("hu", "").strip().lower():
+                same.append((base_id, e))
+            else:
+                overridden.append((base_id, e, project_map[key]))
+        else:
+            new.append((base_id, e))
+
+    patterns = []
+    for base_id, e in new:
+        pe = g.term_pattern(g.normalize_for_match(e["en"]).strip(), False)
+        ph = g.term_pattern(g.normalize_for_match(e["hu"]).strip(), True)
+        if pe and ph:
+            patterns.append((base_id, e, pe, ph))
+
+    mismatches, compared, skipped = [], [], []
+    for src, hun in _translated_pairs(project_dir):
+        source, target = parse_by_index(src), parse_by_index(hun)
+        if set(source) != set(target):
+            skipped.append(os.path.basename(hun))
             continue
-        for base_id, e in new:
-            pe = g.term_pattern(g.normalize_for_match(e["en"]).strip(), False)
-            ph = g.term_pattern(g.normalize_for_match(e["hu"]).strip(), True)
-            if not pe or not ph:
+        compared.append(os.path.basename(hun))
+        src_norm = {n: g.normalize_for_match(text) for n, (_, text) in source.items()}
+        whole = "\n".join(src_norm.values())
+        for base_id, e, pe, ph in patterns:
+            if not pe.search(whole):
                 continue
-            for n, text in source.items():
-                if pe.search(g.normalize_for_match(text)) and \
-                        not ph.search(g.normalize_for_match(target.get(n, ""))):
-                    mismatches.append((base_id, e, os.path.basename(hun), n, target.get(n, "")))
+            for n, text in src_norm.items():
+                if pe.search(text):
+                    hu_text = target[n][1]
+                    if not ph.search(g.normalize_for_match(hu_text)):
+                        mismatches.append((base_id, e, os.path.basename(hun), n, hu_text))
     return {"same": same, "overridden": overridden, "new": new,
-            "pairs": len(pairs), "mismatches": mismatches}
+            "compared": compared, "skipped": skipped, "mismatches": mismatches}
 
 
 def cmd_check(args) -> int:
@@ -258,8 +336,12 @@ def cmd_check(args) -> int:
         print(f"    {e['en']}: alap „{e['hu']}” ({base_id}) → sorozat „{hu}”")
     print(f"  csak az alapból jön: {len(result['new'])}")
     mism = result["mismatches"]
-    print(f"\nKész fordítások összevetve: {result['pairs']} rész — "
-          f"{len(mism)} helyen más magyar alak áll, mint az alapé:")
+    print(f"\nKész fordítások: {len(result['compared'])} rész összevetve — "
+          f"{len(mism)} helyen más magyar alak áll, mint az alapé.")
+    if result["skipped"]:
+        print(f"  KIHAGYVA {len(result['skipped'])} rész (a sorszámok eltérnek a forrásétól — "
+              f"resegment / SDH-tisztítás után): {', '.join(result['skipped'][:5])}"
+              + (" …" if len(result["skipped"]) > 5 else ""))
     by_term = {}
     for base_id, e, file, n, text in mism:
         by_term.setdefault((e["en"], e["hu"], base_id), []).append((file, n, text))

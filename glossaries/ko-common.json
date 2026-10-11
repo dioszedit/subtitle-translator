@@ -3,7 +3,7 @@
     "id": "ko-common",
     "title": "Koreai közös: megszólítások, rokoni és társasági formák",
     "lang": "ko",
-    "description": "Koreai megszólítások és utótagok (oppa, unnie, hyung, sunbae, -ssi, -nim), családi és társasági megszólítások, gyakori koreai helynevek és köznevek, ahogy az angol felirat visszaadja őket. TERVEZET — átnézésre.",
+    "description": "Koreai megszólítások és utótagok (oppa, unnie, hyung, sunbae, -ssi, -nim), családi és társasági megszólítások, gyakori koreai helynevek és köznevek, ahogy az angol felirat visszaadja őket.",
     "version": "1.0"
   },
   "honorifics": [
@@ -172,11 +172,6 @@
   ],
   "character_names": [],
   "special_terms": [
-    {
-      "en": "won",
-      "hu": "von",
-      "context": "koreai pénznem, kisbetűvel: „10 millió von” — egy koreai jogi-misztikus sorozat glossaryja alapján"
-    },
     {
       "en": "doenjang",
       "hu": "doenjang",

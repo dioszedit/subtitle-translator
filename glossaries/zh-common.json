@@ -108,11 +108,6 @@
       "context": "vezetéknév + asszony: „Mrs. Zhou” = „Zhou asszony”. 1 sorozat."
     },
     {
-      "en": "Ms.",
-      "hu": "kisasszony",
-      "context": "vezetéknév + kisasszony fiatal vagy nem férjes nőnél; idősebb, férjes nőnél „asszony” („Ms. Wang” = „Wang asszony”). 2 sorozat; sorozatban felülírható."
-    },
-    {
       "en": "Miss",
       "hu": "kisasszony",
       "context": "fiatal nő megszólítása; vezetéknévvel „Liu kisasszony”. 3 sorozat egyezik."
@@ -143,11 +138,6 @@
       "context": "szervezet, csapat vezetője; névvel „Wang főnök”. Törzs vagy falu vezetőjénél „törzsfőnök” (1 sorozat). 1 sorozat."
     },
     {
-      "en": "Director",
-      "hu": "igazgató",
-      "context": "név + igazgató: „Director Sun” = „Sun igazgató”; összetételben „márkaigazgató”, „PR-igazgató”. 2 sorozat egyezik."
-    },
-    {
       "en": "President",
       "hu": "elnök",
       "context": "cég, egyesület elnöke; név + elnök: „Liu elnök”. 1 sorozat."
@@ -161,11 +151,6 @@
       "en": "Benefactor",
       "hu": "jótevőm",
       "context": "megmentő, pártfogó megszólítása (恩人/恩公). Csongor: Vízparti történet."
-    },
-    {
-      "en": "Honey",
-      "hu": "drágám",
-      "context": "házastársak, szeretők egymás közt; mondat elején nagybetűvel. 1 sorozat."
     },
     {
       "en": "General",

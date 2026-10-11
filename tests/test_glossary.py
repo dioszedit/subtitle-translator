@@ -271,7 +271,31 @@ def test_hianyzo_index_ures_lista(tmp_path):
     ({"en": "Sect Leader", "hu": "szektavezér"}, "The sect leader came.", True),
     ({"en": "Grandfather", "hu": "nagyapa"}, "a nagyapám azt mondta", True),        # a → á ragozáskor
     ({"en": "Grandfather", "hu": "nagyapa"}, "a nagyapó jött", False),
+    ({"en": "Miss", "hu": "kisasszony"}, "maradj Chen kisasszonnyal", True),   # ny → nny
+    ({"en": "Mr.", "hu": "úr"}, "Liang urat tisztelem", True),                   # ú → u
+    ({"en": "Mr.", "hu": "úr"}, "ez egy uradalom", True),                        # (elfogadott álpozitív)
 ])
 def test_szohataros_elofordulas(entry, text, expected):
-    g = {"special_terms": [entry]}
+    """Az alap-bejegyzések szóhatárral illesztenek."""
+    g = {"special_terms": [{**entry, "_source": "base:x"}]}
     assert bool(glossary.filter_for_source(g, text)["special_terms"]) is expected
+
+
+@pytest.mark.parametrize("en,text", [
+    ("Poison", "He was poisoned."),
+    ("Cultivate", "She cultivated for years."),
+    ("Demon", "A demonic aura."),
+    ("Mom", "Mommy, look!"),
+])
+def test_sorozat_sajat_bejegyzese_reszszora_is_illeszt(en, text):
+    """A sorozat jóváhagyott terminusa a ragozott forrásalakra is bekerül."""
+    g = {"special_terms": [{"en": en, "hu": "x"}]}
+    assert glossary.filter_for_source(g, text)["special_terms"]
+
+
+def test_szokozos_en_kulcs_is_felulirja_az_alapot(tmp_path):
+    _base(tmp_path, "zh-historical", honorifics=[{"en": "Marquis", "hu": "márki"}])
+    path = _project(tmp_path, ["zh-historical"], honorifics=[{"en": "Marquis ", "hu": "őrgróf"}])
+    merged = glossary.load_merged(path)
+    assert [e["hu"] for e in merged["honorifics"]] == ["őrgróf"]
+    assert merged["meta"]["_merge"]["overridden"] == 1

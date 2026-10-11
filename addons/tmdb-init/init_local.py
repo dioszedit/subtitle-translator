@@ -416,6 +416,15 @@ def main():
         bad = [b for b in explicit_bases if not BASE_ID_RE.match(b)]
         if bad:
             parser.error(f"érvénytelen alap-azonosító: {', '.join(bad)}")
+        if args.no_glossary:
+            parser.error("--base és --no-glossary kizárja egymást (a --base a glossary.json-ba ír)")
+        missing = [b for b in explicit_bases
+                   if not (args.glossary.parent / GLOSSARIES_DIR / f"{b}.json").is_file()]
+        if missing:
+            have = sorted(p.stem for p in (args.glossary.parent / GLOSSARIES_DIR).glob("*.json")
+                          if p.stem != "index")
+            parser.error(f"nincs ilyen alap-szótár: {', '.join(missing)} "
+                         f"(létezők: {', '.join(have) or '—'}) — a meta.bases-hez nem nyúltam")
 
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
@@ -460,8 +469,10 @@ def main():
         print("\nAlap-szótár: nincs illő javaslat (glossaries/index.json).")
     # Futó sorozatnál (--glossary-only) csak explicit --base-re állítunk alapot:
     # a javaslat ott csak tájékoztat, a viselkedés nem változhat csendben.
+    # --no-glossary: a glossary.json-hoz egyáltalán nem nyúlunk (alap sem kerül bele).
     write_bases = None
-    if not args.no_base and (explicit_bases is not None or not args.glossary_only):
+    if not args.no_base and not args.no_glossary and \
+            (explicit_bases is not None or not args.glossary_only):
         write_bases = bases
 
     if args.glossary_only:
@@ -479,7 +490,7 @@ def main():
                 print(f'  "{e["en"]}"')
         elif bases_set is None:
             print(f"Szójegyzék: nincs új cím, a fájlhoz nem nyúltam ({args.glossary}).")
-        _report_bases(bases_set, write_bases, explicit_bases, args.glossary_only)
+        _report_bases(bases_set, write_bases, explicit_bases, args.glossary_only, args.no_base)
         print(f"A {args.out.name} érintetlen.")
         return
 
@@ -500,10 +511,9 @@ def main():
     args.out.write_text(doc, encoding="utf-8")
     print(f"Kész: {args.out.resolve()}")
 
-    if not args.no_glossary or write_bases is not None:
+    if not args.no_glossary:
         try:
-            added, bases_set = update_glossary([] if args.no_glossary else seed,
-                                               args.glossary, series_title, write_bases,
+            added, bases_set = update_glossary(seed, args.glossary, series_title, write_bases,
                                                replace_bases=explicit_bases is not None)
         except GlossaryError as e:
             print(f"HIBA: {e} — a {args.out.name} elkészült, a szójegyzék nem bővült.")
@@ -513,9 +523,9 @@ def main():
             print("hogy a fordító ne próbálkozzon a lefordításukkal:")
             for e in added:
                 print(f'  "{e["en"]}"')
-        elif seed and not args.no_glossary:
+        elif seed:
             print(f"\nSzójegyzék: a címek már benne vannak ({args.glossary.name}).")
-        _report_bases(bases_set, write_bases, explicit_bases, args.glossary_only)
+        _report_bases(bases_set, write_bases, explicit_bases, args.glossary_only, args.no_base)
 
     todos = [
         ln for ln in doc.splitlines()
@@ -527,10 +537,14 @@ def main():
             print(f"  {ln.strip()}")
 
 
-def _report_bases(bases_set, write_bases, explicit_bases, glossary_only):
+def _report_bases(bases_set, write_bases, explicit_bases, glossary_only, no_base=False):
+    if no_base:
+        return
     if bases_set is not None:
         print(f"Alap-szótár beállítva (meta.bases): {', '.join(bases_set) or '— (üres)'}")
-    elif write_bases is None and glossary_only and explicit_bases is None:
+    elif explicit_bases is not None:
+        print(f"Alap-szótár: a meta.bases már ez ({', '.join(explicit_bases)}) — nem változott.")
+    elif write_bases is None and glossary_only:
         print("Alap-szótár: futó sorozatnál csak --base-szel állítok be (a javaslat tájékoztató).")
     elif write_bases:
         print("Alap-szótár: a glossary.json-ban már van meta.bases — nem írtam felül "

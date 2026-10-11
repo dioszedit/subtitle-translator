@@ -3,7 +3,7 @@
     "id": "zh-wuxia",
     "title": "Wuxia: jianghu, harcművészeti irányzatok, belső erő",
     "lang": "zh",
-    "description": "Sorozatfüggetlen wuxia-terminusok: jianghu, harcművészet, belső erő, akupontok, rendek/iskolák, esküdt testvérek, betyárvilág. Fő forrás Csongor Vízparti történet-fordítása; a xianxia-eredetű tételek jelölve. TERVEZET.",
+    "description": "Sorozatfüggetlen wuxia-terminusok: jianghu, harcművészet, belső erő, akupontok, rendek/iskolák, esküdt testvérek, betyárvilág. Fő forrás Csongor Vízparti történet-fordítása; a xianxia-eredetű tételek jelölve.",
     "version": "1.0"
   },
   "honorifics": [
@@ -71,11 +71,6 @@
       "en": "innkeeper",
       "hu": "fogadós",
       "context": "掌柜/店家. Forrás: Csongor: Vízparti történet"
-    },
-    {
-      "en": "chief",
-      "hu": "vezér",
-      "context": "寨主/头领: betyárcsapat, hegyi tábor vezetője. Forrás: Csongor: Vízparti történet („vezér”, „rablóvezér”); sorozatban felülírható"
     }
   ],
   "place_names": [],

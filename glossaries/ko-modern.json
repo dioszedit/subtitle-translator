@@ -3,7 +3,7 @@
     "id": "ko-modern",
     "title": "Koreai modern: irodai beosztások, chaebol, jog, kórház, egyetem",
     "lang": "ko",
-    "description": "Mai koreai drámák visszatérő terminusai: irodai beosztás-létra, cégvezetés és chaebol, jogi és rendőrségi, kórházi, valamint iskolai/egyetemi szavak az angol felirat alakjában. TERVEZET — átnézésre.",
+    "description": "Mai koreai drámák visszatérő terminusai: irodai beosztás-létra, cégvezetés és chaebol, jogi és rendőrségi, kórházi, valamint iskolai/egyetemi szavak az angol felirat alakjában.",
     "version": "1.0"
   },
   "honorifics": [
@@ -26,11 +26,6 @@
       "en": "Chairman",
       "hu": "elnök",
       "context": "회장 (cégcsoport/ügyvédi iroda elnöke); megszólításban „elnök úr” — egy koreai jogi-misztikus sorozat glossaryja alapján. Bírót SOHA nem „elnök úr” (lásd Your Honor)."
-    },
-    {
-      "en": "Chief",
-      "hu": "igazgató",
-      "context": "intézmény/labor vezetője névvel: „Chief Kim” = „Kim igazgató”; egységesen, ne váltogasd „vezető”-vel — egy koreai jogi-misztikus sorozat glossaryja alapján"
     },
     {
       "en": "Professor",
@@ -172,18 +167,8 @@
       "context": "egy koreai jogi-misztikus sorozat glossaryja alapján"
     },
     {
-      "en": "trial",
-      "hu": "tárgyalás",
-      "context": "egy koreai jogi-misztikus sorozat glossaryja alapján"
-    },
-    {
       "en": "verdict",
       "hu": "ítélet",
-      "context": "egy koreai jogi-misztikus sorozat glossaryja alapján"
-    },
-    {
-      "en": "appeal",
-      "hu": "fellebbezés",
       "context": "egy koreai jogi-misztikus sorozat glossaryja alapján"
     },
     {
@@ -215,16 +200,6 @@
       "en": "autopsy",
       "hu": "boncolás",
       "context": "„autopsy report” = „boncolási jelentés” — egy koreai jogi-misztikus sorozat kész fordítása alapján"
-    },
-    {
-      "en": "suspect",
-      "hu": "gyanúsított",
-      "context": "egy koreai jogi-misztikus sorozat kész fordítása alapján; egy koreai egyetemi/laborbeli romantikus sorozat glossaryja alapján"
-    },
-    {
-      "en": "witness",
-      "hu": "tanú",
-      "context": "„witness stand” = „tanúpad” — egy koreai egyetemi/laborbeli romantikus sorozat glossaryja alapján; egy koreai jogi-misztikus sorozat kész fordítása alapján"
     },
     {
       "en": "testimony",
@@ -280,11 +255,6 @@
       "en": "senior researcher",
       "hu": "vezető kutató",
       "context": "egy koreai jogi-misztikus sorozat kész fordítása alapján"
-    },
-    {
-      "en": "major",
-      "hu": "szak",
-      "context": "„second major” = „másodszak” — egy koreai egyetemi romantikus sorozat kész fordítása alapján"
     },
     {
       "en": "top of the class",

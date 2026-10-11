@@ -31,7 +31,7 @@ from subtr import config
 from subtr.config import CLI_PROVIDERS, PROVIDERS
 from subtr.blocks import get_all_blocks, get_pending_blocks, hun_path, safe_remove
 from subtr.context import load_translation_context
-from subtr.glossary import as_prompt_text, describe_bases, load_merged
+from subtr.glossary import as_prompt_text, count_entries, describe_bases, filter_for_source, load_merged
 from subtr.providers import claude_cli, get_provider
 from subtr.providers import gemini as gemini_provider
 from subtr.srt import count_sections, count_sections_text, parse_sections, read_text, write_srt
@@ -228,16 +228,19 @@ def read_blocks_text(block_files) -> str:
     return "\n".join(parts)
 
 
-def describe_glossary_saving(filtered: str, source_text: str) -> str:
-    """Státuszsor a szűrés hatásáról — üres, ha nem szűkült."""
+def describe_glossary_saving(merged: dict, source_text: str) -> str:
+    """Státuszsor a szűrés hatásáról, a sorozat és az alapok külön — üres, ha nem szűkült."""
     if not source_text:
         return ""
-    full = as_prompt_text()
-    if not full or len(filtered) >= len(full):
+    kept = filter_for_source(merged, source_text)
+    parts = []
+    for label, source in (("sorozat", "project"), ("alap", "base")):
+        total = count_entries(merged, source)
+        if total:
+            parts.append(f"{label} {count_entries(kept, source)}/{total}")
+    if count_entries(kept) >= count_entries(merged):
         return ""
-    return (f"{len(filtered)} char a teljes {len(full)}-ból "
-            f"(-{100 - 100 * len(filtered) // len(full)}%, csak az epizódban "
-            "előforduló terminusok)")
+    return f"{', '.join(parts)} bejegyzés (csak az epizódban előfordulók)"
 
 
 def build_system_instruction(claude_md: str, glossary: str,
@@ -802,8 +805,9 @@ def main(argv=None):
     # újrafuttatáskor sem változik, és a Claude-út tartalom-hash-elt system
     # prompt fájlja is stabil marad (különben minden folytatás cache-miss).
     episode_text = read_blocks_text(all_blocks)
-    glossary = as_prompt_text(source_text=episode_text)
-    glossary_saving = describe_glossary_saving(glossary, episode_text)
+    merged_glossary = load_merged()
+    glossary = as_prompt_text(merged_glossary, source_text=episode_text)
+    glossary_saving = describe_glossary_saving(merged_glossary, episode_text)
 
     extra_status = []
     if provider == "gemini":
@@ -847,7 +851,7 @@ def main(argv=None):
         print("     sorozat-kontextus NÉLKÜL fordítok! (rossz mappából futtatod?)")
     if glossary_saving:
         print(f"  Szójegyzék:     {glossary_saving}")
-    bases_status = describe_bases(load_merged())
+    bases_status = describe_bases(merged_glossary)
     if bases_status:
         print(f"  Alap-szótár:    {bases_status}")
     if not glossary:

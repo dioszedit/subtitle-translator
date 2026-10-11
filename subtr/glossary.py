@@ -54,6 +54,10 @@ def normalize_for_match(text: str) -> str:
     return re.sub(r"\s+", " ", text)
 
 
+_DIGRAPHS = ("ny", "ty", "gy", "ly", "sz", "zs", "cs", "dz")
+_SHORTEN = {"á": "a", "é": "e", "í": "i", "ó": "o", "ő": "ö", "ú": "u", "ű": "ü"}
+# Az utolsó szótag hosszú magánhangzója (utána csak mássalhangzó jöhet).
+_LONG_VOWEL_IN_LAST_SYLLABLE = re.compile(r"([áéíóőúű])[^aáeéiíoóöőuúüű\s]+$")
 _WORD_CHAR = re.compile(r"[0-9a-z\u00c0-\u024f]")
 
 
@@ -77,12 +81,38 @@ def term_pattern(term: str, suffixes: bool) -> re.Pattern | None:
     if suffixes and term[-1] in "ae":
         # Magyar tőhangzó-nyúlás ragozáskor: apa → apám, mese → mesét.
         body = re.escape(term[:-1]) + ("[aá]" if term[-1] == "a" else "[eé]")
+    elif suffixes and _LONG_VOWEL_IN_LAST_SYLLABLE.search(term):
+        # Tőbeli magánhangzó-rövidülés ragozáskor: úr → urat, kéz → kezet, madár → madarat.
+        m = _LONG_VOWEL_IN_LAST_SYLLABLE.search(term)
+        long_v = m.group(1)
+        body = (re.escape(term[:m.start(1)]) + f"[{long_v}{_SHORTEN[long_v]}]"
+                + re.escape(term[m.end(1):]))
+    elif suffixes and term[-2:] in _DIGRAPHS:
+        # Kettőzött kétjegyű mássalhangzó a -val/-vé előtt: kisasszony → kisasszonnyal.
+        d = term[-2:]
+        body = re.escape(term[:-2]) + f"(?:{d}|{d[0]}{d})"
     return re.compile(head + body + tail)
 
 
 def _occurs(entry: dict, haystack: str) -> bool:
+    """Előfordul-e a bejegyzés (`en` vagy `hu` alakja) a normalizált szövegben.
+
+    A sorozat SAJÁT bejegyzéseinél részszó is számít (mint eddig): a forrásbeli
+    ragozott alak („poisoned”, „cultivated”, „demonic”) így is behozza a
+    jóváhagyott terminust. Az alap-bejegyzéseknél szóhatáros a keresés — azok
+    általános szavak, és a nagy alapoknál a részszó-találat („Mom” ← „moment”)
+    feleslegesen felfújná a promptot.
+    """
+    strict = _is_base(entry)
     for key, suffixes in (("en", False), ("hu", True)):
-        pattern = term_pattern(normalize_for_match(str(entry.get(key) or "")).strip(), suffixes)
+        form = normalize_for_match(str(entry.get(key) or "")).strip()
+        if not form:
+            continue
+        if not strict:
+            if form in haystack:
+                return True
+            continue
+        pattern = term_pattern(form, suffixes)
         if pattern and pattern.search(haystack):
             return True
     return False
@@ -94,7 +124,7 @@ def filter_for_source(glossary: dict, *texts: str) -> dict:
     A sorozat saját IDENTITY_CATEGORIES-bejegyzései érintetlenek maradnak; a
     FILTERABLE_CATEGORIES-ből és az alap-szótárak (`_source` = base:…) MINDEN
     kategóriájából az marad benn, aminek az `en` VAGY a `hu` alakja szerepel a kapott szövegek
-    valamelyikében. A `hu` is számít, mert a review a magyar fordítást nézi,
+    valamelyikében (a sorozatéi részszóval is, az alapéi szóhatárral — lásd `_occurs`). A `hu` is számít, mert a review a magyar fordítást nézi,
     a fordítás pedig az idegen nyelvű forrást — ugyanaz a szűrő mindkettőre jó.
 
     Üres/hiányzó szöveg esetén a teljes szójegyzéket adja vissza: a szűrés
@@ -134,6 +164,33 @@ def _warn_once(message: str) -> None:
 
 def _is_base(entry: dict) -> bool:
     return str(entry.get("_source", "")).startswith("base:")
+
+
+def match_key(entry: dict) -> str:
+    """Az elsőbbség kulcsa: a normalizált, levágott `en` alak."""
+    return normalize_for_match(str(entry.get("en") or "")).strip()
+
+
+def write_json_atomic(path: str, data: dict) -> None:
+    """JSON mentése atomikusan (tmp + rename), az előző állapotról .bak mentéssel."""
+    import shutil
+    if os.path.isfile(path):
+        shutil.copy2(path, path + ".bak")
+    tmp = f"{path}.tmp.{os.getpid()}"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+    os.replace(tmp, path)
+
+
+def count_entries(glossary: dict, source: str | None = None) -> int:
+    """Bejegyzések száma; `source` = "project" / "base" szerint szűrve."""
+    n = 0
+    for category in CATEGORIES:
+        for entry in glossary.get(category, []) or []:
+            if source is None or (source == "base") == _is_base(entry):
+                n += 1
+    return n
 
 
 def base_ids(glossary: dict) -> list[str]:
@@ -178,7 +235,7 @@ def with_bases(project: dict, directory: str | None = None) -> dict:
     for category in CATEGORIES:
         for entry in project.get(category, []) or []:
             merged[category].append({**entry, "_source": "project"})
-            seen.add(normalize_for_match(str(entry.get("en") or "")))
+            seen.add(match_key(entry))
 
     loaded, added, overridden = [], 0, 0
     bases = [(bid, load_base(bid, directory)) for bid in base_ids(project)]
@@ -189,7 +246,7 @@ def with_bases(project: dict, directory: str | None = None) -> dict:
         loaded.insert(0, bid)
         for category in CATEGORIES:
             for entry in data.get(category, []) or []:
-                key = normalize_for_match(str(entry.get("en") or ""))
+                key = match_key(entry)
                 if not key:
                     continue
                 if key in seen:

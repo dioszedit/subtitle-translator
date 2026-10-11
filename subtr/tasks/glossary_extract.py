@@ -39,7 +39,7 @@ import re
 import argparse
 import shutil
 
-from subtr.glossary import CATEGORIES, as_prompt_text, describe_bases, with_bases
+from subtr.glossary import CATEGORIES, as_prompt_text, describe_bases, with_bases, write_json_atomic
 from subtr.providers import get_provider
 from subtr import config
 from subtr.srt import read_text
@@ -136,12 +136,7 @@ def load_glossary(path: str) -> dict:
 def save_glossary(path: str, data: dict):
     """Glossary mentése — atomikusan (tmp + rename), az előző állapotról
     .bak mentéssel, hogy egy félbeszakadt írás ne tegye tönkre a fájlt."""
-    if os.path.isfile(path):
-        shutil.copy2(path, path + ".bak")
-    tmp = f"{path}.tmp.{os.getpid()}"
-    with open(tmp, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-    os.replace(tmp, path)
+    write_json_atomic(path, data)
     print(f"\nSzójegyzék mentve: {path} (előző állapot: {path}.bak)")
 
 

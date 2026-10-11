@@ -567,13 +567,14 @@ def main(argv=None):
     # A lektor a magyar szöveget (és ha van, a hozzá párosított forrást) látja
     # — a szójegyzék is erre szűkül, `hu` és `en` alak szerint egyaránt.
     reviewed_text = "\n".join("\n".join(chunk) for chunk in chunks)
-    glossary = as_prompt_text(source_text=reviewed_text)
+    merged_glossary = load_merged()
+    glossary = as_prompt_text(merged_glossary, source_text=reviewed_text)
     instruction = build_system_instruction(claude_md, glossary, has_source,
                                            json_output=(provider != "claude"),
                                            src_lang=src_lang)
     print(f"System instruction: {len(instruction)} char "
           f"(CLAUDE.md: {len(claude_md)} char, glossary: {len(glossary)} char)")
-    bases_status = describe_bases(load_merged())
+    bases_status = describe_bases(merged_glossary)
     if bases_status:
         print(f"Alap-szótár: {bases_status}")
 

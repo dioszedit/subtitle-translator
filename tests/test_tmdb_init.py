@@ -660,3 +660,29 @@ def test_ervenytelen_base_azonosito_hiba(tmp_path, monkeypatch):
     gloss = _bases_setup(tmp_path)
     with pytest.raises(SystemExit):
         _run(monkeypatch, tmp_path, gloss, "--base", "../x")
+
+
+def test_elgepelt_base_hiba_es_nem_irja_felul(tmp_path, monkeypatch):
+    gloss = _bases_setup(tmp_path, "zh-common", "zh-historical")
+    gloss.write_text(json.dumps({"meta": {"bases": ["zh-common", "zh-historical"]}}), encoding="utf-8")
+    with pytest.raises(SystemExit):
+        _run(monkeypatch, tmp_path, gloss, "--glossary-only", "--base", "zh-histrical")
+    assert json.loads(gloss.read_text(encoding="utf-8"))["meta"]["bases"] == ["zh-common", "zh-historical"]
+
+
+def test_no_glossary_a_glossaryhoz_nem_nyul(tmp_path, monkeypatch):
+    gloss = _bases_setup(tmp_path, "zh-common")
+    gloss.write_text("{hibás", encoding="utf-8")
+    _mock_fetch(monkeypatch, CN_HIST)
+    monkeypatch.setattr(sys, "argv", ["init_local.py", "1", "--out", str(tmp_path / "T.md"),
+                                      "--glossary", str(gloss), "--no-glossary"])
+    init_local.main()
+    assert gloss.read_text(encoding="utf-8") == "{hibás"
+
+
+def test_base_azonos_a_meglevovel_pontos_uzenet(tmp_path, monkeypatch, capsys):
+    gloss = _bases_setup(tmp_path, "zh-common")
+    gloss.write_text(json.dumps({"meta": {"bases": ["zh-common"]}}), encoding="utf-8")
+    _run(monkeypatch, tmp_path, gloss, "--glossary-only", "--base", "zh-common")
+    out = capsys.readouterr().out
+    assert "nem változott" in out and "felülírás: --base" not in out

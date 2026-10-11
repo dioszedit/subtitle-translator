@@ -3,7 +3,7 @@
     "id": "zh-xianxia",
     "title": "Xianxia: kultiváció, rendek, szintek, halhatatlanok",
     "lang": "zh",
-    "description": "Sorozatfüggetlen xianxia/daoista fantasy terminusok: kultiváció, szintek, rendi rangsor és -megszólítások, kincsek, alkímia, megpróbáltatás, kozmológia. TERVEZET — a DÖNTENDŐ jelölésű tételek átnézésre várnak.",
+    "description": "Sorozatfüggetlen xianxia/daoista fantasy terminusok: kultiváció, szintek, rendi rangsor és -megszólítások, kincsek, alkímia, megpróbáltatás, kozmológia.",
     "version": "1.0"
   },
   "honorifics": [
@@ -252,11 +252,6 @@
       "context": "a kultivációs tehetség veleszületett alapja (灵根); többes számban „szellemgyökerek”. Forrás: egy xianxia sorozat glossaryja alapján"
     },
     {
-      "en": "foundation",
-      "hu": "alap",
-      "context": "a kultiváció alapja (根基/道基); „damaged foundation” = „sérült alap”. Forrás: egy xianxia sorozat glossaryja alapján"
-    },
-    {
       "en": "comprehension",
       "hu": "felfogóképesség",
       "context": "a tanítvány tehetségének mérője (悟性). Forrás: egy xianxia sorozat glossaryja alapján"
@@ -315,11 +310,6 @@
       "en": "true form",
       "hu": "valódi alak",
       "context": "本相/真身: egy lény eredeti alakja. Forrás: egy xianxia sorozat glossaryja alapján"
-    },
-    {
-      "en": "stage",
-      "hu": "fokozat",
-      "context": "egy szinten belüli fokozat (期/层). Forrás: egy xianxia sorozat glossaryja alapján (a szintek egységesen „fokozat”);"
     },
     {
       "en": "Qi Refining",
@@ -515,11 +505,6 @@
       "en": "sword flight",
       "hu": "kardrepülés",
       "context": "御剑飞行. Forrás: egy xianxia sorozat glossaryja alapján"
-    },
-    {
-      "en": "spell",
-      "hu": "varázslat",
-      "context": "法术/术. Forrás: egy xianxia sorozat glossaryja alapján"
     },
     {
       "en": "incantation",
