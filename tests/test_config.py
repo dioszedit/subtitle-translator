@@ -295,3 +295,19 @@ def test_add_effort_argument_choices():
     assert p.parse_args([]).effort is None
     with pytest.raises(SystemExit):
         p.parse_args(["--effort", "turbo"])
+
+
+def test_kivezetett_gemini_modell_utodra_valt(capsys):
+    assert config.resolve_model("gemini-3.7-flash", "gemini", "translate") == "gemini-3.8-flash"
+    assert config.resolve_model("gemini-3.5-flash", "gemini", "review") == "gemini-3.6-flash"
+    assert "kivezette" in capsys.readouterr().err
+    # a lite és a nem érintett modellek változatlanok
+    assert config.resolve_model("gemini-3.5-flash-lite", "gemini", "review") == "gemini-3.5-flash-lite"
+    assert config.resolve_model("gemini-3.6-flash", "gemini", "review") == "gemini-3.6-flash"
+    # más provider nevét nem bántjuk
+    assert config.resolve_model("gemini-3.7-flash-high", "antigravity", "review") == "gemini-3.7-flash-high"
+
+
+def test_kivezetett_modell_env_bol_is(monkeypatch):
+    monkeypatch.setenv("SUBTR_GEMINI_MODEL", "gemini-3.7-flash")
+    assert config.resolve_model(None, "gemini", "translate") == "gemini-3.8-flash"

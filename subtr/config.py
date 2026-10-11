@@ -70,6 +70,10 @@ def resolve_model(cli_value, provider: str, task: str, builtin=None):
     """
     _validate(provider, task)
 
+    return replace_deprecated(provider, _resolve_model_raw(cli_value, provider, task, builtin))
+
+
+def _resolve_model_raw(cli_value, provider: str, task: str, builtin=None):
     if cli_value:
         return cli_value
 
@@ -84,6 +88,27 @@ def resolve_model(cli_value, provider: str, task: str, builtin=None):
         return generic_value
 
     return builtin
+
+
+# A Google által kivezetett Gemini API-modellek → amire a Google átirányítja őket.
+# A hívás így is működne (a Google átirányít), de a kvóta-nyilvántartás a
+# modellnévhez kötött, és a régi név bármikor megszűnhet — ezért cseréljük.
+DEPRECATED_GEMINI_MODELS = {
+    "gemini-3.5-flash": ("gemini-3.6-flash", "2026-10-10"),
+    "gemini-3.7-flash": ("gemini-3.8-flash", "2026-10-10"),
+}
+
+
+def replace_deprecated(provider: str, model):
+    """Kivezetett Gemini API-modellnél figyelmeztet, és az utódját adja vissza."""
+    if provider != "gemini" or model not in DEPRECATED_GEMINI_MODELS:
+        return model
+    successor, since = DEPRECATED_GEMINI_MODELS[model]
+    print(f"FIGYELEM: a {model} modellt a Google {since}-én kivezette (deprecated), "
+          f"a hívásokat a {successor} modellre irányítja át — ezt használjuk. "
+          f"Frissítsd a --model kapcsolót / a .env SUBTR_GEMINI_MODEL* sorait.",
+          file=sys.stderr)
+    return successor
 
 
 # ────────────────────────────────────────────────────────────────────────────

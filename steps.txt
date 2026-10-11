@@ -154,7 +154,7 @@ py subtr.py translate "blocks\Sorozat - S01E01.eng" --provider claude --agents 3
 # py subtr.py translate "blocks\Sorozat - S01E01.eng" --provider gemini --agents 3
 # Opcionálisan:
 #   --model gemini-3.5-flash-lite olcsóbb, bő napi kvóta (kvótahiba esetén)
-#   --model gemini-3.7-flash      legújabb, de gyakran túlterhelt (503)
+#   --model gemini-3.8-flash      a legújabb Flash (a 3.5 és a 3.7 kivezetve, 2026-10)
 #   --block 3                     csak a 3. blokk újrafordítása (auto zero-pad)
 #   --max-retries 6               több retry rate-limit/5xx esetén
 # Előfeltétel: pip install google-genai python-dotenv pydantic
@@ -192,7 +192,7 @@ py subtr.py review "output\Sorozat - S01E01.hun.srt"
 # odaadja a modellnek szekciónként [FORRÁS] sorként — így kevesebb a téves találat.
 # Opcionálisan:
 #   --chunk-size 150            nagyobb chunkok = kevesebb API hívás
-#   --model <név>               más Gemini modell (pl. gemini-3.7-flash = gyakran 503,
+#   --model <név>               más Gemini modell (pl. gemini-3.8-flash = a legújabb,
 #                               gemini-3.5-flash-lite = olcsó/bő kvóta)
 #   --source "input\....srt"    forrásnyelvi SRT kézi megadása (bármilyen nyelv;
 #                               a régi név, --english, továbbra is működik)

@@ -433,7 +433,7 @@ python subtr.py translate "blocks\eng" --provider claude --agents 1
 python subtr.py translate "blocks\eng" --provider gemini --agents 3
 
 # Tetszőleges Gemini modell --model flag-gel
-python subtr.py translate "blocks\eng" --provider gemini --model gemini-3.7-flash
+python subtr.py translate "blocks\eng" --provider gemini --model gemini-3.8-flash
 python subtr.py translate "blocks\eng" --provider gemini --model gemini-3.5-flash-lite   # olcsó, bő napi kvóta
 
 # Csak egy konkrét blokk újrafordítása (auto zero-pad: 3 → 003)
@@ -639,7 +639,7 @@ javaslattal, azt nem írja újra — a parancs idempotens.
 python subtr.py review "output\hun.srt"
 
 # Tetszőleges modell-azonosító --model flag-gel
-python subtr.py review "output\hun.srt" --model gemini-3.7-flash
+python subtr.py review "output\hun.srt" --model gemini-3.8-flash
 python subtr.py review "output\hun.srt" --model gemini-3.5-flash-lite   # olcsó, bő napi kvóta
 # Modell-lista: https://ai.google.dev/gemini-api/docs/models
 
@@ -660,11 +660,21 @@ A forrásnyelvi SRT párosítása itt is működik (lásd fent a Claude review-n
 
 | Modell | Mire jó |
 |---|---|
-| `gemini-3.6-flash` | **Default** a fordításban és a review-ban is. Erős és — a 3.7-tel ellentétben — stabilan elérhető. |
-| `gemini-3.7-flash` | A legújabb Flash, papíron a legerősebb, de a gyakorlatban rendszeresen `503 UNAVAILABLE` („high demand") — több egymást követő próbálkozás sem ment át rajta, ezért nem default. Érdemes időnként újrapróbálni. |
-| `gemini-3.5-flash` | Előző Flash generáció, ha a 3.6-nál kvótába futsz. |
+| `gemini-3.6-flash` | **Default** a fordításban és a review-ban is. Erős és stabilan elérhető. |
+| `gemini-3.8-flash` | A legújabb Flash (a kivezetett 3.7 utódja). Az Antigravity-ágon mért review-n a 3.6-nál jóval több valódi hibát talált (lásd az Antigravity-szakaszt); a Gemini API-n még nem mértük. |
 | `gemini-3.5-flash-lite`, `gemini-3.1-flash-lite` | Olcsó, gyors, **bő napi kvóta** free tier-en. Nagy tömegű fordításra, illetve ha a nem-lite napi limit elfogyott. |
 | `gemini-flash-latest`, `gemini-flash-lite-latest`, `gemini-pro-latest` | Alias-ok, mindig az adott sáv legújabb kiadására mutatnak. Kényelmes, de nem determinisztikus (kiadásváltáskor csendben más modellt kapsz). |
+
+**Kivezetett (deprecated) modellek** — a Google 2026-10-10-én megszüntette őket
+önálló modellként, a hívásokat automatikusan az utódra irányítja:
+
+| Kivezetett | Utód |
+|---|---|
+| `gemini-3.5-flash` | `gemini-3.6-flash` |
+| `gemini-3.7-flash` | `gemini-3.8-flash` |
+
+Ha `--model`-lel vagy a `.env`-ben (`SUBTR_GEMINI_MODEL*`) még a régi nevet adod
+meg, a pipeline figyelmeztet, és az utódot hívja.
 
 A pontos, aktuális listát a saját kulcsoddal is le tudod kérni:
 
