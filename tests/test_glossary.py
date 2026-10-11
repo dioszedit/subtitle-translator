@@ -255,3 +255,21 @@ def test_javaslat_orszag_es_kulcsszo_szerint(countries, genres, keywords, expect
 
 def test_hianyzo_index_ures_lista(tmp_path):
     assert glossary.load_index(str(tmp_path)) == []
+
+
+# --- szóhatáros előfordulás ------------------------------------------------
+
+@pytest.mark.parametrize("entry,text,expected", [
+    ({"en": "Mom", "hu": "anya"}, "Just a moment.", False),
+    ({"en": "unni", "hu": "unni"}, "Stop running!", False),
+    ({"en": "Mom", "hu": "anya"}, "Mom, wait!", True),
+    ({"en": "Marquis", "hu": "márki"}, "The Marquises arrived.", True),      # többes szám
+    ({"en": "Elder", "hu": "vén"}, "The Elder's sword.", True),             # birtokos
+    ({"en": "Marquis", "hu": "márki"}, "Beszéltem a márkival.", True),       # magyar toldalék
+    ({"en": "Marquis", "hu": "márki"}, "Ez a bömárki szó.", False),          # magyar eleje szóhatár
+    ({"en": "兰香如故", "hu": "兰香如故"}, "第一集兰香如故第二集", True),      # CJK: nincs szóhatár
+    ({"en": "Sect Leader", "hu": "szektavezér"}, "The sect leader came.", True),
+])
+def test_szohataros_elofordulas(entry, text, expected):
+    g = {"special_terms": [entry]}
+    assert bool(glossary.filter_for_source(g, text)["special_terms"]) is expected

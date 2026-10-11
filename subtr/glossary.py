@@ -54,6 +54,36 @@ def normalize_for_match(text: str) -> str:
     return re.sub(r"\s+", " ", text)
 
 
+_WORD_CHAR = re.compile(r"[0-9a-z\u00c0-\u024f]")
+
+
+def term_pattern(term: str, suffixes: bool) -> re.Pattern | None:
+    """Szóhatáros keresőminta egy (normalizált) terminushoz.
+
+    Részszóra nem illeszt („Mom” ≠ „moment”, „unni” ≠ „running”). Latin betűs
+    szélen szóhatárt kérünk; CJK-írásnál nincs szóköz, ott nincs határ-feltétel.
+    `suffixes`: a végére toldalék is jöhet — a magyar alak ragozva szerepel a
+    szövegben („márkival”), az angolnál a többes szám/birtokos („Marquises”,
+    „Elder's”) számít.
+    """
+    if not term:
+        return None
+    head = r"(?<![0-9a-z\u00c0-\u024f])" if _WORD_CHAR.match(term[0]) else ""
+    if suffixes or not _WORD_CHAR.match(term[-1]):
+        tail = ""
+    else:
+        tail = r"(?:'s|s|es)?(?![0-9a-z\u00c0-\u024f])"
+    return re.compile(head + re.escape(term) + tail)
+
+
+def _occurs(entry: dict, haystack: str) -> bool:
+    for key, suffixes in (("en", False), ("hu", True)):
+        pattern = term_pattern(normalize_for_match(str(entry.get(key) or "")).strip(), suffixes)
+        if pattern and pattern.search(haystack):
+            return True
+    return False
+
+
 def filter_for_source(glossary: dict, *texts: str) -> dict:
     """A szójegyzék szűkítése azokra a bejegyzésekre, amik a szövegben előfordulnak.
 
@@ -79,9 +109,7 @@ def filter_for_source(glossary: dict, *texts: str) -> dict:
             if category not in FILTERABLE_CATEGORIES and not _is_base(entry):
                 kept.append(entry)       # a sorozat saját azonosítója: mindig
                 continue
-            forms = [normalize_for_match(str(entry.get(key) or ""))
-                     for key in ("en", "hu")]
-            if any(form and form in haystack for form in forms):
+            if _occurs(entry, haystack):
                 kept.append(entry)
         filtered[category] = kept
     return filtered
