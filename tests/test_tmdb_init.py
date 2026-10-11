@@ -587,3 +587,76 @@ def test_main_cast_kapcsolo_atmegy(tmp_path, monkeypatch, capsys):
     init_local.main()
     assert latott["main_limit"] == 6
     assert "- Lin Xiao He as Su Wan (Main Role)" in capsys.readouterr().out
+
+
+# ── alap-szótár (meta.bases) ────────────────────────────────────────────────
+
+CN_HIST = {
+    "title": "Spring Court", "native_title": "春庭", "synopsis": "x", "cast": [],
+    "country": "China", "country_codes": ["CN"], "episodes": "30", "duration": "45 min.",
+    "genres": "Drama", "tags": "costume drama, romance", "hu_title": "",
+}
+
+
+def _bases_setup(tmp_path, *existing):
+    gdir = tmp_path / "glossaries"
+    gdir.mkdir()
+    (gdir / "index.json").write_text(json.dumps({"bases": [
+        {"id": "zh-common", "countries": ["CN"]},
+        {"id": "zh-historical", "countries": ["CN"], "any_keywords": ["costume"]},
+    ]}), encoding="utf-8")
+    for base_id in existing:
+        (gdir / f"{base_id}.json").write_text("{}", encoding="utf-8")
+    return tmp_path / "glossary.json"
+
+
+def _run(monkeypatch, tmp_path, gloss, *extra):
+    _mock_fetch(monkeypatch, CN_HIST)
+    monkeypatch.setattr(sys, "argv", ["init_local.py", "1", "--out",
+                                      str(tmp_path / "TRANSLATION.local.md"),
+                                      "--glossary", str(gloss), "--force", *extra])
+    init_local.main()
+    return json.loads(gloss.read_text(encoding="utf-8"))
+
+
+def test_uj_sorozat_a_letezo_javasolt_alapokat_kapja(tmp_path, monkeypatch, capsys):
+    gloss = _bases_setup(tmp_path, "zh-common")          # a zh-historical fájlja még nincs
+    data = _run(monkeypatch, tmp_path, gloss)
+    assert data["meta"]["bases"] == ["zh-common"]
+    out = capsys.readouterr().out
+    assert "zh-historical" in out and "még nincs fájl" in out
+
+
+def test_explicit_base_felulirja_a_meglevot(tmp_path, monkeypatch):
+    gloss = _bases_setup(tmp_path, "zh-common", "zh-historical")
+    gloss.write_text(json.dumps({"meta": {"bases": ["zh-common"]}}), encoding="utf-8")
+    data = _run(monkeypatch, tmp_path, gloss, "--base", "zh-common,zh-historical")
+    assert data["meta"]["bases"] == ["zh-common", "zh-historical"]
+
+
+def test_meglevo_bases_javaslatra_nem_irodik_felul(tmp_path, monkeypatch):
+    gloss = _bases_setup(tmp_path, "zh-common", "zh-historical")
+    gloss.write_text(json.dumps({"meta": {"bases": ["zh-historical"]}}), encoding="utf-8")
+    data = _run(monkeypatch, tmp_path, gloss)
+    assert data["meta"]["bases"] == ["zh-historical"]
+
+
+def test_glossary_only_base_nelkul_csak_tajekoztat(tmp_path, monkeypatch, capsys):
+    gloss = _bases_setup(tmp_path, "zh-common", "zh-historical")
+    data = _run(monkeypatch, tmp_path, gloss, "--glossary-only")
+    assert "bases" not in data["meta"]
+    assert "csak --base-szel" in capsys.readouterr().out
+    data = _run(monkeypatch, tmp_path, gloss, "--glossary-only", "--base", "zh-common")
+    assert data["meta"]["bases"] == ["zh-common"]
+
+
+def test_no_base_nem_nyul_hozza(tmp_path, monkeypatch):
+    gloss = _bases_setup(tmp_path, "zh-common")
+    data = _run(monkeypatch, tmp_path, gloss, "--no-base")
+    assert "bases" not in data["meta"]
+
+
+def test_ervenytelen_base_azonosito_hiba(tmp_path, monkeypatch):
+    gloss = _bases_setup(tmp_path)
+    with pytest.raises(SystemExit):
+        _run(monkeypatch, tmp_path, gloss, "--base", "../x")

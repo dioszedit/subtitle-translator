@@ -182,6 +182,52 @@ def describe_bases(merged: dict) -> str:
     return text + ")"
 
 
+def load_index(directory: str | None = None) -> list[dict]:
+    """A `glossaries/index.json` alap-listája (hiányzó/hibás fájlnál üres lista)."""
+    path = os.path.join(directory if directory is not None else GLOSSARIES_DIR, "index.json")
+    try:
+        with open(path, "r", encoding="utf-8-sig") as f:
+            data = json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return []
+    bases = data.get("bases") if isinstance(data, dict) else None
+    return [b for b in bases or [] if isinstance(b, dict) and b.get("id")]
+
+
+def suggest_bases(index: list[dict], countries, genres, keywords) -> list[tuple[str, str]]:
+    """Alap-javaslat a sorozat országa, műfajai és kulcsszavai alapján.
+
+    Az index sorrendjét tartja (a közös réteg előbb, a műfaji utána — a később
+    felsorolt az erősebb). Szabályok bejegyzésenként (mind opcionális):
+      countries      — ISO-kódok, ezek egyikének egyeznie kell
+      any_keywords   — a TMDB-kulcsszavak / műfajok közül legalább egy (részszó)
+      none_keywords  — ezek egyike sem fordulhat elő
+    Visszaad: [(id, indoklás), …].
+    """
+    countries = {c.upper() for c in countries or []}
+    terms = [t.strip().lower() for t in list(genres or []) + list(keywords or []) if t and t.strip()]
+
+    def hits(words):
+        return [w for w in words if any(w.lower() in t for t in terms)]
+
+    out = []
+    for base in index:
+        want = {c.upper() for c in base.get("countries") or []}
+        if want and not countries & want:
+            continue
+        if hits(base.get("none_keywords") or []):
+            continue
+        anyk = base.get("any_keywords") or []
+        found = hits(anyk)
+        if anyk and not found:
+            continue
+        reason = ", ".join(sorted(countries & want)) if want else ""
+        if found:
+            reason += (" + " if reason else "") + ", ".join(found)
+        out.append((base["id"], reason or "mindig"))
+    return out
+
+
 def load_merged(path: str | None = None) -> dict:
     """A glossary.json és a mellette lévő `glossaries/` alapjai, összefésülve."""
     if path is None:

@@ -1,7 +1,7 @@
 # Alap-szótárak (műfaj × kultúra) — terv
 
-Állapot: **1. fázis (mechanizmus) kész** — `subtr/glossary.py` `with_bases()`,
-`glossaries/README.md`. A 2–5. fázis hátravan.
+Állapot: **1–2. fázis kész** — mechanizmus (`subtr/glossary.py` `with_bases()`) és
+`tmdb-init`-javaslat (`glossaries/index.json`, `--base`). A 3–5. fázis hátravan.
 
 ## Cél
 

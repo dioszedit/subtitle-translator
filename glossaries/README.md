@@ -24,6 +24,13 @@ sorozat saját bejegyzéseivel (fordítás, review, glossary-kinyerés).
   fájljába soha nem írja vissza őket.
 - Hiányzó vagy hibás alapfájl → figyelmeztetés, a futás folytatódik.
 
+## Javaslat új sorozatnál (`index.json`)
+
+Az `index.json` sorolja fel az alapokat és a `tmdb-init` javaslati szabályait
+(`countries` ISO-kódok, `any_keywords` / `none_keywords` a TMDB-műfajokra és
+-kulcsszavakra, részszó-egyezéssel). A sorrend számít: a közös réteg előbb, a
+műfaji utána. Új alapfájl felvételekor az indexbe is be kell írni.
+
 ## Mi kerülhet ide
 
 - Csak **sorozatfüggetlen**, több sorozaton bevált terminus: udvari rangok,

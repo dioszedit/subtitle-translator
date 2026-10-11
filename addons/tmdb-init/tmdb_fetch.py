@@ -212,6 +212,7 @@ def map_series(payload: dict, main_limit: int = DEFAULT_MAIN_LIMIT) -> dict:
         "episodes": str(n_ep) if n_ep else "N/A",
         "duration": duration,
         "genres": genres or "N/A",
+        "country_codes": list(codes),
         "tags": tags or "N/A",
         "synopsis": (payload.get("overview") or "").strip() or "N/A",
         "cast": cast,

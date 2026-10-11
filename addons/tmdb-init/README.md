@@ -59,6 +59,15 @@ Még kitöltendő (3 sor):
 | `--glossary ÚTVONAL` | Másik szójegyzék-fájl (alapból a munkakönyvtárban `glossary.json`) |
 | `--no-glossary` | Ne vegye fel a címeket a szójegyzékbe |
 | `--glossary-only` | CSAK a szójegyzéket bővítse; a `TRANSLATION.local.md`-hez ne nyúljon |
+| `--base ID[,ID]` | Alap-szótár(ak) a `glossaries/` mappából; felülírja a javaslatot és a meglévő `meta.bases`-t |
+| `--no-base` | Ne állítson be alap-szótárt |
+
+**Alap-szótár javaslat.** Az ország és a TMDB-műfajok/-kulcsszavak alapján a
+`glossaries/index.json` szabályai javasolnak alapokat (pl. kínai + „costume
+drama” → `zh-common`, `zh-historical`). Új sorozatnál a javaslatból azok
+kerülnek a `glossary.json` `meta.bases`-ébe, amelyeknek már van fájlja; a
+meglévő `meta.bases`-t csak `--base` írja felül. `--glossary-only` (futó
+sorozat) mellett a javaslat csak tájékoztat — ott alapot csak `--base` állít.
 
 A `--out` és a `--glossary` alapértelmezése **a munkakönyvtárhoz** képest
 értendő (ugyanaz a konvenció, mint a `subtr` parancsoknál) — a scriptet mindig

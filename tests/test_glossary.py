@@ -223,3 +223,35 @@ def test_with_bases_nem_modositja_a_bemenetet(tmp_path):
     project = {"meta": {"bases": ["zh-common"]}, "phrases": [{"en": "a", "hu": "b"}]}
     glossary.with_bases(project, str(tmp_path / "glossaries"))
     assert project == {"meta": {"bases": ["zh-common"]}, "phrases": [{"en": "a", "hu": "b"}]}
+
+
+# --- alap-javaslat (glossaries/index.json) ----------------------------------
+
+REPO_INDEX = glossary.load_index(
+    str(__import__("pathlib").Path(__file__).resolve().parent.parent / "glossaries"))
+
+
+def _ids(*args):
+    return [i for i, _ in glossary.suggest_bases(REPO_INDEX, *args)]
+
+
+def test_index_betoltheto_es_azonositok_ervenyesek():
+    assert REPO_INDEX
+    assert all(glossary.BASE_ID_RE.match(b["id"]) for b in REPO_INDEX)
+
+
+@pytest.mark.parametrize("countries,genres,keywords,expected", [
+    (["CN"], ["Drama"], ["romance", "historical fiction", "costume drama"], ["zh-common", "zh-historical"]),
+    (["CN"], ["Sci-Fi & Fantasy"], ["xianxia", "cultivation"], ["zh-common", "zh-xianxia"]),
+    (["CN"], ["Drama"], ["based on novel or book"], ["zh-common"]),
+    (["KR"], ["Comedy"], ["romcom", "ceo", "chaebol"], ["ko-common", "ko-modern"]),
+    (["KR"], ["Drama"], ["joseon", "palace"], ["ko-common", "ko-sageuk"]),
+    (["JP"], ["Drama"], [], ["ja-common"]),
+    (["US"], ["Drama"], ["historical"], []),
+])
+def test_javaslat_orszag_es_kulcsszo_szerint(countries, genres, keywords, expected):
+    assert _ids(countries, genres, keywords) == expected
+
+
+def test_hianyzo_index_ures_lista(tmp_path):
+    assert glossary.load_index(str(tmp_path)) == []

@@ -43,6 +43,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from tmdb_fetch import (  # noqa: E402
+    COUNTRY_NAMES,
     DEFAULT_MAIN_LIMIT, TmdbError, fetch_series, map_series, parse_tmdb_url,
 )
 
@@ -62,10 +63,20 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 # Az add-on önállóan is futtatható, ezért van fallback.
 try:
     sys.path.insert(0, str(REPO_ROOT))
-    from subtr.glossary import CATEGORIES  # noqa: E402
+    from subtr.glossary import BASE_ID_RE, CATEGORIES, load_index, suggest_bases  # noqa: E402
 except ImportError:  # pragma: no cover
     CATEGORIES = ["honorifics", "place_names", "character_names",
                   "special_terms", "phrases"]
+    BASE_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+
+    def load_index(directory=None):
+        return []
+
+    def suggest_bases(index, countries, genres, keywords):
+        return []
+
+# Az alap-szótárak mappája a szójegyzék mellett (CWD-relatív, mint a többi kimenet).
+GLOSSARIES_DIR = "glossaries"
 
 # A szinopszis végén álló forrás-/adaptációs lábjegyzetek — a fordítási
 # kontextushoz nem adnak semmit, viszont zajt visznek a promptba.
@@ -178,6 +189,19 @@ def write_glossary_seed(entries: list[dict], path: Path, series: str = "") -> li
     a hívó ezt HIBA-ként jelenti, nem tracebackkel áll le.
     Visszaadja a ténylegesen hozzáadott bejegyzéseket.
     """
+    return update_glossary(entries, path, series)[0]
+
+
+def update_glossary(entries: list[dict], path: Path, series: str = "",
+                    bases: list[str] | None = None,
+                    replace_bases: bool = False) -> tuple[list[dict], list[str] | None]:
+    """Mint a write_glossary_seed, és közben a `meta.bases` alap-listát is beállítja.
+
+    `bases` = None: a meta.bases-hez nem nyúl. Egyébként csak akkor írja be, ha
+    még nincs (a felhasználó választását nem írjuk felül), vagy ha
+    `replace_bases` (explicit --base). Egyetlen írás, egyetlen .bak.
+    Visszaad: (hozzáadott bejegyzések, a beírt bases lista vagy None).
+    """
     raw = path.read_text(encoding="utf-8-sig") if path.exists() else ""
     if raw.strip():
         try:
@@ -209,13 +233,52 @@ def write_glossary_seed(entries: list[dict], path: Path, series: str = "") -> li
         existing.add(entry["en"].lower())
         added.append(entry)
 
-    if not added:
-        return []
+    bases_written = None
+    meta = data.setdefault("meta", {})
+    if bases is not None and (replace_bases or not meta.get("bases")) \
+            and list(meta.get("bases") or []) != list(bases):
+        meta["bases"] = list(bases)
+        bases_written = list(bases)
+
+    if not added and bases_written is None:
+        return [], None
     if path.exists():
         shutil.copy2(path, path.with_suffix(path.suffix + ".bak"))
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n",
                     encoding="utf-8")
-    return added
+    return added, bases_written
+
+
+def resolve_bases(data: dict, explicit: list[str] | None, glossaries_dir: Path):
+    """Az alap-szótár választás: explicit --base, különben javaslat az indexből.
+
+    Visszaad: (a beírandó, LÉTEZŐ alapok listája, kiírandó üzenetsorok).
+    Nem létező fájlú alap nem kerül a listába (a pipeline minden futásnál
+    figyelmeztetne) — a javaslatoknál jelezzük, hogy még nincs fájl.
+    """
+    lines = []
+    if explicit is not None:
+        chosen = [(b, "--base") for b in explicit]
+    else:
+        codes = data.get("country_codes") or []
+        if not codes:   # régi/mockolt adat: a név alapján
+            names = {v: k for k, v in COUNTRY_NAMES.items()}
+            codes = [names.get(c.strip(), c.strip())
+                     for c in str(data.get("country") or "").split(",") if c.strip()]
+        chosen = suggest_bases(load_index(str(glossaries_dir)), codes,
+                               _split_list(data.get("genres")), _split_list(data.get("tags")))
+    existing = []
+    for base_id, reason in chosen:
+        exists = (glossaries_dir / f"{base_id}.json").is_file()
+        lines.append(f"  {base_id:<14} ({reason})" + ("" if exists else "  — még nincs fájl, kihagyva"))
+        if exists:
+            existing.append(base_id)
+    return existing, lines
+
+
+def _split_list(text) -> list[str]:
+    """„Comedy, Drama” → ['Comedy', 'Drama'] (az N/A üres listát ad)."""
+    return [x.strip() for x in str(text or "").split(",") if x.strip() and x.strip() != "N/A"]
 
 
 def clean_synopsis(text: str) -> str:
@@ -330,6 +393,11 @@ def main():
     parser.add_argument("--glossary-only", action="store_true",
                         help="CSAK a szójegyzéket bővítse; a TRANSLATION.local.md-hez "
                              "ne nyúljon (már futó sorozat utólagos kiegészítéséhez)")
+    parser.add_argument("--base", action="append", metavar="ID[,ID]",
+                        help="Alap-szótár(ak) a glossaries/ mappából (pl. zh-common,zh-historical); "
+                             "felülírja a javaslatot és a meglévő meta.bases-t. Többször is megadható.")
+    parser.add_argument("--no-base", action="store_true",
+                        help="Ne állítson be alap-szótárt (a meta.bases-hez nem nyúl)")
     args = parser.parse_args()
 
     try:
@@ -340,6 +408,14 @@ def main():
         parser.error("--glossary-only és --no-glossary kizárja egymást")
     if args.glossary_only and args.stdout:
         parser.error("--glossary-only és --stdout kizárja egymást (a --stdout nem ír fájlt)")
+    explicit_bases = None
+    if args.base:
+        if args.no_base:
+            parser.error("--base és --no-base kizárja egymást")
+        explicit_bases = [b.strip() for arg in args.base for b in arg.split(",") if b.strip()]
+        bad = [b for b in explicit_bases if not BASE_ID_RE.match(b)]
+        if bad:
+            parser.error(f"érvénytelen alap-azonosító: {', '.join(bad)}")
 
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
@@ -373,11 +449,27 @@ def main():
 
     series_title = strip_year(data.get("title"))
 
+    glossaries_dir = args.glossary.parent / GLOSSARIES_DIR
+    bases, base_lines = ([], []) if args.no_base else \
+        resolve_bases(data, explicit_bases, glossaries_dir)
+    if base_lines:
+        print("\nAlap-szótár " + ("(--base):" if explicit_bases is not None else "javaslat:"))
+        for ln in base_lines:
+            print(ln)
+    elif not args.no_base:
+        print("\nAlap-szótár: nincs illő javaslat (glossaries/index.json).")
+    # Futó sorozatnál (--glossary-only) csak explicit --base-re állítunk alapot:
+    # a javaslat ott csak tájékoztat, a viselkedés nem változhat csendben.
+    write_bases = None
+    if not args.no_base and (explicit_bases is not None or not args.glossary_only):
+        write_bases = bases
+
     if args.glossary_only:
         # Már futó sorozat: a TRANSLATION.local.md kézzel hangolt (regiszter,
         # special terms), ahhoz nem nyúlunk — csak a címek kerülnek be.
         try:
-            added = write_glossary_seed(seed, args.glossary, series_title)
+            added, bases_set = update_glossary(seed, args.glossary, series_title,
+                                               write_bases, replace_bases=explicit_bases is not None)
         except GlossaryError as e:
             print(f"HIBA: {e}")
             sys.exit(1)
@@ -385,8 +477,9 @@ def main():
             print(f"Szójegyzék bővítve ({args.glossary.resolve()}) — {len(added)} cím:")
             for e in added:
                 print(f'  "{e["en"]}"')
-        else:
+        elif bases_set is None:
             print(f"Szójegyzék: nincs új cím, a fájlhoz nem nyúltam ({args.glossary}).")
+        _report_bases(bases_set, write_bases, explicit_bases, args.glossary_only)
         print(f"A {args.out.name} érintetlen.")
         return
 
@@ -407,9 +500,11 @@ def main():
     args.out.write_text(doc, encoding="utf-8")
     print(f"Kész: {args.out.resolve()}")
 
-    if not args.no_glossary:
+    if not args.no_glossary or write_bases is not None:
         try:
-            added = write_glossary_seed(seed, args.glossary, series_title)
+            added, bases_set = update_glossary([] if args.no_glossary else seed,
+                                               args.glossary, series_title, write_bases,
+                                               replace_bases=explicit_bases is not None)
         except GlossaryError as e:
             print(f"HIBA: {e} — a {args.out.name} elkészült, a szójegyzék nem bővült.")
             sys.exit(1)
@@ -418,8 +513,9 @@ def main():
             print("hogy a fordító ne próbálkozzon a lefordításukkal:")
             for e in added:
                 print(f'  "{e["en"]}"')
-        elif seed:
+        elif seed and not args.no_glossary:
             print(f"\nSzójegyzék: a címek már benne vannak ({args.glossary.name}).")
+        _report_bases(bases_set, write_bases, explicit_bases, args.glossary_only)
 
     todos = [
         ln for ln in doc.splitlines()
@@ -429,6 +525,16 @@ def main():
         print(f"\nMég kitöltendő ({len(todos)} sor):")
         for ln in todos:
             print(f"  {ln.strip()}")
+
+
+def _report_bases(bases_set, write_bases, explicit_bases, glossary_only):
+    if bases_set is not None:
+        print(f"Alap-szótár beállítva (meta.bases): {', '.join(bases_set) or '— (üres)'}")
+    elif write_bases is None and glossary_only and explicit_bases is None:
+        print("Alap-szótár: futó sorozatnál csak --base-szel állítok be (a javaslat tájékoztató).")
+    elif write_bases:
+        print("Alap-szótár: a glossary.json-ban már van meta.bases — nem írtam felül "
+              "(felülírás: --base).")
 
 
 if __name__ == "__main__":

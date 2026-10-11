@@ -192,6 +192,11 @@ copy .env.example .env
    fordító ne próbálkozzon a lefordításával. Szereplőneveket
    szándékosan nem — azokat a 1.5 lépés (`subtr.py glossary`) szedi ki magából
    a feliratból, a tényleges írásmódjukkal.
+
+   Az ország és a TMDB-műfaj alapján **alap-szótárat is javasol**
+   (`glossaries/`, pl. `zh-common` + `zh-historical`), és a létezőket beírja a
+   `glossary.json` `meta.bases`-ébe; felülírás: `--base zh-common,zh-wuxia`,
+   kihagyás: `--no-base`. Lásd [Alap-szótárak](#alap-szótárak-glossaries).
 3. Tedd a forrásnyelvi SRT fájlt az `input/` mappába, `.eng.srt` végződéssel
    (vagy más nyelvnél a megfelelő kóddal — lásd [Forrásnyelv](#forrásnyelv)).
 
