@@ -1,3 +1,7 @@
+# Helyi teszt-sorozat (a repo kódjára szimlinkel; a tartalma jogvédett felirat
+# és sorozatadat — SOHA nem kerülhet a repóba)
+/sandbox/
+
 # Secrets — SOHA ne commitold!
 .env
 .env.local
