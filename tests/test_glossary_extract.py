@@ -216,3 +216,36 @@ def test_stdin_nelkul_nem_omlik_ossze(monkeypatch, capsys):
     out = capsys.readouterr().out
     assert [s["en"] for s in approved] == ["Anna"]
     assert "Nincs interaktív bemenet" in out
+
+
+def test_alap_szotar_meglevonek_szamit_de_nem_irodik_vissza(tmp_path, monkeypatch):
+    """Az alap terminusa nem kerül újra javaslatba, a prompt látja, és a
+    sorozat glossary.json-jába csak a sorozat saját bejegyzései íródnak."""
+    (tmp_path / "glossaries").mkdir()
+    (tmp_path / "glossaries" / "zh-historical.json").write_text(json.dumps(
+        {"honorifics": [{"en": "Marquis", "hu": "márki"}]}, ensure_ascii=False), encoding="utf-8")
+    gpath = tmp_path / "glossary.json"
+    gpath.write_text(json.dumps({"meta": {"series": "X", "bases": ["zh-historical"]},
+                                 "character_names": [{"en": "Anna", "hu": "Anna"}]}),
+                     encoding="utf-8")
+    src = tmp_path / "x.eng.srt"
+    src.write_text("1\n00:00:01,000 --> 00:00:02,000\nMarquis Yuan and Bob.\n", encoding="utf-8")
+    seen = {}
+
+    def fake_extract(src_path, existing_terms, claude_md, glossary_text, *a, **k):
+        seen["existing"], seen["text"] = existing_terms, glossary_text
+        return [{"category": "character_names", "en": "Bob", "hu": "Bob", "context": "",
+                 "confidence": "biztos", "occurrences": 1, "evidence": []}]
+
+    monkeypatch.setattr(ge, "extract_terms_source", fake_extract)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("sys.argv", ["glossary", str(src), "--glossary", str(gpath), "--yes"])
+    ge.main()
+    assert "marquis" in seen["existing"]
+    assert '"Marquis" = "márki"' in seen["text"]
+    saved = json.loads(gpath.read_text(encoding="utf-8"))
+    assert saved["meta"]["bases"] == ["zh-historical"]
+    assert "_merge" not in saved["meta"]
+    assert saved.get("honorifics", []) == []
+    assert [e["en"] for e in saved["character_names"]] == ["Anna", "Bob"]
+    assert all("_source" not in e for e in saved["character_names"])

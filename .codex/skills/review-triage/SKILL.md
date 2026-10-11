@@ -5,7 +5,7 @@ description: Review-javaslatok forrásalapú szűrése, decisions JSON összeál
 
 # Review triage
 
-Olvasd el a `TRANSLATION.md`-t, a `TRANSLATION.local.md`-t (ebben van a *Megszólítási regiszter*: ki kit tegez vagy magáz) és a `glossary.json`-t. A review-modellek javaslatai nem alkalmazhatók automatikusan: minden tételt az aktuális magyar SRT-hez és lehetőleg a forráshoz mérj.
+Olvasd el a `TRANSLATION.md`-t, a `TRANSLATION.local.md`-t (ebben van a *Megszólítási regiszter*: ki kit tegez vagy magáz) és a `glossary.json`-t, a `meta.bases` alatt felsorolt alap-szótárakkal (`glossaries/`) együtt — a sorozat saját bejegyzése felülírja az alapot. A review-modellek javaslatai nem alkalmazhatók automatikusan: minden tételt az aktuális magyar SRT-hez és lehetőleg a forráshoz mérj.
 
 ## Bemenet és ellenőrzés
 

@@ -39,10 +39,11 @@ import re
 import argparse
 import shutil
 
-from subtr.glossary import CATEGORIES, as_prompt_text
+from subtr.glossary import CATEGORIES, as_prompt_text, describe_bases, with_bases
 from subtr.providers import get_provider
 from subtr import config
-from subtr.config import CLI_PROVIDERS, PROVIDERS
+from subtr.srt import read_text
+from subtr.config import CLI_PROVIDERS, GLOSSARIES_DIR, PROVIDERS
 from subtr.context import load_translation_context as load_claude_md
 from subtr.providers.claude_cli import (find_claude as find_claude_cli,
                                         json_candidates, run_prompt)
@@ -828,15 +829,23 @@ def main():
 
     # Meglévő glossary betöltése
     glossary = load_glossary(args.glossary)
-    existing_terms = get_existing_terms(glossary)
+    # Az alap-szótárak terminusai is „meglévőnek” számítanak (nem javasoljuk
+    # újra), és a prompt is látja őket — de mentéskor CSAK a sorozat saját
+    # bejegyzései íródnak vissza (a `glossary` dict, nem a `merged`).
+    merged = with_bases(glossary, os.path.join(os.path.dirname(args.glossary),
+                                               GLOSSARIES_DIR))
+    existing_terms = get_existing_terms(merged)
     if existing_terms:
         print(f"Meglévő kifejezések: {len(existing_terms)}")
+    bases_status = describe_bases(merged)
+    if bases_status:
+        print(f"Alap-szótár: {bases_status}")
 
     # A fordítóval AZONOS kontextus: teljes szabályzat + teljes szójegyzék.
     # (Korábban a szabályzat 6000 karakterre volt vágva — a TRANSLATION.local.md
     # így soha nem ért ide —, a szójegyzékből pedig csak az "en" kulcsok mentek át.)
     claude_md = load_claude_md()
-    glossary_text = as_prompt_text(glossary)
+    glossary_text = as_prompt_text(merged, source_text=read_text(args.source_srt))
     if claude_md:
         print(f"Szabályzat: {len(claude_md)} karakter "
               f"(TRANSLATION.md + TRANSLATION.local.md)")

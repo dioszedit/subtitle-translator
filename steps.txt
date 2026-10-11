@@ -16,6 +16,9 @@
 #      így a fordító nem próbálja lefordítani. Kikapcsolás: --no-glossary
 #      Szereplőneveket NEM vesz fel (a TMDB írásmódja eltérhet a feliratétól);
 #      azokat az 1.5 lépés szedi ki magából a feliratból.
+#      Alap-szótárak (udvari rangok, megszólítások stb.): a glossary.json
+#      "meta" részébe "bases": ["zh-common", "zh-historical"] — a választék a
+#      glossaries\ mappában, részletek: glossaries\README.md
 
 # 0/b. (OPCIONÁLIS) SDH-forrás előtisztítása — általában NEM kell.
 #    SDH-forrásnál (beszélőcímkék [Anna], NÉV:, hangjegyzetek [sighs],

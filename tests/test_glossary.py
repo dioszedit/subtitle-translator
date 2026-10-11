@@ -143,3 +143,83 @@ def test_as_prompt_text_source_text_shrinks_output():
     assert len(filtered) < len(full)
     assert "Paper Daoist" in filtered and "Golden Immortal" not in filtered
     assert "Mentor" in filtered  # az azonosítók bent maradnak
+
+
+# --- alap-szótárak (meta.bases) --------------------------------------------
+
+def _write(path, data):
+    path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+
+
+def _project(tmp_path, bases, **cats):
+    _write(tmp_path / "glossary.json", {"meta": {"series": "X", "bases": bases}, **cats})
+    return str(tmp_path / "glossary.json")
+
+
+def _base(tmp_path, base_id, **cats):
+    d = tmp_path / "glossaries"
+    d.mkdir(exist_ok=True)
+    _write(d / f"{base_id}.json", {"meta": {"id": base_id}, **cats})
+
+
+def _entries(merged, category):
+    return {(e["en"], e["hu"], e["_source"]) for e in merged[category]}
+
+
+def test_bases_nelkul_a_mai_viselkedes(tmp_path):
+    path = _project(tmp_path, [], special_terms=[{"en": "A", "hu": "a"}])
+    merged = glossary.load_merged(path)
+    assert _entries(merged, "special_terms") == {("A", "a", "project")}
+    assert glossary.describe_bases(merged) == ""
+
+
+def test_projekt_felulirja_az_alapot_es_kesobbi_alap_a_korabbit(tmp_path):
+    _base(tmp_path, "zh-common", honorifics=[{"en": "Marquis", "hu": "őrgróf"},
+                                             {"en": "Eunuch", "hu": "herélt"}])
+    _base(tmp_path, "zh-historical", honorifics=[{"en": "Marquis", "hu": "márki"},
+                                                 {"en": "Eunuch", "hu": "eunuch"}])
+    path = _project(tmp_path, ["zh-common", "zh-historical"],
+                    honorifics=[{"en": "eunuch", "hu": "udvari szolga"}])
+    merged = glossary.load_merged(path)
+    assert _entries(merged, "honorifics") == {
+        ("eunuch", "udvari szolga", "project"),
+        ("Marquis", "márki", "base:zh-historical"),
+    }
+    info = merged["meta"]["_merge"]
+    assert info["bases"] == ["zh-common", "zh-historical"]
+    assert info["base_entries"] == 1 and info["overridden"] == 3
+    assert "zh-common, zh-historical" in glossary.describe_bases(merged)
+
+
+def test_alap_azonositoi_is_csak_elofordulaskor_kerulnek_be(tmp_path):
+    _base(tmp_path, "zh-historical", honorifics=[{"en": "Marquis", "hu": "márki"},
+                                                 {"en": "Eunuch", "hu": "eunuch"}])
+    path = _project(tmp_path, ["zh-historical"],
+                    character_names=[{"en": "Lan Xiang", "hu": "Lan Xiang"}])
+    text = glossary.as_prompt_text(path=path, source_text="Marquis Yuan arrived.")
+    assert '"Marquis" = "márki"' in text
+    assert "Eunuch" not in text
+    assert "Lan Xiang" in text          # a sorozat saját neve mindig bekerül
+
+
+def test_hianyzo_vagy_ervenytelen_alap_figyelmeztet_es_kihagyja(tmp_path, capsys):
+    path = _project(tmp_path, ["nincs-ilyen", "../titok"],
+                    special_terms=[{"en": "A", "hu": "a"}])
+    merged = glossary.load_merged(path)
+    assert merged["meta"]["_merge"]["bases"] == []
+    err = capsys.readouterr().err
+    assert "nincs-ilyen" in err and "érvénytelen" in err
+
+
+def test_bases_egyetlen_stringkent_is(tmp_path):
+    _base(tmp_path, "ko-common", honorifics=[{"en": "oppa", "hu": "oppa"}])
+    path = _project(tmp_path, "ko-common")
+    assert glossary.base_ids(glossary.load(path)) == ["ko-common"]
+    assert ("oppa", "oppa", "base:ko-common") in _entries(glossary.load_merged(path), "honorifics")
+
+
+def test_with_bases_nem_modositja_a_bemenetet(tmp_path):
+    _base(tmp_path, "zh-common", phrases=[{"en": "x", "hu": "y"}])
+    project = {"meta": {"bases": ["zh-common"]}, "phrases": [{"en": "a", "hu": "b"}]}
+    glossary.with_bases(project, str(tmp_path / "glossaries"))
+    assert project == {"meta": {"bases": ["zh-common"]}, "phrases": [{"en": "a", "hu": "b"}]}

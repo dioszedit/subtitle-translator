@@ -45,6 +45,7 @@ subtitle-translator/
 ├── AGENTS.md                    ← Codex projektutasítások
 ├── TRANSLATION.local.md         ← Az aktuális sorozat adatai (gitignore-olt, sorozatonként más)
 ├── glossary.json                ← Fordítási szójegyzék (kézzel validált)
+├── glossaries/                  ← Alap-szótárak műfaj × kultúra szerint (a glossary.json `meta.bases` választ)
 ├── .env.example                 ← .env sablon: API-kulcsok, modell- és effort-defaultok, default provider
 ├── .gitignore                   ← Mit ne commit-oljunk
 ├── LICENSE                      ← MIT licenc
@@ -837,6 +838,29 @@ A prompt a fordítóéval **azonos** kontextust kap: a teljes `TRANSLATION.md` +
 A `glossary.json`-t minden fordító- és review-provider automatikusan betölti
 és átadja a modellnek, hogy a fordítások
 konzisztensek maradjanak.
+
+#### Alap-szótárak (`glossaries/`)
+
+A sorozatfüggetlen terminusok (udvari rangok, megszólítások, művelési szintek,
+irodai beosztások) újrahasznosítható alap-szótárakban élnek, nyelv és műfaj
+szerint (`glossaries/zh-historical.json`, `glossaries/ko-modern.json` …). A
+sorozat a `glossary.json` `meta.bases` listájában választ közülük:
+
+```json
+{"meta": {"series": "…", "bases": ["zh-common", "zh-historical"]}, …}
+```
+
+- Futáskor fésülődnek össze: a sorozat saját bejegyzése **felülírja** az
+  alapot (pl. ha egy sorozatban a „Marquis” nem „márki”), a később felsorolt
+  alap a korábbit.
+- Az alap-bejegyzések csak akkor kerülnek a promptba, ha az epizódban
+  előfordulnak — a nagy alapok nem fújják fel a hívásokat.
+- A `subtr.py glossary` az alap terminusait nem javasolja újra, és a sorozat
+  fájljába nem írja vissza őket.
+- A fordítás és a review indulásakor egy sor mutatja a használt alapokat
+  (`Alap-szótár: zh-common, zh-historical (…)`).
+
+Részletek és szabályok: `glossaries/README.md`.
 
 ### Megszólítási regiszter kinyerése (`subtr.py register`) — opcionális
 

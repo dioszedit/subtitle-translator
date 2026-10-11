@@ -31,7 +31,7 @@ from subtr import config
 from subtr.config import CLI_PROVIDERS, PROVIDERS
 from subtr.blocks import get_all_blocks, get_pending_blocks, hun_path, safe_remove
 from subtr.context import load_translation_context
-from subtr.glossary import as_prompt_text
+from subtr.glossary import as_prompt_text, describe_bases, load_merged
 from subtr.providers import claude_cli, get_provider
 from subtr.providers import gemini as gemini_provider
 from subtr.srt import count_sections, count_sections_text, parse_sections, read_text, write_srt
@@ -847,6 +847,9 @@ def main(argv=None):
         print("     sorozat-kontextus NÉLKÜL fordítok! (rossz mappából futtatod?)")
     if glossary_saving:
         print(f"  Szójegyzék:     {glossary_saving}")
+    bases_status = describe_bases(load_merged())
+    if bases_status:
+        print(f"  Alap-szótár:    {bases_status}")
     if not glossary:
         print("  FIGYELEM: glossary.json üres vagy hiányzik — szójegyzék nélkül fordítok")
     print("=" * 50)

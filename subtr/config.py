@@ -31,6 +31,9 @@ CLI_PROVIDERS = ("codex", "grok", "antigravity")
 # CWD-relatív útvonalak, mint eddig is — NEM keresünk repo-gyökeret,
 # a scripteket úgyis a repo gyökeréből futtatjuk.
 GLOSSARY_PATH = "glossary.json"
+# Alap-szótárak (műfaj × kultúra) mappája — a sorozat glossary.json-ja mellett;
+# a glossary.json „meta.bases” listája választ belőlük. Lásd subtr/glossary.py.
+GLOSSARIES_DIR = "glossaries"
 TRANSLATION_MD = "TRANSLATION.md"
 TRANSLATION_LOCAL_MD = "TRANSLATION.local.md"
 

@@ -48,7 +48,7 @@ A riportok találatait szekciószám szerint fésüld össze. Találatonként:
 | javaslat == aktuális szöveg (whitespace-normalizáltan) | **no-op** — eldob, számol |
 | a riport `eredeti`-je ≠ aktuális szöveg | már javítva vagy elcsúszott — **kihagy** |
 | nem létező magyar szóalak a javaslatban | **eldob** |
-| a javaslat ellentmond a glossary.json-nak | **eldob** (a glossary kötelező) |
+| a javaslat ellentmond a glossary.json-nak vagy a `meta.bases` alap-szótárainak (`glossaries/`) | **eldob** (a glossary kötelező; a sorozat saját bejegyzése felülírja az alapot) |
 | tegezés/magázás-riasztás, amit a *Megszólítási regiszter* alátámaszt | **elfogad** — a regiszter kötelező, a fordító tévedett |
 | tegezés/magázás-riasztás indoklás nélkül (a `hiba` mező nem nevez meg regiszter-sort, forrás-jelet vagy ütköző sorszámot) | **eldob** |
 | a `hiba` hivatkozik valamire (regiszter-sor, glossary-bejegyzés, szabály), de az ott NINCS úgy | **eldob** — a hivatkozást is ellenőrizd, ne csak a javaslatot |

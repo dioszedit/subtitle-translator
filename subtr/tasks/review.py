@@ -21,7 +21,7 @@ from pathlib import Path
 from subtr import config, reports
 from subtr.config import CLI_PROVIDERS, PROVIDERS
 from subtr.context import load_translation_context
-from subtr.glossary import as_prompt_text
+from subtr.glossary import as_prompt_text, describe_bases, load_merged
 from subtr.providers import claude_cli, get_provider
 from subtr.providers import gemini as gemini_provider
 from subtr.srt import parse_by_index, parse_entries
@@ -573,6 +573,9 @@ def main(argv=None):
                                            src_lang=src_lang)
     print(f"System instruction: {len(instruction)} char "
           f"(CLAUDE.md: {len(claude_md)} char, glossary: {len(glossary)} char)")
+    bases_status = describe_bases(load_merged())
+    if bases_status:
+        print(f"Alap-szótár: {bases_status}")
 
     # Chunk-tartomány
     start = max(1, args.start_chunk)
