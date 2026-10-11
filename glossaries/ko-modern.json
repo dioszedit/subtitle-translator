@@ -81,6 +81,46 @@
       "en": "Nurse",
       "hu": "nővér",
       "context": "névvel/megszólításban „X nővér”; köznévként „ápoló(nő)” — egy koreai jogi-misztikus sorozat kész fordítása alapján"
+    },
+    {
+      "en": "Manager",
+      "hu": "menedzser",
+      "context": "irodai 과장; névvel „Kim menedzser”. Bolt/étterem vezetőjére „üzletvezető”, sportoló/idol menedzserére „menedzser”. Döntés (2026-10): a koreai céges/jogi terminológia egységesítésére."
+    },
+    {
+      "en": "Assistant Manager",
+      "hu": "főmunkatárs",
+      "context": "대리, a beosztotti létra második foka. Döntés (2026-10): a koreai céges/jogi terminológia egységesítésére."
+    },
+    {
+      "en": "Deputy Manager",
+      "hu": "osztályvezető-helyettes",
+      "context": "차장 (Deputy General Manager is). Döntés (2026-10): a koreai céges/jogi terminológia egységesítésére."
+    },
+    {
+      "en": "Section Chief",
+      "hu": "részlegvezető",
+      "context": "과장/계장 régebbi angol alakja. Döntés (2026-10): a koreai céges/jogi terminológia egységesítésére."
+    },
+    {
+      "en": "General Manager",
+      "hu": "osztályvezető",
+      "context": "부장 (Department Head is); szállodában/üzletben „igazgató”. Döntés (2026-10): a koreai céges/jogi terminológia egységesítésére."
+    },
+    {
+      "en": "Department Head",
+      "hu": "osztályvezető",
+      "context": "부장; egységesen a General Managerrel. Döntés (2026-10): a koreai céges/jogi terminológia egységesítésére."
+    },
+    {
+      "en": "Chairwoman",
+      "hu": "elnök asszony",
+      "context": "a Chairman női megfelelője megszólításban. Döntés (2026-10): a koreai céges/jogi terminológia egységesítésére."
+    },
+    {
+      "en": "Vice Chairman",
+      "hu": "alelnök",
+      "context": "부회장; a Chairman alakjából. Döntés (2026-10): a koreai céges/jogi terminológia egységesítésére."
     }
   ],
   "place_names": [],
@@ -260,6 +300,26 @@
       "en": "impact factor",
       "hu": "impakt faktor",
       "context": "egy koreai egyetemi/laborbeli romantikus sorozat glossaryja alapján"
+    },
+    {
+      "en": "company dinner",
+      "hu": "céges vacsora",
+      "context": "회식. Döntés (2026-10): a koreai céges/jogi terminológia egységesítésére."
+    },
+    {
+      "en": "shareholders' meeting",
+      "hu": "közgyűlés",
+      "context": "Döntés (2026-10): a koreai céges/jogi terminológia egységesítésére."
+    },
+    {
+      "en": "conglomerate",
+      "hu": "konglomerátum",
+      "context": "ha egyértelműen chaebolról van szó, a chaebol döntése szerint. Döntés (2026-10): a koreai céges/jogi terminológia egységesítésére."
+    },
+    {
+      "en": "search warrant",
+      "hu": "házkutatási parancs",
+      "context": "a kész fordításban „házkutatási engedély” is előfordult — egységesítve. Döntés (2026-10): a koreai céges/jogi terminológia egységesítésére."
     }
   ],
   "phrases": [
