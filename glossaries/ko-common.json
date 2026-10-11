@@ -165,6 +165,28 @@
       "context": "általános magyar alak"
     }
   ],
+  "character_names": [
+    {
+      "en": "Grim Reaper",
+      "hu": "Túlvilág követe",
+      "context": "저승사자, a holtak lelkét a túlvilágra kísérő alak. Döntés (2026-10)."
+    },
+    {
+      "en": "Jeoseung Saja",
+      "hu": "Túlvilág követe",
+      "context": "저승사자, ha az angol felirat a koreai alakot hagyja meg. Döntés (2026-10)."
+    },
+    {
+      "en": "Samsin Halmeoni",
+      "hu": "Szamsin nagymama",
+      "context": "삼신할머니, a szülés és a sors istennője. Döntés (2026-10)."
+    },
+    {
+      "en": "Samsin Grandmother",
+      "hu": "Szamsin nagymama",
+      "context": "삼신할머니 angolra fordított alakja; a szülés és a sors istennője. Döntés (2026-10)."
+    }
+  ],
   "special_terms": [
     {
       "en": "doenjang",
