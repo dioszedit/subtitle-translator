@@ -224,6 +224,16 @@
       "en": "Alipay",
       "hu": "Alipay",
       "context": "márkanév, nem fordítjuk. 1 sorozat."
+    },
+    {
+      "en": "Chinese New Year",
+      "hu": "holdújév",
+      "context": "春节, a kínai (hold)naptár szerinti újév; NE „szilveszter” / „újév” önmagában (az a Gergely-naptárié). Döntés (2026-10)."
+    },
+    {
+      "en": "Chinese New Year's Eve",
+      "hu": "a holdújév előestéje",
+      "context": "除夕; „On Chinese New Year's Eve” = „a holdújév előestéjén”. NE „szilveszter”. Döntés (2026-10)."
     }
   ],
   "phrases": [
