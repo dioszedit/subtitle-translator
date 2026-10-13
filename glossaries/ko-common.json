@@ -163,6 +163,16 @@
       "en": "South Korea",
       "hu": "Dél-Korea",
       "context": "általános magyar alak"
+    },
+    {
+      "en": "KAIST",
+      "hu": "KAIST",
+      "context": "dél-koreai műszaki egyetem — egy koreai egyetemi romantikus sorozat glossaryja alapján"
+    },
+    {
+      "en": "Hongik University",
+      "hu": "Hongik Egyetem",
+      "context": "szöuli egyetem — egy koreai egyetemi romantikus sorozat glossaryja alapján"
     }
   ],
   "character_names": [
@@ -202,6 +212,11 @@
       "en": "pork belly",
       "hu": "császárszalonna",
       "context": "a samgyeopsal angol neve; a sima „pork” = sertéshús — egy koreai jogi-misztikus sorozat glossaryja alapján"
+    },
+    {
+      "en": "seaweed soup",
+      "hu": "hínárleves",
+      "context": "koreai miyeok-guk: hínárleves, a születésnapi és szülés utáni hagyományos leves — egy koreai egyetemi romantikus sorozat glossaryja alapján"
     }
   ],
   "phrases": [
