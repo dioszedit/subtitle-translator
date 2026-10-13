@@ -102,14 +102,41 @@ DEPRECATED_GEMINI_MODELS = {
 }
 
 
-# Az Antigravity CLI (`agy models`) kínálatából kikerült Gemini-modellek → utód.
-# Az agy NEM irányít át: a régi névvel a hívás hibával leállna, ezért cseréljük.
+# Az Antigravity CLI (`agy models`) kínálatából 2026-10-13-án kikerült Gemini-modellek → utód.
+# Nem szűntek meg: a hivatalos modell-lista (antigravity.google/docs/models) szerint
+# azóta CSAK Enterprise-előfizetésben érhetők el. Ezért csak akkor cseréljük őket,
+# ha a felhasználó `agy models` listájában tényleg nincsenek benne — az agy NEM
+# irányít át, a régi névvel a hívás hibával leállna.
 # Az effort-utótag (-high/-medium/-low) megmarad, ha az utódnak is van ilyen.
 DEPRECATED_ANTIGRAVITY_MODELS = {
     "gemini-3.1-pro": ("gemini-3.8-flash", "2026-10-13"),
     "gemini-3.6-flash": ("gemini-3.8-flash", "2026-10-13"),
     "gemini-3.7-flash": ("gemini-3.8-flash", "2026-10-13"),
 }
+
+_AGY_MODELS_CACHE = {}
+
+
+def antigravity_available_models():
+    """Az `agy models` által kínált modell-azonosítók halmaza, vagy None, ha nem
+    kérdezhető le (nincs `agy`, hiba, timeout). Folyamatonként egyszer fut."""
+    if "models" not in _AGY_MODELS_CACHE:
+        import shutil
+        import subprocess
+        result = None
+        agy = shutil.which("agy")
+        if agy:
+            try:
+                proc = subprocess.run([agy, "models"], capture_output=True,
+                                      text=True, encoding="utf-8", timeout=60)
+                if proc.returncode == 0:
+                    ids = {line.split()[0] for line in proc.stdout.splitlines()
+                           if line.strip() and not line.startswith("Fetching")}
+                    result = ids or None
+            except (OSError, subprocess.SubprocessError):
+                result = None
+        _AGY_MODELS_CACHE["models"] = result
+    return _AGY_MODELS_CACHE["models"]
 
 
 def replace_deprecated(provider: str, model):
@@ -128,10 +155,14 @@ def replace_deprecated(provider: str, model):
         if effort not in ("high", "medium", "low"):
             base, effort = model, ""
         if base in DEPRECATED_ANTIGRAVITY_MODELS:
+            available = antigravity_available_models()
+            if available is not None and model in available:
+                return model  # pl. Enterprise-előfizetés: nálad elérhető
             new_base, since = DEPRECATED_ANTIGRAVITY_MODELS[base]
             successor = f"{new_base}-{effort or 'high'}"
-            print(f"FIGYELEM: a {model} modell {since} óta nem érhető el az Antigravityben "
-                  f"(agy models) — helyette: {successor}. Frissítsd a --model kapcsolót / "
+            print(f"FIGYELEM: a {model} modell {since} óta csak Enterprise-előfizetésben "
+                  f"érhető el az Antigravityben, a te `agy models` listádban nincs benne "
+                  f"— helyette: {successor}. Frissítsd a --model kapcsolót / "
                   f"a .env SUBTR_ANTIGRAVITY_MODEL* sorait.", file=sys.stderr)
             return successor
     return model

@@ -489,10 +489,16 @@ python subtr.py translate "blocks\eng" --provider antigravity --model claude-opu
 > `gemini-3.8-flash-high` és a `gemini-3.1-pro-high` 16-16-ot talált (részben eltérőket); téves riasztás
 > 1 / 1 / 0. Ezért a fordítás defaultja a `gemini-3.8-flash-high`, a review-é a
 > `gemini-3.1-pro-high`; a glossary és a register a `gemini-3.8-flash-high`-et használja.
-> **2026-10-13 óta** az Antigravity kínálatából a 3.1 Pro (és a 3.6 / 3.7 Flash)
-> kikerült — azóta a review defaultja is a `gemini-3.8-flash-high` (a mérésen
-> ugyanannyi valódi hibát talált, mint a Pro). Ha a `--model` vagy a `.env` még
-> egy kivezetett nevet ad, a pipeline figyelmeztet, és az utódot hívja.
+> **2026-10-13 óta** a 3.1 Pro (és a 3.6 / 3.7 Flash) a hivatalos modell-lista
+> ([antigravity.google/docs/models](https://antigravity.google/docs/models/)) szerint
+> csak Enterprise-előfizetésben érhető el — azóta a review defaultja is a
+> `gemini-3.8-flash-high` (a mérésen ugyanannyi valódi hibát talált, mint a Pro).
+> Ha a `--model` vagy a `.env` ilyen nevet ad, a pipeline az `agy models` listájából
+> ellenőrzi: ha nálad elérhető (Enterprise), azt használja; ha nem, figyelmeztet, és a
+> `gemini-3.8-flash` azonos effortú változatát hívja.
+> A lista szerint a `gpt-oss-120b-medium` **2026. november 2-án** kikerül; a Gemini 4
+> Argon csak Ultra / Enterprise előfizetéssel érhető el (a CLI-ből is) — hogy nálad mi
+> választható, azt mindig az `agy models` mutatja.
 > Egyetlen rész — kis minta; független, magyar nyelvű fordítási benchmark ezekre
 > a modellekre nem volt elérhető.
 

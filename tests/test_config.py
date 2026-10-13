@@ -320,6 +320,37 @@ def test_kivezetett_modell_env_bol_is(monkeypatch):
     ("gemini-3.7-flash-high", "gemini-3.8-flash-high"),
     ("gemini-3.8-flash-low", "gemini-3.8-flash-low"),      # érvényes: változatlan
 ])
-def test_kivezetett_antigravity_modell_utodra_valt(old, new, capsys):
+def test_kivezetett_antigravity_modell_utodra_valt(old, new, capsys, monkeypatch):
+    # nem Enterprise: az `agy models` csak a 3.8 Flasht kínálja
+    monkeypatch.setattr(config, "antigravity_available_models",
+                        lambda: {"gemini-3.8-flash-high", "gemini-3.8-flash-medium",
+                                 "gemini-3.8-flash-low"})
     assert config.resolve_model(old, "antigravity", "review") == new
-    assert ("nem érhető el" in capsys.readouterr().err) is (old != new)
+    assert ("Enterprise" in capsys.readouterr().err) is (old != new)
+
+
+def test_kivezetett_antigravity_modell_ha_nem_listazhato_utodra_valt(monkeypatch):
+    monkeypatch.setattr(config, "antigravity_available_models", lambda: None)
+    assert config.resolve_model("gemini-3.1-pro-high", "antigravity", "review") == "gemini-3.8-flash-high"
+
+
+def test_enterprise_eleresnel_a_modell_marad(capsys, monkeypatch):
+    # Enterprise-előfizetés: a 3.1 Pro az `agy models` listájában van → nem cseréljük
+    monkeypatch.setattr(config, "antigravity_available_models",
+                        lambda: {"gemini-3.1-pro-high", "gemini-3.8-flash-high"})
+    assert config.resolve_model("gemini-3.1-pro-high", "antigravity", "review") == "gemini-3.1-pro-high"
+    assert "Enterprise" not in capsys.readouterr().err
+
+
+def test_agy_models_kimenet_feldolgozasa(monkeypatch):
+    import shutil
+    import subprocess
+    class P:
+        returncode = 0
+        stdout = ("Fetching available models...\n"
+                  "gemini-3.8-flash-high\tGemini 3.8 Flash (High)\n"
+                  "gpt-oss-120b-medium\tGPT-OSS 120B (Medium)\n")
+    monkeypatch.setattr(config, "_AGY_MODELS_CACHE", {})
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/agy")
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: P())
+    assert config.antigravity_available_models() == {"gemini-3.8-flash-high", "gpt-oss-120b-medium"}
