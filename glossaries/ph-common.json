@@ -1,0 +1,327 @@
+{
+  "meta": {
+    "id": "ph-common",
+    "title": "Fülöp-szigeteki közös: megszólítások, helynevek, ételek, szokások",
+    "lang": "tl",
+    "description": "Tagalog megszólítások és rokoni formák (Ate, Kuya, Tita, Lola…), fülöp-szigeteki helynevek magyar alakja, ételek és intézmények, ahogy az angol felirat visszaadja őket.",
+    "version": "1.0"
+  },
+  "honorifics": [
+    {
+      "en": "Ate",
+      "hu": "Ate",
+      "context": "idősebb nővér/unokanővér, vagy tisztelt idősebb nő; tagalog alak marad, kurziválva. Csak nagybetűs megszólításként (az angol „ate” = evett NEM ez). en.wikipedia: Philippine kinship; magyar forrás nincs — a koreai megszólítások mintájára"
+    },
+    {
+      "en": "Kuya",
+      "hu": "Kuya",
+      "context": "idősebb fivér/unokafivér, vagy tisztelt idősebb férfi; tagalog alak marad, kurziválva. en.wikipedia: Philippine kinship; magyar forrás nincs — a koreai megszólítások mintájára"
+    },
+    {
+      "en": "Tita",
+      "hu": "Tita",
+      "context": "nagynéni, a szülők barátnője, idősebb nő; név előtt marad (Tita X), önállóan „nénikém” is lehet. en.wikipedia: Philippine English vocabulary; magyar forrás nincs"
+    },
+    {
+      "en": "Tito",
+      "hu": "Tito",
+      "context": "nagybácsi, a szülők barátja, idősebb férfi; név előtt marad (Tito X), önállóan „bácsikám” is lehet. en.wikipedia: Philippine English vocabulary; magyar forrás nincs"
+    },
+    {
+      "en": "Lolo",
+      "hu": "nagyapa",
+      "context": "nagyapa, idős férfi megszólítása; önállóan „nagyapa/papa”, név előtt marad (Lolo X). en.wikipedia: Philippine kinship; magyar forrás nincs — a koreai megszólítások mintájára"
+    },
+    {
+      "en": "Manang",
+      "hu": "Manang",
+      "context": "ismeretlen idősebb nő (ilokano eredetű); tagalog alak marad, vagy „néni”. en.wikipedia: Philippine kinship; magyar forrás nincs — a koreai megszólítások mintájára"
+    },
+    {
+      "en": "Manong",
+      "hu": "Manong",
+      "context": "ismeretlen idősebb férfi (ilokano eredetű); tagalog alak marad, vagy „bácsi”. en.wikipedia: Philippine kinship; magyar forrás nincs — a koreai megszólítások mintájára"
+    },
+    {
+      "en": "Nanay",
+      "hu": "anya",
+      "context": "anya (családias); megszólításként „anya/anyu” — mint a koreai eomma. en.wikipedia: Philippine kinship; magyar forrás nincs — a koreai megszólítások mintájára"
+    },
+    {
+      "en": "Inay",
+      "hu": "anya",
+      "context": "a Nanay megszólító alakja; „anya/anyu”. en.wikipedia: Philippine kinship; magyar forrás nincs — a koreai megszólítások mintájára"
+    },
+    {
+      "en": "Tatay",
+      "hu": "apa",
+      "context": "apa (családias); megszólításként „apa”. en.wikipedia: Philippine kinship; magyar forrás nincs — a koreai megszólítások mintájára"
+    },
+    {
+      "en": "Itay",
+      "hu": "apa",
+      "context": "a Tatay megszólító alakja; „apa”. en.wikipedia: Philippine kinship; magyar forrás nincs — a koreai megszólítások mintájára"
+    },
+    {
+      "en": "anak",
+      "hu": "fiam / lányom",
+      "context": "szülő → gyermek becéző megszólítás; nem szerint „fiam/lányom”, semlegesen „kicsim”. en.wikipedia: Philippine kinship; magyar forrás nincs — a koreai megszólítások mintájára"
+    },
+    {
+      "en": "Ninang",
+      "hu": "keresztanya",
+      "context": "keresztanya, esküvői tanú is; megszólításként „keresztanyu”. en.wikipedia: Philippine kinship; magyar forrás nincs — a koreai megszólítások mintájára"
+    },
+    {
+      "en": "Ninong",
+      "hu": "keresztapa",
+      "context": "keresztapa, esküvői tanú is; megszólításként „keresztapu”. en.wikipedia: Philippine kinship; magyar forrás nincs — a koreai megszólítások mintájára"
+    },
+    {
+      "en": "iha",
+      "hu": "lányom",
+      "context": "idősebb → fiatal nő, „lányom” (hija); en.wikipedia: Philippine kinship; magyar forrás nincs — a koreai megszólítások mintájára"
+    },
+    {
+      "en": "iho",
+      "hu": "fiam",
+      "context": "idősebb → fiatal férfi, „fiam” (hijo); en.wikipedia: Philippine kinship; magyar forrás nincs — a koreai megszólítások mintájára"
+    },
+    {
+      "en": "po",
+      "hu": "(magázással)",
+      "context": "tiszteleti partikula (opo = udvarias igen); NEM fordítjuk szóval — a magázás hordozza. Forrás: tagalognow.com „po and opo”"
+    }
+  ],
+  "place_names": [
+    {
+      "en": "Metro Manila",
+      "hu": "Nagy-Manila",
+      "context": "a fővárosi agglomeráció; hu.wikipedia: Manila („manilai agglomeráció”)"
+    },
+    {
+      "en": "Manila",
+      "hu": "Manila",
+      "context": "toldalék: manilai, Manilában; hu.wikipedia: Manila"
+    },
+    {
+      "en": "Manila Bay",
+      "hu": "Manila-öböl",
+      "context": "hu.wikipedia: Manila"
+    },
+    {
+      "en": "Visayas",
+      "hu": "Viszajan-szigetek",
+      "context": "hu.wikipedia: Viszajan-szigetek"
+    },
+    {
+      "en": "Mactan",
+      "hu": "Mactan-sziget",
+      "context": "hu.wikipedia: Fülöp-szigetek, Cebu (település)"
+    },
+    {
+      "en": "Taal Lake",
+      "hu": "Taal-tó",
+      "context": "hu.wikipedia: Fülöp-szigeteki peso"
+    },
+    {
+      "en": "Cebu",
+      "hu": "Cebu",
+      "context": "sziget és város; toldalék: cebui; hu.wikipedia: Cebu"
+    },
+    {
+      "en": "Bonifacio Global City",
+      "hu": "Bonifacio Global City",
+      "context": "üzleti negyed (BGC); hu.wikipedia: Luzon"
+    }
+  ],
+  "special_terms": [
+    {
+      "en": "Filipino",
+      "hu": "filippínó",
+      "context": "népnév és melléknév (személyre); az országra vonatkozó melléknév: fülöp-szigeteki (kisbetűvel); hu.wikipedia: Filippínók"
+    },
+    {
+      "en": "Tagalog",
+      "hu": "tagalog",
+      "context": "a nyelv neve, kisbetűvel; hu.wikipedia: Tagalog nyelv"
+    },
+    {
+      "en": "Pinoy",
+      "hu": "filippínó",
+      "context": "köznyelvi önmegnevezés (nő: Pinay); ha az identitás-hangsúly fontos, maradhat Pinoy. en.wikipedia: Philippine English vocabulary; magyar forrás nincs"
+    },
+    {
+      "en": "Pinay",
+      "hu": "filippínó nő",
+      "context": "a Pinoy női alakja. en.wikipedia: Philippine English vocabulary; magyar forrás nincs"
+    },
+    {
+      "en": "peso",
+      "hu": "peso",
+      "context": "fizetőeszköz, kisbetűvel; váltópénz: sentimo; hu.wikipedia: Fülöp-szigeteki peso"
+    },
+    {
+      "en": "Magellan",
+      "hu": "Magellán",
+      "context": "Fernão de Magalhães, magyarosan Magellán (Ferdinánd); hu.wikipedia: Fülöp-szigetek"
+    },
+    {
+      "en": "Lapu-Lapu",
+      "hu": "Lapu-Lapu",
+      "context": "Mactan vezére, aki 1521-ben legyőzte Magellánt; városnév is; hu.wikipedia: Fülöp-szigetek, Cebu"
+    },
+    {
+      "en": "barangay",
+      "hu": "barangay",
+      "context": "a legkisebb önkormányzati egység; kurziválva, vagy szövegtől függően „körzet”; hu.wikipedia: Fülöp-szigetek"
+    },
+    {
+      "en": "barangay captain",
+      "hu": "a körzet elöljárója",
+      "context": "a barangay választott vezetője; en.wikipedia: Barangay captain; magyar forrás nincs"
+    },
+    {
+      "en": "jeepney",
+      "hu": "dzsipni",
+      "context": "háborús dzsipekből átalakított közösségi jármű; hu.wikipedia: Fülöp-szigetek (képaláírás)"
+    },
+    {
+      "en": "tricycle",
+      "hu": "tricikli",
+      "context": "oldalkocsis motoros taxi; hu.wikipedia: Tricikli"
+    },
+    {
+      "en": "sari-sari store",
+      "hu": "kisbolt",
+      "context": "családi szatócsbolt a környéken; en.wikipedia: Sari-sari store; magyar forrás nincs"
+    },
+    {
+      "en": "OFW",
+      "hu": "külföldön dolgozó vendégmunkás",
+      "context": "Overseas Filipino Worker; en.wikipedia; magyar forrás nincs"
+    },
+    {
+      "en": "balikbayan box",
+      "hu": "hazaküldött csomag",
+      "context": "külföldön dolgozó által hazaküldött ajándékos doboz; en.wikipedia: Philippine English vocabulary; magyar forrás nincs"
+    },
+    {
+      "en": "balikbayan",
+      "hu": "hazatérő",
+      "context": "külföldről hazalátogató filippínó; en.wikipedia: Philippine English vocabulary; magyar forrás nincs"
+    },
+    {
+      "en": "pasalubong",
+      "hu": "ajándék",
+      "context": "útról hazahozott apró ajándék („hoztam valamit”); en.wikipedia: Philippine English vocabulary; magyar forrás nincs"
+    },
+    {
+      "en": "merienda",
+      "hu": "uzsonna",
+      "context": "délutáni/délelőtti harapnivaló; en.wikipedia: Philippine English vocabulary; magyar forrás nincs"
+    },
+    {
+      "en": "barkada",
+      "hu": "baráti társaság",
+      "context": "baráti kör, „a banda”; en.wikipedia: Philippine English vocabulary; magyar forrás nincs"
+    },
+    {
+      "en": "pancit",
+      "hu": "pancit",
+      "context": "tésztaétel, a hosszú élet jelképe (születésnapon); kurziválva, vagy „tészta”; hu.wikipedia: Fülöp-szigetek"
+    },
+    {
+      "en": "adobo",
+      "hu": "adobo",
+      "context": "ecetes-szójaszószos-fokhagymás pörkölt, nemzeti étel; kurziválva; en.wikipedia; magyar forrás nincs"
+    },
+    {
+      "en": "lechon",
+      "hu": "malacsült",
+      "context": "egészben sült malac; en.wikipedia: Suckling pig; magyar forrás nincs"
+    },
+    {
+      "en": "lumpia",
+      "hu": "tavaszi tekercs",
+      "context": "en.wikipedia: Lumpia; magyar forrás nincs"
+    },
+    {
+      "en": "sinigang",
+      "hu": "sinigang",
+      "context": "savanyú (tamarindos) leves; kurziválva, vagy „savanyú leves”; en.wikipedia; magyar forrás nincs"
+    },
+    {
+      "en": "kare-kare",
+      "hu": "kare-kare",
+      "context": "ökörfarok-ragu mogyorószószban; hu.wikipedia: Kényeztető étel (fordítatlanul)"
+    },
+    {
+      "en": "halo-halo",
+      "hu": "halo-halo",
+      "context": "jégkásás desszert; en.wikipedia: Halo-halo; magyar forrás nincs"
+    },
+    {
+      "en": "leche flan",
+      "hu": "krémkaramell",
+      "context": "a fülöp-szigeteki karamellkrém; en.wikipedia: Leche flan"
+    },
+    {
+      "en": "ube",
+      "hu": "ube",
+      "context": "lila jamgyökér (fagyiban, édességben); hu.wikipedia: Fülöp-szigetek"
+    },
+    {
+      "en": "balut",
+      "hu": "balut",
+      "context": "főtt, megtermékenyített kacsatojás; hu.wikipedia: Balut (egyértelműsítő lap)"
+    },
+    {
+      "en": "calamansi",
+      "hu": "calamansi",
+      "context": "fülöp-szigeteki citrusféle; hu.wikipedia"
+    },
+    {
+      "en": "Simbang Gabi",
+      "hu": "karácsony előtti hajnali misék",
+      "context": "kilencnapos adventi miseszakasz; maradhat Simbang Gabi is; hu.wikipedia: Pablo David; en.wikipedia: Simbang Gabi"
+    },
+    {
+      "en": "Noche Buena",
+      "hu": "szentesti vacsora",
+      "context": "karácsony esti ünnepi lakoma; en.wikipedia; magyar forrás nincs"
+    },
+    {
+      "en": "mano po",
+      "hu": "áldást kér",
+      "context": "kézfej homlokhoz érintése idősebb köszöntésekor; leírással fordítandó; en.wikipedia: Mano (gesture)"
+    },
+    {
+      "en": "nipa hut",
+      "hu": "nipakunyhó",
+      "context": "cölöpökre épített pálmalevél-kunyhó (bahay kubo); hu.wikipedia: Mangrovepálma (nipapálma); en.wikipedia: Bahay Kubo (song)"
+    },
+    {
+      "en": "Juan Tamad",
+      "hu": "Juan Tamad",
+      "context": "„Lusta János”, népmesei alak; en.wikipedia: Juan Tamad"
+    }
+  ],
+  "phrases": [
+    {
+      "en": "Susmaryosep",
+      "hu": "Jézus, Mária!",
+      "context": "„Jézus, Mária, József!” enyhe felkiáltás; tagalog.com dictionary; folklore.usc.edu"
+    },
+    {
+      "en": "Diyos ko",
+      "hu": "Istenem!",
+      "context": "„Istenem!” felkiáltás"
+    },
+    {
+      "en": "In fairness",
+      "hu": "Azért meg kell hagyni,",
+      "context": "filippínó angol: vonakodó dicséret bevezetése; usa.inquirer.net"
+    }
+  ]
+}
