@@ -26,7 +26,26 @@ def get_section_num(section_text: str) -> int | None:
         return None
 
 
+def is_webvtt(input_file: str, content: str) -> bool:
+    """WebVTT-e a bemenet (kiterjesztés vagy a „WEBVTT” fejléc alapján)."""
+    return (input_file.lower().endswith(".vtt")
+            or content.lstrip().startswith("WEBVTT"))
+
+
 def split_srt(input_file: str, block_size: int = 150, clean: bool = False) -> str:
+    with open(input_file, 'r', encoding='utf-8-sig') as f:
+        content = f.read()
+
+    # A vtt-t a parser „elnyelné”: a WEBVTT fejléc az 1. szekcióba ragad, az
+    # időbélyeg pontos marad — a hiba csak a kész fordításban bukna ki.
+    if is_webvtt(input_file, content):
+        srt_name = os.path.splitext(input_file)[0] + ".srt"
+        print(f"HIBA: A bemenet WebVTT, nem SRT: {input_file}")
+        print("      Előbb alakítsd át, és a .srt-t darabold:")
+        print(f'        python3 addons/vtt2srt/vtt2srt.py "{input_file}"')
+        print(f'        python3 subtr.py split "{srt_name}"')
+        sys.exit(1)
+
     basename = os.path.splitext(os.path.basename(input_file))[0]
     outdir = os.path.join("blocks", basename)
     os.makedirs(outdir, exist_ok=True)
@@ -48,9 +67,6 @@ def split_srt(input_file: str, block_size: int = 150, clean: bool = False) -> st
         for f in existing:
             os.remove(f)
         print()
-
-    with open(input_file, 'r', encoding='utf-8-sig') as f:
-        content = f.read()
 
     sections = parse_sections(content)
     total = len(sections)

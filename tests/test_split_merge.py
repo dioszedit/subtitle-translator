@@ -44,6 +44,24 @@ def test_split_creates_named_blocks(workdir):
     assert nums == [str(i) for i in range(1, 8)]
 
 
+_VTT = ("WEBVTT\n\n1\n00:00:01.000 --> 00:00:01.500\nSor 1\n\n"
+        "2\n00:00:02.000 --> 00:00:02.500\nSor 2\n")
+
+
+@pytest.mark.parametrize("name", ["Sorozat - S01E01.eng.vtt",
+                                  "Sorozat - S01E01.eng.srt"])
+def test_split_refuses_webvtt(tmp_path, monkeypatch, capsys, name):
+    """.vtt kiterjesztés VAGY WEBVTT fejléc → leáll, blokk nem készül."""
+    monkeypatch.chdir(tmp_path)
+    src = tmp_path / name
+    src.write_text(_VTT, encoding="utf-8")
+    with pytest.raises(SystemExit):
+        split.split_srt(str(src), block_size=3)
+    out = capsys.readouterr().out
+    assert "WebVTT" in out and "vtt2srt" in out
+    assert not (tmp_path / "blocks").exists()
+
+
 def test_resplit_refuses_without_clean(workdir, capsys):
     tmp, src = workdir
     split.split_srt(str(src), block_size=3)

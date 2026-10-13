@@ -228,6 +228,7 @@ három lépésben vihető át — részletek:
 python subtr.py split "input\Sorozat - S01E01.eng.srt"
 # Újra-splitnél (pl. más --block-size) --clean törli a régi blokkokat —
 # enélkül a parancs leáll, hogy a két generáció ne keveredjen a merge-nél
+# .vtt bemenetre (vagy WEBVTT fejlécre) is leáll: előbb addons\vtt2srt
 
 # 2. Fordítás — a --provider választja ki a fordítót (default: claude)
 python subtr.py translate "blocks\Sorozat - S01E01.eng" --provider claude --agents 3
