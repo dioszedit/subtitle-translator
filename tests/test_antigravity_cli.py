@@ -242,7 +242,7 @@ def test_parse_denied_tool_gives_clear_error():
 
 
 def test_antigravity_default_modellek():
-    """A 2026-10-i mérés alapján: fordítás 3.8 Flash, review 3.1 Pro."""
+    """Fordítás és review: 3.8 Flash (a 3.1 Pro 2026-10-13 óta nem érhető el)."""
     from subtr.tasks import review, translate
     assert translate.MODEL_BUILTIN["antigravity"] == "gemini-3.8-flash-high"
-    assert review.MODEL_BUILTIN["antigravity"] == "gemini-3.1-pro-high"
+    assert review.MODEL_BUILTIN["antigravity"] == "gemini-3.8-flash-high"

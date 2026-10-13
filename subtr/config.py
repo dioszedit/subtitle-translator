@@ -102,16 +102,39 @@ DEPRECATED_GEMINI_MODELS = {
 }
 
 
+# Az Antigravity CLI (`agy models`) kínálatából kikerült Gemini-modellek → utód.
+# Az agy NEM irányít át: a régi névvel a hívás hibával leállna, ezért cseréljük.
+# Az effort-utótag (-high/-medium/-low) megmarad, ha az utódnak is van ilyen.
+DEPRECATED_ANTIGRAVITY_MODELS = {
+    "gemini-3.1-pro": ("gemini-3.8-flash", "2026-10-13"),
+    "gemini-3.6-flash": ("gemini-3.8-flash", "2026-10-13"),
+    "gemini-3.7-flash": ("gemini-3.8-flash", "2026-10-13"),
+}
+
+
 def replace_deprecated(provider: str, model):
-    """Kivezetett Gemini API-modellnél figyelmeztet, és az utódját adja vissza."""
-    if provider != "gemini" or model not in DEPRECATED_GEMINI_MODELS:
+    """Kivezetett modellnél figyelmeztet, és az utódját adja vissza."""
+    if not model:
         return model
-    successor, since = DEPRECATED_GEMINI_MODELS[model]
-    print(f"FIGYELEM: a {model} modellt a Google {since}-én kivezette (deprecated), "
-          f"a hívásokat a {successor} modellre irányítja át — ezt használjuk. "
-          f"Frissítsd a --model kapcsolót / a .env SUBTR_GEMINI_MODEL* sorait.",
-          file=sys.stderr)
-    return successor
+    if provider == "gemini" and model in DEPRECATED_GEMINI_MODELS:
+        successor, since = DEPRECATED_GEMINI_MODELS[model]
+        print(f"FIGYELEM: a {model} modellt a Google {since}-én kivezette (deprecated), "
+              f"a hívásokat a {successor} modellre irányítja át — ezt használjuk. "
+              f"Frissítsd a --model kapcsolót / a .env SUBTR_GEMINI_MODEL* sorait.",
+              file=sys.stderr)
+        return successor
+    if provider == "antigravity":
+        base, _, effort = model.rpartition("-")
+        if effort not in ("high", "medium", "low"):
+            base, effort = model, ""
+        if base in DEPRECATED_ANTIGRAVITY_MODELS:
+            new_base, since = DEPRECATED_ANTIGRAVITY_MODELS[base]
+            successor = f"{new_base}-{effort or 'high'}"
+            print(f"FIGYELEM: a {model} modell {since} óta nem érhető el az Antigravityben "
+                  f"(agy models) — helyette: {successor}. Frissítsd a --model kapcsolót / "
+                  f"a .env SUBTR_ANTIGRAVITY_MODEL* sorait.", file=sys.stderr)
+            return successor
+    return model
 
 
 # ────────────────────────────────────────────────────────────────────────────

@@ -89,8 +89,8 @@ def test_antigravity_is_a_known_cli_provider(monkeypatch):
     assert "antigravity" in config.CLI_PROVIDERS
     monkeypatch.setenv("SUBTR_DEFAULT_PROVIDER", "antigravity")
     assert config.default_provider(builtin="claude") == "antigravity"
-    monkeypatch.setenv("SUBTR_ANTIGRAVITY_MODEL_REVIEW", "gemini-3.1-pro-high")
-    assert config.resolve_model(None, "antigravity", "review") == "gemini-3.1-pro-high"
+    monkeypatch.setenv("SUBTR_ANTIGRAVITY_MODEL_REVIEW", "claude-opus-5-5-high")
+    assert config.resolve_model(None, "antigravity", "review") == "claude-opus-5-5-high"
 
 
 def test_default_provider_invalid_env_falls_back(monkeypatch):
@@ -305,9 +305,21 @@ def test_kivezetett_gemini_modell_utodra_valt(capsys):
     assert config.resolve_model("gemini-3.5-flash-lite", "gemini", "review") == "gemini-3.5-flash-lite"
     assert config.resolve_model("gemini-3.6-flash", "gemini", "review") == "gemini-3.6-flash"
     # más provider nevét nem bántjuk
-    assert config.resolve_model("gemini-3.7-flash-high", "antigravity", "review") == "gemini-3.7-flash-high"
+    assert config.resolve_model("claude-opus-5-5-high", "antigravity", "review") == "claude-opus-5-5-high"
 
 
 def test_kivezetett_modell_env_bol_is(monkeypatch):
     monkeypatch.setenv("SUBTR_GEMINI_MODEL", "gemini-3.7-flash")
     assert config.resolve_model(None, "gemini", "translate") == "gemini-3.8-flash"
+
+
+@pytest.mark.parametrize("old,new", [
+    ("gemini-3.1-pro-high", "gemini-3.8-flash-high"),
+    ("gemini-3.1-pro-low", "gemini-3.8-flash-low"),
+    ("gemini-3.6-flash-medium", "gemini-3.8-flash-medium"),
+    ("gemini-3.7-flash-high", "gemini-3.8-flash-high"),
+    ("gemini-3.8-flash-low", "gemini-3.8-flash-low"),      # érvényes: változatlan
+])
+def test_kivezetett_antigravity_modell_utodra_valt(old, new, capsys):
+    assert config.resolve_model(old, "antigravity", "review") == new
+    assert ("nem érhető el" in capsys.readouterr().err) is (old != new)
