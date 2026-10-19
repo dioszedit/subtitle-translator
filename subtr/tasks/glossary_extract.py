@@ -196,7 +196,7 @@ CODEX_GLOSSARY_SCHEMA = {
     "additionalProperties": False,
 }
 
-GEMINI_MODEL_DEFAULT = "gemini-3.6-flash"
+GEMINI_MODEL_DEFAULT = "gemini-3.8-flash"
 
 
 def _existing_note(new_terms) -> str:

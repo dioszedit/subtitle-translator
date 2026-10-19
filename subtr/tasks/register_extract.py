@@ -62,7 +62,7 @@ from subtr.context import load_translation_context
 
 LOCAL_FILE_DEFAULT = "TRANSLATION.local.md"
 SECTION_HEADER = "Megszólítási regiszter:"
-GEMINI_MODEL_DEFAULT = "gemini-3.6-flash"
+GEMINI_MODEL_DEFAULT = "gemini-3.8-flash"
 FORMS = ("MAGÁZ", "TEGEZ")
 MIN_EVIDENCE = 2   # ennyi idézhető bizonyíték alatt a sor bizonytalan
 

@@ -68,13 +68,13 @@ HASZNÁLAT (parancssorból):
     py subtr.py quota --projects       # mai fogyás projektmappa szerint is
     py subtr.py quota --where          # hol van a napló
     py subtr.py quota --reset          # mai számlálók nullázása (ha félrement)
-    py subtr.py quota --forget-limit gemini-3.6-flash    # rossz limit elfelejtése
+    py subtr.py quota --forget-limit gemini-3.8-flash    # rossz limit elfelejtése
 
 HASZNÁLAT (kódból):
     from subtr import quota as gq
-    gq.preflight("gemini-3.6-flash", needed=4)          # futás előtt: belefér?
-    gq.record("gemini-3.6-flash")                        # SIKERES hívás után
-    gq.note_limit_from_error("gemini-3.6-flash", exc)    # 429 esetén
+    gq.preflight("gemini-3.8-flash", needed=4)          # futás előtt: belefér?
+    gq.record("gemini-3.8-flash")                        # SIKERES hívás után
+    gq.note_limit_from_error("gemini-3.8-flash", exc)    # 429 esetén
 
 A modul SOHA nem dob kivételt kifelé: ha a napló sérült vagy nem írható,
 csendben tovább engedi a hívást. A kvótakövetés kényelmi funkció, nem lehet

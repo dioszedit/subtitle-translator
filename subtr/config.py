@@ -97,7 +97,8 @@ def _resolve_model_raw(cli_value, provider: str, task: str, builtin=None):
 # A hívás így is működne (a Google átirányít), de a kvóta-nyilvántartás a
 # modellnévhez kötött, és a régi név bármikor megszűnhet — ezért cseréljük.
 DEPRECATED_GEMINI_MODELS = {
-    "gemini-3.5-flash": ("gemini-3.6-flash", "2026-10-10"),
+    "gemini-3.5-flash": ("gemini-3.8-flash", "2026-10-10"),
+    "gemini-3.6-flash": ("gemini-3.8-flash", "2026-10-19"),
     "gemini-3.7-flash": ("gemini-3.8-flash", "2026-10-10"),
 }
 

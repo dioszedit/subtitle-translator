@@ -34,7 +34,7 @@ CLAUDE_SYS_PROMPT_PREFIX = ".review_claude_sys_prompt_"
 
 # Beégetett modell-defaultok — a .env (SUBTR_<P>_MODEL_REVIEW / SUBTR_<P>_MODEL)
 # és a --model kapcsoló a config.resolve_model() precedenciája szerint felülbírálja.
-MODEL_BUILTIN = {"gemini": "gemini-3.6-flash", "claude": "sonnet",
+MODEL_BUILTIN = {"gemini": "gemini-3.8-flash", "claude": "sonnet",
                  "codex": None, "grok": "grok-4.6",
                  "antigravity": "gemini-3.8-flash-high"}
 
@@ -416,7 +416,7 @@ def main(argv=None):
     parser.add_argument("--model", type=str, default=None,
                         help="Modell-azonosító. Feloldás: --model > "
                              "SUBTR_<PROVIDER>_MODEL_REVIEW > SUBTR_<PROVIDER>_MODEL > "
-                             "beégetett (gemini: gemini-3.6-flash, claude: sonnet, grok: grok-4.6, "
+                             "beégetett (gemini: gemini-3.8-flash, claude: sonnet, grok: grok-4.6, "
                              "antigravity: gemini-3.8-flash-high)")
     config.add_effort_argument(parser, "review")
     parser.add_argument("--timeout", type=int, default=None,

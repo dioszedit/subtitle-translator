@@ -38,7 +38,7 @@ from subtr.srt import count_sections, count_sections_text, parse_sections, read_
 
 TEMPERATURE = 0.3
 MAX_RETRIES = 4
-MODEL_BUILTIN = {"gemini": "gemini-3.6-flash", "claude": "sonnet",
+MODEL_BUILTIN = {"gemini": "gemini-3.8-flash", "claude": "sonnet",
                  "codex": None, "grok": "grok-4.5",
                  "antigravity": "gemini-3.8-flash-high"}
 
@@ -674,7 +674,7 @@ def main(argv=None):
     parser.add_argument("--model", type=str, default=None,
                         help="Modell-azonosító. Feloldás: --model > "
                              "SUBTR_<PROVIDER>_MODEL_TRANSLATE > SUBTR_<PROVIDER>_MODEL > "
-                             "beégetett (gemini: gemini-3.6-flash, claude: sonnet, grok: grok-4.5, "
+                             "beégetett (gemini: gemini-3.8-flash, claude: sonnet, grok: grok-4.5, "
                              "antigravity: gemini-3.8-flash-high)")
     config.add_effort_argument(parser, "translate")
     parser.add_argument("--timeout", type=int, default=None,

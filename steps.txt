@@ -155,7 +155,7 @@ py subtr.py translate "blocks\Sorozat - S01E01.eng" --provider claude --agents 3
 
 # ALTERNATÍVA: fordítás Gemini API-val (olcsóbb, ugyanazt a blocks/ mappát fordítja)
 #     A provider-ek ugyanúgy checkpoint-olnak, ezért provider-váltással is folytatható.
-#     Default modell: gemini-3.6-flash (erős, stabilan elérhető)
+#     Default modell: gemini-3.8-flash
 # py subtr.py translate "blocks\Sorozat - S01E01.eng" --provider gemini --agents 3
 # Opcionálisan:
 #   --model gemini-3.5-flash-lite olcsóbb, bő napi kvóta (kvótahiba esetén)
@@ -192,7 +192,7 @@ py subtr.py verify "input\Sorozat - S01E01.eng.srt" "output\Sorozat - S01E01.hun
 
 # 5. Stilisztikai review — a --provider választja ki a lektort (default: gemini)
 py subtr.py review "output\Sorozat - S01E01.hun.srt"
-# Default modell (gemini ág): gemini-3.6-flash
+# Default modell (gemini ág): gemini-3.8-flash
 # Ha megtalálja a forrásnyelvi SRT-t (input\Sorozat - S01E01.eng.srt), automatikusan
 # odaadja a modellnek szekciónként [FORRÁS] sorként — így kevesebb a téves találat.
 # Opcionálisan:

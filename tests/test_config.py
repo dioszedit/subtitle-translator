@@ -299,11 +299,12 @@ def test_add_effort_argument_choices():
 
 def test_kivezetett_gemini_modell_utodra_valt(capsys):
     assert config.resolve_model("gemini-3.7-flash", "gemini", "translate") == "gemini-3.8-flash"
-    assert config.resolve_model("gemini-3.5-flash", "gemini", "review") == "gemini-3.6-flash"
+    assert config.resolve_model("gemini-3.5-flash", "gemini", "review") == "gemini-3.8-flash"
+    assert config.resolve_model("gemini-3.6-flash", "gemini", "review") == "gemini-3.8-flash"
     assert "kivezette" in capsys.readouterr().err
     # a lite és a nem érintett modellek változatlanok
     assert config.resolve_model("gemini-3.5-flash-lite", "gemini", "review") == "gemini-3.5-flash-lite"
-    assert config.resolve_model("gemini-3.6-flash", "gemini", "review") == "gemini-3.6-flash"
+    assert config.resolve_model("gemini-3.8-flash", "gemini", "review") == "gemini-3.8-flash"
     # más provider nevét nem bántjuk
     assert config.resolve_model("claude-opus-5-5-high", "antigravity", "review") == "claude-opus-5-5-high"
 

@@ -436,7 +436,7 @@ python subtr.py translate "blocks\eng" --provider claude --agents 1
 
 #### Gemini API fordító (`subtr.py translate --provider gemini`) — alternatíva
 ```powershell
-# Default modell: gemini-3.6-flash (erős és stabilan elérhető)
+# Default modell: gemini-3.8-flash
 python subtr.py translate "blocks\eng" --provider gemini --agents 3
 
 # Tetszőleges Gemini modell --model flag-gel
@@ -652,7 +652,7 @@ javaslattal, azt nem írja újra — a parancs idempotens.
 
 #### Gemini review (`subtr.py review` — a default provider)
 ```powershell
-# Default modell: gemini-3.6-flash (erős és stabilan elérhető)
+# Default modell: gemini-3.8-flash
 python subtr.py review "output\hun.srt"
 
 # Tetszőleges modell-azonosító --model flag-gel
@@ -677,17 +677,17 @@ A forrásnyelvi SRT párosítása itt is működik (lásd fent a Claude review-n
 
 | Modell | Mire jó |
 |---|---|
-| `gemini-3.6-flash` | **Default** a fordításban és a review-ban is. Erős és stabilan elérhető. |
-| `gemini-3.8-flash` | A legújabb Flash (a kivezetett 3.7 utódja). Az Antigravity-ágon mért review-n a 3.6-nál jóval több valódi hibát talált (lásd az Antigravity-szakaszt); a Gemini API-n még nem mértük. |
+| `gemini-3.8-flash` | **Default** a fordításban és a review-ban is; a legújabb Flash (a kivezetett 3.5/3.6/3.7 utódja). Az Antigravity-ágon mért review-n a 3.6-nál jóval több valódi hibát talált (lásd az Antigravity-szakaszt). |
 | `gemini-3.5-flash-lite`, `gemini-3.1-flash-lite` | Olcsó, gyors, **bő napi kvóta** free tier-en. Nagy tömegű fordításra, illetve ha a nem-lite napi limit elfogyott. |
 | `gemini-flash-latest`, `gemini-flash-lite-latest`, `gemini-pro-latest` | Alias-ok, mindig az adott sáv legújabb kiadására mutatnak. Kényelmes, de nem determinisztikus (kiadásváltáskor csendben más modellt kapsz). |
 
-**Kivezetett (deprecated) modellek** — a Google 2026-10-10-én megszüntette őket
+**Kivezetett (deprecated) modellek** — a Google megszüntette őket (2026-10-10, a 3.6-ot 2026-10-19-én)
 önálló modellként, a hívásokat automatikusan az utódra irányítja:
 
 | Kivezetett | Utód |
 |---|---|
-| `gemini-3.5-flash` | `gemini-3.6-flash` |
+| `gemini-3.5-flash` | `gemini-3.8-flash` |
+| `gemini-3.6-flash` | `gemini-3.8-flash` (2026-10-19) |
 | `gemini-3.7-flash` | `gemini-3.8-flash` |
 
 Ha `--model`-lel vagy a `.env`-ben (`SUBTR_GEMINI_MODEL*`) még a régi nevet adod
@@ -726,7 +726,7 @@ python subtr.py quota --projects       # projektmappa szerinti bontás is
 python subtr.py quota --model gemini-3.1-flash-lite   # csak egy modell
 python subtr.py quota --where          # hol van a napló
 python subtr.py quota --reset          # mai számlálók nullázása
-python subtr.py quota --forget-limit gemini-3.6-flash # megtanult limit elfelejtése
+python subtr.py quota --forget-limit gemini-3.8-flash # megtanult limit elfelejtése
 ```
 
 A `subtr.py translate --provider gemini` és a `subtr.py review --provider gemini`
@@ -1039,14 +1039,14 @@ automatikusan betölt modell-beállításokat. A definiálandó változók neve 
 
 **Példa .env-ből:**
 ```bash
-# Gemini alapértelmezé: gemini-3.6-flash minden feladathoz
-SUBTR_GEMINI_MODEL=gemini-3.6-flash
+# Gemini alapértelmezés: gemini-3.8-flash minden feladathoz
+SUBTR_GEMINI_MODEL=gemini-3.8-flash
 
 # Fordítást egy gyorsabb, olcsóbb modellel végezzük
 SUBTR_GEMINI_MODEL_TRANSLATE=gemini-3.5-flash-lite
 
 # Review a default Flash-sel
-SUBTR_GEMINI_MODEL_REVIEW=gemini-3.6-flash
+SUBTR_GEMINI_MODEL_REVIEW=gemini-3.8-flash
 
 # Glossary extraction alapvetően Claudeval, Geminivel nem
 SUBTR_DEFAULT_PROVIDER=claude
@@ -1134,7 +1134,7 @@ futásidőt és a párhuzamos terhelést befolyásolja.
   de drága. Később átálltam a Gemini API-ra (`subtr.py review`, a default ág), és nem
   bántam meg — töredék költséggel hasonló minőséget ad a felirat-review
   feladathoz. Ha most kezdesz, érdemes Gemini-vel próbálkozni elsőként.
-  A jelenlegi default a `gemini-3.6-flash`; ha a napi kvótád szűkös, a
+  A jelenlegi default a `gemini-3.8-flash`; ha a napi kvótád szűkös, a
   `--model gemini-3.5-flash-lite` a bevált olcsó alternatíva (a korábbi
   default a `gemini-3.1-flash-lite` volt, azzal is használható a pipeline).
 - **Gemini napi limit:** ingyenes szinten a `-lite` modellek bőkezűek, a
