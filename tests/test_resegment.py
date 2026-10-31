@@ -90,3 +90,82 @@ def test_main_reflow_split_renumbers(tmp_path):
     cues = rs.parse(out.read_text(encoding="utf-8"))
     assert len(cues) >= 2
     assert [c["header"].split("\n")[0] for c in cues] == [str(i) for i in range(1, len(cues) + 1)]
+
+
+# ---- merge --------------------------------------------------------------------
+CFG = dict(max_chars=42, max_lines=2, target_cps=17.0, min_dur=1.0,
+           max_dur=7.0, min_gap=0.08, max_gap=0.5)
+
+
+def _cue(t0, t1, text):
+    return {"header": "x", "t0": t0, "t1": t1, "text": text}
+
+
+def test_merge_joins_fast_continuation():
+    cues = [_cue(1.0, 1.8, "Ha most elmész a fővárosba,"),
+            _cue(1.8, 3.0, "soha nem jössz vissza.")]
+    out, n = rs.merge_cues(cues, CFG, HU)
+    assert n == 1 and len(out) == 1
+    assert out[0]["t0"] == 1.0 and out[0]["t1"] == 3.0
+    assert out[0]["text"] == "Ha most elmész a fővárosba,\nsoha nem jössz vissza."
+
+
+def test_merge_keeps_sentence_end_gap_dialogue_and_italic_apart():
+    end = [_cue(1.0, 1.5, "Menj el!"), _cue(1.5, 2.0, "Nem megyek.")]
+    gap = [_cue(1.0, 1.5, "Ha most elmész,"), _cue(2.5, 3.0, "nem jössz vissza.")]
+    dia = [_cue(1.0, 1.5, "- Ki az?\n- Én vagyok"), _cue(1.5, 2.0, "és te.")]
+    ita = [_cue(1.0, 1.5, "<i>Ha most elmész,</i>"), _cue(1.5, 2.0, "nem jössz vissza.")]
+    for cues in (end, gap, dia, ita):
+        out, n = rs.merge_cues(cues, CFG, HU)
+        assert n == 0 and len(out) == 2
+
+
+def test_merge_skips_slow_and_too_long():
+    slow = [_cue(1.0, 4.0, "Ha most elmész,"), _cue(4.0, 7.0, "nem jössz vissza.")]
+    long_ = [_cue(1.0, 2.0, "Ha most elmész a fővárosba a lovaddal együtt,"),
+             _cue(2.0, 3.0, "soha többé nem jössz vissza ide a hegyekbe, hidd el nekem.")]
+    for cues in (slow, long_):
+        assert rs.merge_cues(cues, CFG, HU)[1] == 0
+
+
+def test_merge_keeps_outer_italic_when_both_italic():
+    cues = [_cue(1.0, 1.6, "<i>Ha most elmész,</i>"), _cue(1.6, 2.6, "<i>nem jössz vissza.</i>")]
+    out, n = rs.merge_cues(cues, CFG, HU)
+    assert n == 1 and out[0]["text"] == "<i>Ha most elmész, nem jössz vissza.</i>"
+
+
+def test_merge_ref_allows_sentence_end_within_same_ref_cue():
+    cues = [_cue(1.0, 1.5, "Menj el."), _cue(1.5, 2.2, "Most azonnal.")]
+    assert rs.merge_cues(cues, CFG, HU)[1] == 0
+    ref = [{"t0": 0.9, "t1": 2.3, "text": "走 现在就走"}]
+    out, n = rs.merge_cues(cues, CFG, HU, ref)
+    assert n == 1 and out[0]["text"] == "Menj el. Most azonnal."
+
+
+def test_extend_into_gap_without_overlap():
+    cues = [_cue(1.0, 1.5, "Ez egy elég hosszú mondat."), _cue(2.0, 4.0, "Igen.")]
+    assert rs.extend_cues(cues, CFG) == 1
+    assert abs(cues[0]["t1"] - (2.0 - 0.081)) < 1e-9
+    assert cues[1]["t1"] == 4.0
+
+
+def test_main_merge_renumbers_and_reports(tmp_path, capsys):
+    src = tmp_path / "in.srt"
+    src.write_text("5\n00:00:01,000 --> 00:00:01,800\nHa most elmész a fővárosba,\n\n"
+                   "6\n00:00:01,800 --> 00:00:03,000\nsoha nem jössz vissza.\n\n"
+                   "7\n00:00:05,000 --> 00:00:06,000\nIgen.\n", encoding="utf-8")
+    out = tmp_path / "out.srt"
+    rs.main(["merge", str(src), "-o", str(out)])
+    cues = rs.parse(out.read_text(encoding="utf-8"))
+    assert [c["header"].split("\n")[0] for c in cues] == ["1", "2"]
+    assert "3 -> 2 cue (1 összevonás)" in capsys.readouterr().err
+
+
+def test_merge_does_not_join_new_capitalized_sentence_but_allows_names():
+    cues = [_cue(1.0, 1.4, "Úrnőm,"), _cue(1.4, 2.2, "Nekem a Mesterséget kell vezetnem.")]
+    assert rs.merge_cues(cues, CFG, HU)[1] == 0
+    names = [_cue(1.0, 1.6, "Végül a vagyonukat elkobozták,"),
+             _cue(1.6, 2.4, "Cui Shao'ant pedig lefokozták."),
+             _cue(9.0, 12.0, "Azt mondják, Cui Shao'ant látták.")]
+    out, n = rs.merge_cues(names, CFG, HU)
+    assert n == 1 and out[0]["text"].startswith("Végül a vagyonukat elkobozták,")

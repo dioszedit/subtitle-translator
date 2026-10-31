@@ -9,6 +9,11 @@ Módok:
            Az időzítést NEM változtatja; a szám+időbélyeg sorok bitre változatlanok.
            --split : ha egy (nem párbeszéd) cue tördelés után is túl hosszú,
                      arányos időfelosztással több egymást követő cue-ra bontja.
+  merge    Egy beszélő folytatólagos mondatát (nincs mondatvégi írásjel, kis rés)
+           egy cue-ba vonja, ha a túl gyors cue így lassul; utána a még mindig
+           gyors cue-k végét a következő előtti résbe nyújtja. Újraszámoz.
+           --ref : eredeti nyelvű sáv — az ugyanabba a ref-cue-ba eső cue-k is
+                   összevonhatók. Párbeszédet (- A / - B) nem képez.
 
 Csak Python stdlib. Nyelvfüggetlen (--lang), a plafonok CLI-ből állíthatók.
 Nem módosít fordítást/szót — kizárólag tördel és (opcionálisan) időt oszt.
@@ -237,6 +242,112 @@ def split_cue(cue, max_chars, max_lines, min_dur, min_gap, lang):
         out.append({'t0': s0, 't1': s1, 'text': txt})
     return out
 
+# ---- merge (opcionális, cue-kat von össze és nyújt) ---------------------------
+SENTENCE_END = re.compile(r'[.!?…]["”»\')\]]*$')
+
+def _cps(chars, t0, t1):
+    return chars / (t1 - t0) if t1 > t0 else float('inf')
+
+def _ref_id(cue, ref):
+    """A referencia-felirat (pl. eredeti nyelvű sáv) azon cue-jának indexe,
+    amellyel `cue` időben a legjobban átfed — vagy None."""
+    best = None
+    for k, r in enumerate(ref):
+        ov = min(cue['t1'], r['t1']) - max(cue['t0'], r['t0'])
+        if ov > 0 and (best is None or ov > best[0]):
+            best = (ov, k)
+    return best[1] if best else None
+
+def _join_texts(a, b, max_chars, max_lines, lang):
+    """Két cue szövegének egybetördelése, vagy None, ha nem vonható össze
+    (párbeszéd, eltérő dőlt jelölés, belső tag, nem fér el)."""
+    la, lb = a.split('\n'), b.split('\n')
+    if is_dialogue(la) or is_dialogue(lb):
+        return None
+    flat_a, flat_b = ' '.join(x.strip() for x in la), ' '.join(x.strip() for x in lb)
+    pa, ia, sa = _strip_outer_tag(flat_a)
+    pb, ib, sb = _strip_outer_tag(flat_b)
+    if (pa, sa) != (pb, sb):
+        return None                      # pl. dőlt (belső hang/telefon) + normál
+    if '<' in ia or '<' in ib:
+        return None                      # belső tag: nem bontjuk szét
+    wrapped = _wrap_body(ia + ' ' + ib, max_chars, max_lines, lang)
+    if wrapped is None:
+        return None
+    return '\n'.join(pa + l + sa for l in wrapped)
+
+def _proper_nouns(cues):
+    """Mondat közben is nagybetűvel álló szavak (tulajdonnevek) a fájlban."""
+    names = set()
+    for c in cues:
+        if 'raw' in c:
+            continue
+        words = visible(c['text']).replace('\n', ' ').split()
+        for prev, w in zip(words, words[1:]):
+            if w[:1].isupper() and not SENTENCE_END.search(prev) and not prev.startswith('-'):
+                names.add(re.sub(r'\W+$', '', w))
+    return names
+
+def _starts_new_sentence(text, names):
+    """A cue nagybetűs, nem-tulajdonnév szóval kezdődik (pl. új mondat egy
+    vessző után — akár másik beszélőé)."""
+    first = re.sub(r'^[^\w]+', '', visible(text)).split(' ', 1)[0]
+    first = re.sub(r'\W+$', '', first)
+    return bool(first) and first[:1].isupper() and first not in names
+
+def merge_cues(cues, cfg, lang, ref=None):
+    """Egymást követő cue-k összevonása, ha ugyanannak a beszélőnek a folytatólagos
+    mondata: az első nem mondatvégi írásjellel zárul (vagy — `ref` megadásakor —
+    mindkettő ugyanabba a referencia-cue-ba esik), a rés <= max_gap, az együttes
+    időtartam <= max_dur, a szöveg kifér max_lines × max_chars-ba, és legalább az
+    egyik túl gyors (> target_cps), az összevont pedig lassabb nála.
+    Párbeszédet, eltérő dőlt jelölést és nem szabványos blokkot nem érint."""
+    out, n_merged = [], 0
+    names = _proper_nouns(cues)
+    for c in cues:
+        if 'raw' in c or not out or 'raw' in out[-1]:
+            out.append(dict(c)); continue
+        a = out[-1]
+        gap = c['t0'] - a['t1']
+        if gap < -0.005 or gap > cfg['max_gap'] or c['t1'] - a['t0'] > cfg['max_dur']:
+            out.append(dict(c)); continue
+        cont = (not SENTENCE_END.search(visible(a['text']).strip())
+                and not _starts_new_sentence(c['text'], names))
+        if not cont and ref:
+            ra, rb = _ref_id(a, ref), _ref_id(c, ref)
+            cont = ra is not None and ra == rb
+        if not cont:
+            out.append(dict(c)); continue
+        ca, cb = vlen(a['text'].replace('\n', '')), vlen(c['text'].replace('\n', ''))
+        fast = max(_cps(ca, a['t0'], a['t1']), _cps(cb, c['t0'], c['t1']))
+        if fast <= cfg['target_cps']:
+            out.append(dict(c)); continue
+        joined = _join_texts(a['text'], c['text'], cfg['max_chars'], cfg['max_lines'], lang)
+        if joined is None or _cps(vlen(joined.replace('\n', '')), a['t0'], c['t1']) >= fast:
+            out.append(dict(c)); continue
+        out[-1] = {'t0': a['t0'], 't1': c['t1'], 'text': joined}
+        n_merged += 1
+    return out, n_merged
+
+def extend_cues(cues, cfg):
+    """A még mindig túl gyors cue végét kitolja a következő előtti résbe
+    (legfeljebb target_cps-ig és max_dur-ig, min_gap-et hagyva). Átfedést sosem ír."""
+    n = 0
+    real = [i for i, c in enumerate(cues) if 'raw' not in c]
+    for pos, i in enumerate(real):
+        c = cues[i]
+        chars = vlen(c['text'].replace('\n', ''))
+        if _cps(chars, c['t0'], c['t1']) <= cfg['target_cps']:
+            continue
+        # +1 ms tartalék: a ms-ra kerekített kimenetben se essen a rés min_gap alá
+        limit = (cues[real[pos + 1]]['t0'] - cfg['min_gap'] - 0.001
+                 if pos + 1 < len(real) else c['t1'] + 2.0)
+        want = c['t0'] + min(chars / cfg['target_cps'], cfg['max_dur'])
+        new_t1 = min(want, limit)
+        if new_t1 > c['t1'] + 0.01:
+            cues[i] = dict(c, t1=new_t1); n += 1
+    return n
+
 # ---- metrikák / report --------------------------------------------------------
 def cue_metrics(cues, i):
     c = cues[i]
@@ -305,10 +416,16 @@ def report(cues, cfg):
 # ---- fő -----------------------------------------------------------------------
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Felirat-újraszegmentáló és QA eszköz.")
-    ap.add_argument('mode', choices=['report', 'reflow'])
+    ap.add_argument('mode', choices=['report', 'reflow', 'merge'])
     ap.add_argument('input')
-    ap.add_argument('-o', '--output', help="kimeneti fájl (reflow)")
-    ap.add_argument('--in-place', action='store_true', help="bemenet felülírása (reflow)")
+    ap.add_argument('-o', '--output', help="kimeneti fájl (reflow/merge)")
+    ap.add_argument('--in-place', action='store_true', help="bemenet felülírása (reflow/merge)")
+    ap.add_argument('--ref', help="merge: referencia-felirat (pl. az eredeti nyelvű sáv) — "
+                                  "az ugyanabba a ref-cue-ba eső cue-k mondatvég után is összevonhatók")
+    ap.add_argument('--max-gap', type=float, default=0.5,
+                    help="merge: legfeljebb ekkora rés (mp) mellett von össze (alap: 0.5)")
+    ap.add_argument('--no-extend', action='store_true',
+                    help="merge: ne nyújtsa a még mindig gyors cue-kat a következő előtti résbe")
     ap.add_argument('--split', action='store_true',
                     help="reflow: túl hosszú cue-k idő-arányos bontása (cue-számot változtat)")
     ap.add_argument('--max-chars', type=int, default=42)
@@ -321,13 +438,34 @@ def main(argv=None):
     a = ap.parse_args(argv)
     lang = LANG.get(a.lang, LANG['generic'])
     cfg = dict(max_chars=a.max_chars, max_lines=a.max_lines, target_cps=a.target_cps,
-               min_dur=a.min_dur, max_dur=a.max_dur, min_gap=a.min_gap)
+               min_dur=a.min_dur, max_dur=a.max_dur, min_gap=a.min_gap, max_gap=a.max_gap)
     # utf-8-sig: a Windows-os szerkesztők BOM-ja különben az első cue
     # fejlécébe kerülne, és a reflow visszaírná a fájl közepére.
     cues = parse(open(a.input, encoding='utf-8-sig').read())
 
     if a.mode == 'report':
         report(cues, cfg)
+        return
+
+    if a.mode == 'merge':
+        ref = None
+        if a.ref:
+            ref = [c for c in parse(open(a.ref, encoding='utf-8-sig').read()) if 'raw' not in c]
+        before = len([c for c in cues if 'raw' not in c])
+        new_cues, n_merged = merge_cues(cues, cfg, lang, ref)
+        n_ext = 0 if a.no_extend else extend_cues(new_cues, cfg)
+        out_text = write_renumber(new_cues)
+        if a.in_place:
+            dest = a.input
+        elif a.output:
+            dest = a.output
+        else:
+            sys.stdout.write(out_text); dest = None
+        if dest:
+            open(dest, 'w', encoding='utf-8').write(out_text)
+        after = len([c for c in new_cues if 'raw' not in c])
+        print(f"merge: {before} -> {after} cue ({n_merged} összevonás), "
+              f"{n_ext} cue nyújtva -> {dest or '(stdout)'}", file=sys.stderr)
         return
 
     # reflow

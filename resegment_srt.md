@@ -32,6 +32,10 @@ python subtr.py resegment reflow "output/…hun.srt" -o "output/…hun.reflow.sr
 
 # 3) Ha kell: a 2 sorba nem férő cue-k idő-arányos bontása (cue-számot változtat)
 python subtr.py resegment reflow "output/…hun.srt" --split -o "…split.srt"
+
+# 4) Sűrűn tördelt forrásnál: egy beszélő folytatólagos mondatainak összevonása
+#    + a még gyors cue-k nyújtása a résbe (cue-számot változtat, újraszámoz)
+python subtr.py resegment merge "output/…hun.srt" --ref "input/…chi.srt" -o "output/…hun.merge.srt"
 ```
 
 Paraméterek (alapérték): `--max-chars 42`, `--max-lines 2`, `--target-cps 17`,
@@ -53,6 +57,21 @@ Paraméterek (alapérték): `--max-chars 42`, `--max-lines 2`, `--target-cps 17`
   (`min-dur`/`min-gap` védelemmel; ha az idő ehhez kevés, a cue-t inkább
   egyben hagyja, átfedő/érvénytelen időzítést sosem ír ki). Cue-számot
   változtat, ezért külön kapcsoló.
+
+- **merge** (opcionális, a review/triage UTÁN) — sűrűn tördelt forrásnál
+  (sok rövid, túl gyors cue) két egymást követő cue-t egybe von, ha:
+  az első **nem mondatvégi írásjellel** zárul (`. ! ? …`), a második **nem
+  nagybetűs új mondattal** indul (tulajdonnév kivétel — amit a fájl mondat
+  közben is nagybetűvel ír), a rés ≤ `--max-gap` (0.5 s), az együttes idő ≤
+  `max-dur`, a szöveg kifér `max-lines` × `max-chars`-ba, legalább az egyik
+  > `target-cps`, és az összevont lassabb. `--ref` (pl. az eredeti nyelvű sáv):
+  az ugyanabba a ref-cue-ba eső cue-k mondatvég után is összevonhatók.
+  Párbeszédet (`- A` / `- B`) **nem képez** — beszélőváltást a szövegből nem
+  lehet biztosan felismerni; azt Subtitle Editben, hullámforma mellett érdemes.
+  Eltérő dőlt jelölésű (belső hang/telefon + normál) cue-kat nem von össze.
+  Utána a még mindig gyors cue végét a következő előtti résbe nyújtja
+  (`target-cps`-ig, `min-gap`-et hagyva; `--no-extend` kikapcsolja).
+  Újraszámoz, ezért a riportok sorszámai utána elavulnak.
 
 ## Töréspont-logika (a lényeg)
 
