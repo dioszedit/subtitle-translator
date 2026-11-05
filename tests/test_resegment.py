@@ -134,6 +134,26 @@ def test_merge_keeps_outer_italic_when_both_italic():
     assert n == 1 and out[0]["text"] == "<i>Ha most elmész, nem jössz vissza.</i>"
 
 
+def test_merge_song_lines_drop_inner_marks():
+    cues = [_cue(1.0, 1.6, "<i>♫ Mi történik most velem? ♫</i>"),
+            _cue(1.6, 2.4, "<i>♫ a szívem hirtelen kihagy egy ütemet. ♫</i>")]
+    out, n = rs.merge_cues(cues, CFG, HU)
+    assert n == 1
+    assert out[0]["text"] == ("<i>♫ Mi történik most velem?</i>\n"
+                              "<i>a szívem hirtelen kihagy egy ütemet. ♫</i>")
+
+
+def test_merge_song_short_lines_stay_one_line():
+    cues = [_cue(1.0, 1.4, "♪ Melletted ♪"), _cue(1.4, 1.8, "♪ még az évszak is ♪")]
+    out, n = rs.merge_cues(cues, CFG, HU)
+    assert n == 1 and out[0]["text"] == "♪ Melletted még az évszak is ♪"
+
+
+def test_merge_keeps_song_and_dialogue_apart():
+    cues = [_cue(1.0, 1.4, "♫ Melletted ♫"), _cue(1.4, 1.8, "ha most elmész,")]
+    assert rs.merge_cues(cues, CFG, HU)[1] == 0
+
+
 def test_merge_ref_allows_sentence_end_within_same_ref_cue():
     cues = [_cue(1.0, 1.5, "Menj el."), _cue(1.5, 2.2, "Most azonnal.")]
     assert rs.merge_cues(cues, CFG, HU)[1] == 0

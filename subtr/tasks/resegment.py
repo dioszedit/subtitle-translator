@@ -258,9 +258,11 @@ def _ref_id(cue, ref):
             best = (ov, k)
     return best[1] if best else None
 
+SONG_MARK = re.compile(r'[♪♫]')
+
 def _join_texts(a, b, max_chars, max_lines, lang):
     """Két cue szövegének egybetördelése, vagy None, ha nem vonható össze
-    (párbeszéd, eltérő dőlt jelölés, belső tag, nem fér el)."""
+    (párbeszéd, eltérő dőlt jelölés, belső tag, dal + nem dal, nem fér el)."""
     la, lb = a.split('\n'), b.split('\n')
     if is_dialogue(la) or is_dialogue(lb):
         return None
@@ -271,6 +273,12 @@ def _join_texts(a, b, max_chars, max_lines, lang):
         return None                      # pl. dőlt (belső hang/telefon) + normál
     if '<' in ia or '<' in ib:
         return None                      # belső tag: nem bontjuk szét
+    song_a, song_b = bool(SONG_MARK.search(ia)), bool(SONG_MARK.search(ib))
+    if song_a != song_b:
+        return None                      # dalszöveg + párbeszéd (átfedő sávok)
+    if song_a:                           # egy dalsor lesz: a belső ♫ ♫ pár kiesik
+        ia = re.sub(r'\s*[♪♫]+\s*$', '', ia)
+        ib = re.sub(r'^\s*[♪♫]+\s*', '', ib)
     wrapped = _wrap_body(ia + ' ' + ib, max_chars, max_lines, lang)
     if wrapped is None:
         return None
