@@ -51,7 +51,7 @@ subtitle-translator/
 ├── LICENSE                      ← MIT licenc
 ├── pyproject.toml               ← Csomagolás (pip install -e .) és pytest-konfiguráció
 │
-├── .claude/skills/              ← Workflow-skillek (epizod, review-triage) Claude Code-hoz
+├── .claude/skills/              ← Workflow-skillek (epizod, review-triage, hardsub) Claude Code-hoz
 ├── .codex/skills/               ← ugyanezek Codex CLI-hez
 ├── .grok/skills/                ← ugyanezek Grok CLI-hez
 ├── .agents/skills/              ← ugyanezek Antigravity CLI-hez (`agy`)
@@ -980,7 +980,7 @@ a változás a következő futáskor automatikusan érvényesül — a translate
 
 ## Workflow-skillek
 
-A repó két projekt-szintű skillt tartalmaz (`.claude/skills/`) — ezek Claude
+A repó három projekt-szintű skillt tartalmaz (`.claude/skills/`) — ezek Claude
 Code-ban `/névvel` hívható, kódolt munkafolyamatok. Clone után azonnal működnek,
 külön telepítés nélkül:
 
@@ -988,12 +988,13 @@ külön telepítés nélkül:
 |---|---|
 | `/review-triage <hun.srt>` | A `_REVIEW_*.json` riportok minden találatát a forráshoz méri, kiszűri a no-opokat és hamis riasztásokat, `decisions.json`-t épít és a `subtr.py apply-auto`-val átvezeti a jóváhagyottakat |
 | `/epizod <név>` | A fájlokból felismeri, hol tart egy epizód a pipeline-ban, és onnan viszi tovább a lépéseket a `steps.txt` szerint — a csapdákkal együtt (`--clean`, `.clean.srt` elleni verify, resegment-sorrend) |
+| `/hardsub <hun.srt>` | Ha a videóban beégetett idegen felirat van: képkockákon megméri a helyét, a `.env`-be állítja (`HARDSUB_*`), az `addons/hardsub-cover`-rel dobozos ASS-t készít, próbaképeken ellenőrzi, majd alapértelmezett sávként az MKV-ba teszi |
 
 A skillek csak **munkafolyamatot** kódolnak — a fordítási szabályok forrása
-továbbra is a `TRANSLATION.md` és a `glossary.json`. Ugyanez a két skill
+továbbra is a `TRANSLATION.md` és a `glossary.json`. Ugyanez a három skill
 négy helyen él: `.claude/skills/`, `.codex/skills/`, `.grok/skills/` és
 `.agents/skills/` (ez utóbbit az Antigravity CLI olvassa; `epizod`,
-`review-triage`). Ha az egyiket módosítod, a többit is igazítsd hozzá.
+`review-triage`, `hardsub`). Ha az egyiket módosítod, a többit is igazítsd hozzá.
 
 ## Más forrásnyelv (nem angol forrásból)
 

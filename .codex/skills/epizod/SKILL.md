@@ -30,4 +30,4 @@ Az utasítások forrása a `steps.txt`; a fordítási szabályzat a `TRANSLATION
 - A review-javaslatokat a `review-triage` skill szerint szűrd, és csak ezután futtasd a resegmentet.
 - SDH-forrásnál (beszélőcímkék `[Név]`, hangjegyzetek) a triage és a glossary után futtasd a 6/b lépést: `py addons/srt-preclean/postclean_srt.py "output/<X>.hun.srt"` → `output/<X>.hun.clean.srt` (előtte `--dry-run`); a resegment ezzel a fájllal megy tovább. Nem SDH forrásnál tilos.
 
-A végén emlékeztesd a felhasználót a videóval való végső kézi ellenőrzésre.
+A végén emlékeztesd a felhasználót a videóval való végső kézi ellenőrzésre. Ha a videóban beégetett idegen nyelvű felirat van, a kész felirat a `hardsub` skillel kerül dobozos ASS-sávként az MKV-ba.

@@ -10,6 +10,7 @@ Mindegyiknek saját README-je van a részletekkel.
 | [`srt-preclean/`](srt-preclean/README.md) | Epizódonként, **csak SDH-forrásnál** | A nyers SRT-ből kiszedi a hang-/effekt-cue-kat, újraszámoz, blokkokra bont |
 | [`vtt2srt/`](vtt2srt/README.md) | **Csak ha van kész fordítás** `.vtt`-ben más forrásból | WebVTT → SRT (fejléc/NOTE/STYLE eldobása, újraszámozás, `.`→`,`), hogy a `glossary`/`register`/`verify`/`review` dolgozni tudjon vele |
 | [`mkv-subs/`](mkv-subs/README.md) | Ha a felirat a videóban van, vagy kell az **eredeti nyelvű sáv a regiszterhez** | Feliratsávok listázása és kicsomagolása **nyelvcímke szerint** (a sávsorrend fájlonként változik) — `ffmpeg` kell hozzá |
+| [`hardsub-cover/`](hardsub-cover/README.md) | Epizódonként a végén, **csak ha a videóban beégetett idegen felirat van** | A kész `.hun.srt`-ből fekete, szöveghez igazodó dobozos ASS-t készít a beégetett felirat fölé; `--mux`-szal alapértelmezett sávként az `.mkv`-ba teszi |
 
 ```bash
 # 0/a — új sorozat indítása (egyszer)
@@ -29,8 +30,8 @@ python addons/mkv-subs/extract_subs.py "Season 01"/*.mkv --lang jpn --out-dir in
 ## Függőségek
 
 Mindegyik add-on csak a Python standard libet használja — nem kell
-telepíteni semmit. Két külső feltétel van: az `mkv-subs` `ffmpeg`-et hív
-(annak a PATH-on kell lennie), a `tmdb-init` pedig egy ingyenes TMDB
+telepíteni semmit. Két külső feltétel van: az `mkv-subs` és a `hardsub-cover --mux`
+`ffmpeg`-et hív (a `hardsub-cover` `ffprobe`-ot is; a PATH-on kell lenniük), a `tmdb-init` pedig egy ingyenes TMDB
 API-kulcsot vár a `.env`-ben (`TMDB_API_KEY`, részletek a saját READMÉ-jében).
 
 ## Új add-on hozzáadása

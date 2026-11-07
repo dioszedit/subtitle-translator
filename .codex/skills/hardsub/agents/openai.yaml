@@ -1,0 +1,4 @@
+interface:
+  display_name: "Hardsub-takarás"
+  short_description: "Beégetett felirat takarása dobozos ASS-sel."
+  default_prompt: "Takard el a beégetett feliratot dobozos magyar ASS-sel, és tedd az MKV-ba: $ARGUMENTS"

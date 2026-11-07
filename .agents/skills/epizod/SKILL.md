@@ -81,3 +81,5 @@ Az epizód azonosítójából (pl. `Sorozat - S01E01`) sorban ellenőrizd:
 
 A pipeline vége után emlékeztesd a felhasználót az utómunkára (README "Utómunka"
 szakasz): Subtitle Edit (CPS/időzítés) + végső kézi lektorálás a videóval.
+Ha a videóban beégetett idegen nyelvű felirat van, a kész felirat a **hardsub**
+skillel kerül dobozos ASS-sávként az MKV-ba (`/hardsub "Season XX/<X>.hun.srt"`).
