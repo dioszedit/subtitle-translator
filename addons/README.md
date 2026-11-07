@@ -9,7 +9,7 @@ Mindegyiknek saját README-je van a részletekkel.
 | [`tmdb-init/`](tmdb-init/README.md) | Sorozatonként **egyszer**, a legelső lépés | TMDB-linkből (hivatalos API) megírja a `TRANSLATION.local.md`-t (cím, magyar cím, szereplők, szinopszis), és a sorozat címét beírja a `glossary.json`-ba |
 | [`srt-preclean/`](srt-preclean/README.md) | Epizódonként, **csak SDH-forrásnál** | A nyers SRT-ből kiszedi a hang-/effekt-cue-kat, újraszámoz, blokkokra bont |
 | [`vtt2srt/`](vtt2srt/README.md) | **Csak ha van kész fordítás** `.vtt`-ben más forrásból | WebVTT → SRT (fejléc/NOTE/STYLE eldobása, újraszámozás, `.`→`,`), hogy a `glossary`/`register`/`verify`/`review` dolgozni tudjon vele |
-| [`mkv-subs/`](mkv-subs/README.md) | Ha a felirat a videóban van, vagy kell az **eredeti nyelvű sáv a regiszterhez** | Feliratsávok listázása és kicsomagolása **nyelvcímke szerint** (a sávsorrend fájlonként változik) — `ffmpeg` kell hozzá |
+| [`mkv-subs/`](mkv-subs/README.md) | Ha a felirat a videóban van, vagy kell az **eredeti nyelvű sáv a regiszterhez**; a végén, ha a kész felirat az **mkv-ba** kell | Feliratsávok listázása és kicsomagolása **nyelvcímke szerint** (a sávsorrend fájlonként változik); `embed_subs.py`: a kész `.hun.srt` beágyazása (opcionálisan alapértelmezettként) — `ffmpeg` kell hozzá |
 | [`hardsub-cover/`](hardsub-cover/README.md) | Epizódonként a végén, **csak ha a videóban beégetett idegen felirat van** | A kész `.hun.srt`-ből fekete, szöveghez igazodó dobozos ASS-t készít a beégetett felirat fölé; `--mux`-szal alapértelmezett sávként az `.mkv`-ba teszi |
 
 ```bash
@@ -25,6 +25,9 @@ python addons/vtt2srt/vtt2srt.py "Season 01"/*.hun.vtt
 # 0/e — feliratsávok a videóból; az eredeti nyelvű sáv a regiszterhez kell
 python addons/mkv-subs/extract_subs.py "Season 01/Sorozat - S01E01.mkv"
 python addons/mkv-subs/extract_subs.py "Season 01"/*.mkv --lang jpn --out-dir input
+
+# utómunka után — a kész magyar felirat beágyazása (opcionális)
+python addons/mkv-subs/embed_subs.py "Season 01"/*.hun.srt --default
 ```
 
 ## Függőségek

@@ -24,24 +24,26 @@ keresi, mint a pipeline többi része. Lásd: .env.example, README.md.
 
 Kimenet: `<név>.hun.dobozos.ass` az .srt mellé (vagy az --out-dir mappába).
 
---mux: a kész ASS-t alapértelmezett feliratsávként (hun, „Magyar”) beteszi az
-azonos nevű .mkv-ba, újrakódolás nélkül, és lecseréli az eredeti .mkv-t. Csak
-a saját, korábban betett sávját (ass + hun + „Magyar”) cseréli; minden más
-sáv — más magyar feliratsáv is — megmarad. Muxnál az ASS nem marad az .mkv
+--mux: a kész ASS-t alapértelmezett feliratsávként (hun, „Magyar (dobozos)”)
+beteszi az azonos nevű .mkv-ba, újrakódolás nélkül, és lecseréli az eredeti
+.mkv-t (a mkv-subs/embed_subs.py közös magjával). Csak a saját, korábban
+betett ASS-sávját cseréli; minden más sáv — az embed_subs.py sima „Magyar”
+SRT-sávja és más magyar feliratsáv is — megmarad, a többiről csak a default
+jelölés kerül le. Muxnál az ASS nem marad az .mkv
 mellett (különben a lejátszó külső feliratként is felvenné), csak ha
 --out-dir is meg van adva. Hibás fájl esetén a többit tovább feldolgozza.
 """
 import argparse
-import json
 import os
 import re
-import shutil
-import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
-TRACK_TITLE = "Magyar"
+# a muxoló mag közös a mkv-subs/embed_subs.py-jal
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "mkv-subs"))
+import embed_subs  # noqa: E402
+from embed_subs import ASS_TRACK, Fail, load_dotenv  # noqa: E402,F401
 
 # name: (env kulcs, alapérték, típus, súgó, legkisebb érték)
 SETTINGS = {
@@ -56,36 +58,6 @@ SETTINGS = {
     "pad":         ("HARDSUB_PAD", 12, int, "a doboz belső margója a szöveg körül", 0),
     "box_alpha":   ("HARDSUB_BOX_ALPHA", 0, int, "doboz átlátszósága 0–255 (0 = teljesen fedő)", 0),
 }
-
-
-class Fail(Exception):
-    """Egy fájl feldolgozása nem sikerült; a köteg többi része mehet tovább."""
-
-
-# ── beállítások ─────────────────────────────────────────────────────────────
-
-def load_dotenv():
-    """A .env-et a munkakönyvtárból vagy fölötte keresi; a már beállított
-    környezeti változókat nem írja felül. python-dotenv nélkül is működik."""
-    try:
-        from dotenv import find_dotenv, load_dotenv as _load
-    except ImportError:
-        _load = None
-    if _load is not None:
-        path = find_dotenv(usecwd=True)
-        if path:
-            _load(path)
-        return
-    for d in (Path.cwd(), *Path.cwd().parents):
-        env = d / ".env"
-        if env.is_file():
-            for line in env.read_text(encoding="utf-8").splitlines():
-                m = re.match(r"\s*(?:export\s+)?([A-Za-z_]\w*)\s*=\s*(.*)", line)
-                if not m or line.lstrip().startswith("#"):
-                    continue
-                val = re.sub(r"\s+#.*$", "", m.group(2)).strip().strip("'\"")
-                os.environ.setdefault(m.group(1), val)
-            return
 
 
 def resolve(args):
@@ -285,94 +257,9 @@ def srt_to_ass(src: Path, dst: Path, c):
 
 # ── MKV ─────────────────────────────────────────────────────────────────────
 
-def find_tool(name):
-    # muxhoz (stream copy) a sima ffmpeg is elég; a full-t csak előnyben részesítjük
-    for cand in (os.environ.get(name.upper()), f"/opt/homebrew/opt/ffmpeg-full/bin/{name}", shutil.which(name)):
-        if cand and Path(cand).exists():
-            return cand
-    raise Fail(f"nem találom: {name} (PATH vagy {name.upper()} környezeti változó)")
-
-
-def _tags(s):
-    return {k.lower(): v for k, v in (s.get("tags") or {}).items()}
-
-
-def is_own_track(s):
-    t = _tags(s)
-    return (s.get("codec_type") == "subtitle" and s.get("codec_name") == "ass"
-            and t.get("language") == "hun" and t.get("title") == TRACK_TITLE)
-
-
-def probe(ffprobe, path):
-    r = subprocess.run([ffprobe, "-v", "error", "-show_entries",
-                        "stream=index,codec_type,codec_name:stream_tags:stream_disposition=default,attached_pic"
-                        ":format=duration", "-of", "json", str(path)],
-                       capture_output=True, text=True)
-    if r.returncode:
-        raise Fail(f"ffprobe hiba: {r.stderr.strip()[-300:]}")
-    return json.loads(r.stdout)
-
-
-def mux_cmd(ffmpeg, mkv, ass, tmp, streams):
-    keep = [s for s in streams if s.get("codec_type") == "subtitle" and not is_own_track(s)]
-    cmd = [ffmpeg, "-v", "error", "-y", "-i", str(mkv), "-i", str(ass),
-           "-map", "0:v", "-map", "0:a?", "-map", "1"]
-    for s in keep:
-        cmd += ["-map", f"0:{s['index']}"]
-    cmd += ["-map", "0:t?", "-c", "copy",
-            "-metadata:s:s:0", "language=hun", "-metadata:s:s:0", f"title={TRACK_TITLE}",
-            "-disposition:s", "0", "-disposition:s:0", "default", str(tmp)]
-    return cmd, keep
-
-
-def check_mux(before, after, kept):
-    """A muxolt fájl ellenőrzése az eredetihez képest -> problémák listája."""
-    def count(info, typ):
-        return sum(1 for s in info.get("streams", []) if s.get("codec_type") == typ)
-
-    problems = []
-    for typ, label in (("video", "videó"), ("audio", "hang"), ("attachment", "melléklet")):
-        if count(after, typ) != count(before, typ):
-            problems.append(f"{label}sávok száma {count(before, typ)} -> {count(after, typ)}")
-    subs = [s for s in after.get("streams", []) if s.get("codec_type") == "subtitle"]
-    if not subs or not is_own_track(subs[0]) or not subs[0].get("disposition", {}).get("default"):
-        problems.append("nincs az első helyen alapértelmezett magyar ass sáv")
-    if len(subs) != len(kept) + 1:
-        problems.append(f"feliratsávok száma {len(subs)}, várt {len(kept) + 1}")
-    try:
-        d0 = float(before["format"]["duration"])
-        d1 = float(after["format"]["duration"])
-        if abs(d0 - d1) > 1.0:
-            problems.append(f"hossz {d0:.1f} s -> {d1:.1f} s")
-    except (KeyError, TypeError, ValueError):
-        pass
-    return problems
-
-
 def mux(mkv: Path, ass: Path):
-    """-> a megtartott másik magyar sávok címei. Hibánál Fail; az eredeti .mkv
-    csak sikeres, ellenőrzött mux után cserélődik, ideiglenes fájl nem marad."""
-    ffmpeg, ffprobe = find_tool("ffmpeg"), find_tool("ffprobe")
-    before = probe(ffprobe, mkv)
-    tmp = mkv.with_name(f".tmp_{mkv.name}")
-    cmd, keep = mux_cmd(ffmpeg, mkv, ass, tmp, before.get("streams", []))
-    try:
-        r = subprocess.run(cmd, capture_output=True, text=True)
-        if r.returncode:
-            raise Fail(f"ffmpeg hiba: {r.stderr.strip()[-300:]}")
-        problems = check_mux(before, probe(ffprobe, tmp), keep)
-        if problems:
-            raise Fail("a muxolt fájl hibás, az eredetit nem cseréltem: " + "; ".join(problems))
-        try:
-            os.replace(tmp, mkv)
-        except PermissionError as e:
-            raise Fail(f"nem tudom lecserélni ({e}) — nyitva van lejátszóban?")
-    finally:
-        try:
-            tmp.unlink(missing_ok=True)
-        except OSError:
-            pass
-    return [_tags(s).get("title") or f"#{s['index']}" for s in keep if _tags(s).get("language") == "hun"]
+    """Alapértelmezett „Magyar (dobozos)” sávként az mkv-ba (embed_subs.embed)."""
+    return embed_subs.embed(mkv, ass, ASS_TRACK, default=True)
 
 
 # ── főprogram ───────────────────────────────────────────────────────────────

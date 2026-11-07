@@ -92,7 +92,8 @@ subtitle-translator/
 │   ├── tmdb-init/               ← 0/a: új sorozat — TRANSLATION.local.md + glossary-címek TMDB-linkből
 │   ├── srt-preclean/            ← 0/b: SDH-forrás előtisztítása, 6/b: SDH-tisztítás a kész fordításon
 │   ├── vtt2srt/                 ← 0/d: meglévő .vtt felirat átvétele (WebVTT → SRT)
-│   └── mkv-subs/                ← 0/e: feliratsávok a videóból, nyelvcímke szerint (ffmpeg)
+│   ├── mkv-subs/                ← 0/e: feliratsávok a videóból, nyelvcímke szerint; a végén a kész felirat vissza az mkv-ba (ffmpeg)
+│   └── hardsub-cover/           ← utómunka: beégetett idegen felirat takarása dobozos ASS-sávval
 │
 ├── input/                       ← Ide tedd a forrásnyelvi SRT fájlokat
 ├── blocks/                      ← Auto-generált blokk-fájlok
@@ -1227,6 +1228,21 @@ párok, az epizódon belüli váltások, ha a regiszter nem jelöli meg a helyü
 
 Ez a négy utómunka-lépés teszi teljessé a folyamatot — nélkülük a fordítás
 nyelvileg jó lehet, de a néző-élmény nem lesz az.
+
+### Opcionális: a kész felirat az MKV-ba
+
+A végleges `Season XX/<név>.hun.srt` az `.mkv` mellett is működik (a lejátszók
+külső feliratként felveszik). Ha egyetlen fájlban kell, vagy a magyar legyen az
+alapértelmezett sáv, ágyazd be — újrakódolás nélkül, a `.hun.srt` a helyén marad:
+
+```bash
+python addons/mkv-subs/embed_subs.py "Season 01/Sorozat - S01E01.hun.srt" --default
+```
+
+Ha a videóban **beégetett idegen felirat** van, a takaráshoz a dobozos ASS-sáv
+kell (`addons/hardsub-cover`, `/hardsub` skill); a sima SRT-sáv mellette
+tartaléknak jó (alapértelmezett jelölés nélkül). Részletek:
+[`addons/mkv-subs/README.md`](addons/mkv-subs/README.md).
 
 ## Hivatkozott dokumentumok
 

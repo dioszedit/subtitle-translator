@@ -30,10 +30,13 @@ Csak akkor kell, ha a forrásvideóban beégetett idegen nyelvű felirat van.
   kilépési kód 1 lesz — csendben semmi nem esik ki;
 - kimenet: `… .hun.dobozos.ass` az `.srt` mellé, vagy az `--out-dir` mappába;
 - `--mux`: beteszi az azonos nevű `.mkv`-ba **alapértelmezett** feliratsávként
-  (`hun`, „Magyar”), stream copy-val, majd lecseréli az eredeti `.mkv`-t.
-  - Csak a **saját**, korábban betett sávját (ass + `hun` + „Magyar”) cseréli,
-    így újrafuttatható (pl. feliratjavítás után). Minden más sáv megmarad —
-    egy máshonnan származó magyar feliratsáv is (erről figyelmeztet).
+  (`hun`, „Magyar (dobozos)”), stream copy-val, majd lecseréli az eredeti
+  `.mkv`-t. A muxoló mag közös a [`mkv-subs/embed_subs.py`](../mkv-subs/README.md)-jal.
+  - Csak a **saját**, korábban betett ASS-sávját cseréli (a korai, „Magyar”
+    címmel betett változatot is felismeri), így újrafuttatható (pl.
+    feliratjavítás után). Minden más sáv megmarad — az `embed_subs.py` sima
+    „Magyar” SRT-sávja és egy máshonnan származó magyar sáv is (erről
+    figyelmeztet); a többiről csak a default jelölés kerül le.
   - Csere előtt ellenőrzi az új fájlt (videó-, hang- és mellékletsávok száma,
     hossz, az új sáv megléte és alapértelmezettsége); hibánál az eredeti
     érintetlen marad, ideiglenes fájl nem marad hátra.
@@ -106,8 +109,18 @@ Python stdlib. A `--mux`-hoz `ffmpeg` + `ffprobe` kell (a sima Homebrew
 `FFPROBE` környezeti változó). Az ASS kirajzolását (próbaképhez) csak
 `libass`-os ffmpeg tudja: macOS-en `brew install ffmpeg-full`.
 
+## Tartalék sima SRT-sáv
+
+Ha egy lejátszó elrontja az ASS-t, jól jön mellette egy sima magyar SRT-sáv is
+— alapértelmezett jelölés NÉLKÜL, hogy a dobozos maradjon az alapértelmezett:
+
+```bash
+python3 addons/mkv-subs/embed_subs.py "Season 01/Sorozat - S01E01.hun.srt"
+```
+
 ## Lejátszás
 
 IINA, VLC, mpv, Plex asztali/HTPC kliens: rendben. Ha egy Plex-kliens
 egyszerűsíti az ASS-t (eltűnik a doboz), a kliensben **Burn subtitles →
-Always**, és a szerver égeti rá.
+Always**, és a szerver égeti rá — vagy válts a tartalék sima „Magyar”
+SRT-sávra, ha be van ágyazva.

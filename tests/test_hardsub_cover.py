@@ -1,4 +1,6 @@
-"""addons/hardsub-cover — SRT-olvasás, ASS-szöveg, átfedés-elrendezés, mux."""
+"""addons/hardsub-cover — SRT-olvasás, ASS-szöveg, átfedés-elrendezés, --mux.
+
+A muxoló magot (embed_subs.embed) a test_embed_subs.py teszteli részletesen."""
 
 import importlib.util
 import json
@@ -213,82 +215,7 @@ def test_resolve_rejects_bad_values(monkeypatch, cfg, env, val):
         cover.resolve(a)
 
 
-# ── mux (ffmpeg nélkül) ─────────────────────────────────────────────────────
-
-def sub(index, lang, codec="subrip", title=None, default=0):
-    tags = {"language": lang}
-    if title:
-        tags["title"] = title
-    return {"index": index, "codec_type": "subtitle", "codec_name": codec,
-            "tags": tags, "disposition": {"default": default}}
-
-
-VA = [{"index": 0, "codec_type": "video"}, {"index": 1, "codec_type": "audio"}]
-
-
-def test_mux_cmd_replaces_only_own_track():
-    streams = VA + [sub(2, "eng"), sub(3, "hun", "ass", "Magyar"), sub(4, "hun", title="Külső")]
-    cmd, keep = cover.mux_cmd("ffmpeg", "a.mkv", "a.ass", "t.mkv", streams)
-    maps = [cmd[i + 1] for i, x in enumerate(cmd) if x == "-map"]
-    assert maps == ["0:v", "0:a?", "1", "0:2", "0:4", "0:t?"]
-    assert [s["index"] for s in keep] == [2, 4]
-
-
-def test_is_own_track_tag_case_insensitive():
-    s = sub(3, "hun", "ass")
-    s["tags"] = {"LANGUAGE": "hun", "TITLE": "Magyar"}
-    assert cover.is_own_track(s)
-    assert not cover.is_own_track(sub(3, "hun", "subrip", "Magyar"))
-
-
-def info(streams, duration="100.0"):
-    return {"streams": streams, "format": {"duration": duration}}
-
-
-def test_check_mux_ok_and_problems():
-    before = info(VA + [sub(2, "eng")])
-    good = info(VA + [sub(2, "hun", "ass", "Magyar", 1), sub(3, "eng")])
-    assert cover.check_mux(before, good, [sub(2, "eng")]) == []
-    no_audio = info(VA[:1] + [sub(1, "hun", "ass", "Magyar", 1), sub(2, "eng")], "50.0")
-    probs = cover.check_mux(before, no_audio, [sub(2, "eng")])
-    assert any("hang" in p for p in probs) and any("hossz" in p for p in probs)
-    not_default = info(VA + [sub(2, "hun", "ass", "Magyar", 0), sub(3, "eng")])
-    assert cover.check_mux(before, not_default, [sub(2, "eng")])
-
-
-def test_mux_failure_keeps_original_and_removes_tmp(tmp_path, monkeypatch):
-    mkv, ass = tmp_path / "a.mkv", tmp_path / "a.ass"
-    mkv.write_bytes(b"ORIGINAL")
-    ass.write_text("x")
-    monkeypatch.setattr(cover, "find_tool", lambda n: n)
-    monkeypatch.setattr(cover, "probe", lambda tool, p: info(VA))
-
-    def fake_run(cmd, **kw):
-        Path(cmd[-1]).write_bytes(b"PARTIAL")       # félig megírt tmp
-        return subprocess.CompletedProcess(cmd, 1, "", "boom")
-    monkeypatch.setattr(cover.subprocess, "run", fake_run)
-    with pytest.raises(cover.Fail, match="ffmpeg hiba"):
-        cover.mux(mkv, ass)
-    assert mkv.read_bytes() == b"ORIGINAL"
-    assert sorted(p.name for p in tmp_path.iterdir()) == ["a.ass", "a.mkv"]
-
-
-def test_mux_bad_result_keeps_original(tmp_path, monkeypatch):
-    mkv, ass = tmp_path / "a.mkv", tmp_path / "a.ass"
-    mkv.write_bytes(b"ORIGINAL")
-    ass.write_text("x")
-    monkeypatch.setattr(cover, "find_tool", lambda n: n)
-    monkeypatch.setattr(cover, "probe", lambda tool, p: info(VA))   # a tmp-ben nincs felirat
-
-    def fake_run(cmd, **kw):
-        Path(cmd[-1]).write_bytes(b"NEW")
-        return subprocess.CompletedProcess(cmd, 0, "", "")
-    monkeypatch.setattr(cover.subprocess, "run", fake_run)
-    with pytest.raises(cover.Fail, match="hibás"):
-        cover.mux(mkv, ass)
-    assert mkv.read_bytes() == b"ORIGINAL"
-    assert sorted(p.name for p in tmp_path.iterdir()) == ["a.ass", "a.mkv"]
-
+# ── főprogram ───────────────────────────────────────────────────────────────
 
 def test_main_batch_continues_after_error(tmp_path, monkeypatch, capsys):
     for env, *_ in cover.SETTINGS.values():
@@ -301,6 +228,15 @@ def test_main_batch_continues_after_error(tmp_path, monkeypatch, capsys):
     rc = cover.main([str(bad), str(good)])
     assert rc == 1
     assert (tmp_path / "Jó.hun.dobozos.ass").exists()
+
+
+def test_cover_mux_uses_shared_core_as_default_ass(monkeypatch, tmp_path):
+    seen = {}
+    monkeypatch.setattr(cover.embed_subs, "embed",
+                        lambda mkv, sub, track, default: seen.update(track=track, default=default) or [])
+    cover.mux(tmp_path / "a.mkv", tmp_path / "a.ass")
+    assert seen == {"track": cover.ASS_TRACK, "default": True}
+    assert cover.ASS_TRACK.title == "Magyar (dobozos)"
 
 
 def test_main_mux_without_out_dir_leaves_no_sidecar(tmp_path, monkeypatch):
@@ -327,7 +263,7 @@ def _tool(name):
 
 
 @pytest.mark.skipif(not (_tool("ffmpeg") and _tool("ffprobe")), reason="nincs ffmpeg/ffprobe")
-def test_mux_real_ffmpeg_idempotent_and_keeps_foreign_hun(tmp_path, monkeypatch):
+def test_cover_mux_real_ffmpeg_idempotent_and_keeps_foreign_hun(tmp_path, monkeypatch):
     ff = _tool("ffmpeg")
     monkeypatch.chdir(tmp_path)
     for env, *_ in cover.SETTINGS.values():
@@ -351,8 +287,8 @@ def test_mux_real_ffmpeg_idempotent_and_keeps_foreign_hun(tmp_path, monkeypatch)
          "stream=codec_type,codec_name:stream_tags:stream_disposition=default",
          "-of", "json", str(mkv)], capture_output=True, text=True, check=True).stdout)
     subs = [x for x in out["streams"] if x["codec_type"] == "subtitle"]
-    titles = [cover._tags(x).get("title") for x in subs]
-    assert titles.count("Magyar") == 1 and "Külső" in titles
-    assert cover.is_own_track(subs[0]) and subs[0]["disposition"]["default"] == 1
+    titles = [cover.embed_subs.tags(x).get("title") for x in subs]
+    assert titles.count("Magyar (dobozos)") == 1 and "Külső" in titles
+    assert cover.ASS_TRACK.owns(subs[0]) and subs[0]["disposition"]["default"] == 1
     assert sum(x["codec_type"] == "audio" for x in out["streams"]) == 1
     assert not list(tmp_path.glob(".tmp_*")) and not list(tmp_path.glob("*.ass"))

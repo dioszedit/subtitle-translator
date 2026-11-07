@@ -1,7 +1,12 @@
 # mkv-subs add-on (beágyazott feliratsávok)
 
-A videófájl feliratsávjait listázza, illetve **nyelvcímke szerint** kicsomagolja
-`.srt`-be, a pipeline névkonvenciójával (`Sorozat - S01E01.jpn.srt`).
+Két script:
+
+- `extract_subs.py` — a videófájl feliratsávjait listázza, illetve **nyelvcímke
+  szerint** kicsomagolja `.srt`-be, a pipeline névkonvenciójával
+  (`Sorozat - S01E01.jpn.srt`);
+- `embed_subs.py` — a végén a **kész magyar feliratot** visszateszi az `.mkv`-ba,
+  kérésre alapértelmezett sávként (lásd lent: *Beágyazás*).
 
 Python oldalról csak stdlib; kell viszont **`ffmpeg` + `ffprobe`** a PATH-on
 (macOS: `brew install ffmpeg`).
@@ -67,3 +72,42 @@ felülírása).
   listázásnál a sáv címe (`„Japanese [Original] (CC)"`) általában elárulja.
 
 Kilépési kód: `0` siker, `1` hiba.
+
+## Beágyazás — `embed_subs.py`
+
+A kész, lektorált `Season XX/<név>.hun.srt`-t szöveges (subrip) feliratsávként
+beteszi az azonos nevű `<név>.mkv`-ba (`hun`, „Magyar”), **újrakódolás nélkül**,
+majd lecseréli az eredeti `.mkv`-t. A `.hun.srt` a helyén marad — az a
+javítható forrás; javítás után a parancs egyszerűen újrafuttatható.
+
+```bash
+# mi történne? (nem ír semmit)
+python3 addons/mkv-subs/embed_subs.py "Season 01/Sorozat - S01E01.hun.srt" --dry-run
+
+# beágyazás, nem alapértelmezettként (a meglévő sávok jelölése nem változik)
+python3 addons/mkv-subs/embed_subs.py "Season 01/Sorozat - S01E01.hun.srt"
+
+# alapértelmezett sávként — egész évad
+python3 addons/mkv-subs/embed_subs.py "Season 01"/*.hun.srt --default
+```
+
+- **Alapértelmezett:** `--default` esetén a magyar lesz az első és az
+  alapértelmezett feliratsáv; a többiről **csak** a default jelölés kerül le
+  (a `forced` és társai maradnak). Állandó beállításként a sorozat `.env`-jében:
+  `MKV_SUBS_DEFAULT=1` — ezt egy futásra a `--no-default` felülírja.
+- **Csak a saját sávját cseréli** (subrip + `hun` + „Magyar”). Minden más sáv
+  megmarad: angol, eredeti nyelvű, a `hardsub-cover` dobozos ASS-sávja
+  („Magyar (dobozos)”), és más, máshonnan származó magyar sáv is (erről szól).
+- **Biztonság:** csere előtt ellenőrzi az új fájlt (videó-, hang- és
+  mellékletsávok száma, hossz, az új sáv helye és jelölése); hibánál az
+  eredeti érintetlen marad, ideiglenes fájl nem marad hátra. Több fájlnál egy
+  hibás rész nem állítja le a többit.
+- Csak `<név>.hun.srt` ágyazható be — a `.clean`/`.merge` és hasonló köztes
+  változatot előbb nevezd át a végleges névre.
+- A muxoló mag közös: a `hardsub-cover --mux` is ezt használja.
+
+**Beégetett idegen feliratnál** a takaráshoz a dobozos ASS kell (`hardsub-cover`);
+mellé a sima SRT-sáv tartaléknak jó: ha egy lejátszó elrontja az ASS-t, a sima
+magyar sávra át lehet váltani. Ilyenkor az SRT-t `--default` NÉLKÜL ágyazd be,
+hogy a dobozos maradjon az alapértelmezett (a sorrend mindegy: a `hardsub-cover
+--mux` mindig a dobozost teszi alapértelmezetté).

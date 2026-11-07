@@ -98,8 +98,9 @@ python3 addons/hardsub-cover/cover_ass.py "Season 01/<X>.hun.srt" --mux
 ```
 
 - **Az eredeti `.mkv`-t lecseréli** (stream copy, nincs újrakódolás). Csak a
-  saját, korábban betett sávját (ass + `hun` + „Magyar”) cseréli; minden más
-  sáv megmarad. Csere előtt ellenőrzi az új fájlt; hibánál az eredeti
+  saját, korábban betett ASS-sávját (ass + `hun` + „Magyar (dobozos)”, vagy a
+  korai „Magyar” címmel) cseréli; minden más sáv megmarad, a többiről csak a
+  default jelölés kerül le. Csere előtt ellenőrzi az új fájlt; hibánál az eredeti
   érintetlen. Az első epizódnál erősíttesd meg; utána a felhasználó által
   jóváhagyott beállítással mehet a többi is.
 - Ha „megtartott másik magyar feliratsáv” figyelmeztetést ír, jelezd a
@@ -110,8 +111,11 @@ python3 addons/hardsub-cover/cover_ass.py "Season 01/<X>.hun.srt" --mux
 - Több kész rész egyszerre: `"Season 01"/*.hun.srt --mux` — csak akkor, ha mind
   KÉSZ; egy félkész SRT beágyazása félrevezető.
 - Ellenőrzés után: `ffprobe -v error -select_streams s -show_entries stream=codec_name:stream_tags=language,title:stream_disposition=default -of compact "<X>.mkv"`
-  → az első feliratsáv `ass`, `language=hun`, `title=Magyar`, `default=1`.
-- Feliratjavítás után a parancs újrafuttatható; a régi magyar sávot cseréli.
+  → az első feliratsáv `ass`, `language=hun`, `title=Magyar (dobozos)`, `default=1`.
+- Feliratjavítás után a parancs újrafuttatható; a régi dobozos sávot cseréli.
+- **Tartalék sima SRT-sáv** (ajánld fel): ha egy lejátszó elrontja az ASS-t, a
+  felhasználó átválthat rá. `python3 addons/mkv-subs/embed_subs.py "Season 01/<X>.hun.srt"`
+  — `--default` NÉLKÜL, hogy a dobozos maradjon az alapértelmezett.
 
 ## 5. Zárás
 
