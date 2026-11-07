@@ -28,6 +28,11 @@ python addons/mkv-subs/extract_subs.py "Season 01"/*.mkv --lang jpn --out-dir in
 
 # utómunka után — a kész magyar felirat beágyazása (opcionális)
 python addons/mkv-subs/embed_subs.py "Season 01"/*.hun.srt --default
+
+# utómunka után — BEÉGETETT idegen feliratnál: dobozos ASS a takaráshoz, alapértelmezett sávként
+python addons/hardsub-cover/cover_ass.py "Season 01/Sorozat - S01E01.hun.srt" --out-dir proba   # előbb próba (ASS a proba/ mappába)
+python addons/hardsub-cover/cover_ass.py "Season 01"/*.hun.srt --mux                          # beágyazás: „Magyar (dobozos)”, default
+python addons/mkv-subs/embed_subs.py "Season 01"/*.hun.srt                                    # + tartalék sima „Magyar” sáv (default NÉLKÜL)
 ```
 
 ## Függőségek
