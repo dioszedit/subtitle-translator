@@ -1,19 +1,27 @@
 #!/usr/bin/env python3
 """
-A kész magyar felirat beágyazása az azonos nevű .mkv-ba (az extract_subs.py párja).
+Kész felirat beágyazása az azonos nevű .mkv-ba (az extract_subs.py párja).
+Bármilyen nyelvű lehet; a nyelvet a fájlnév nyelvjelöléséből veszi.
 
     python3 addons/mkv-subs/embed_subs.py "Season 01/Sorozat - S01E01.hun.srt"
     python3 addons/mkv-subs/embed_subs.py "Season 01"/*.hun.srt --default
+    python3 addons/mkv-subs/embed_subs.py "Season 01/Sorozat - S01E01.eng.srt"
+    python3 addons/mkv-subs/embed_subs.py "Season 01/Sorozat - S01E01.chi.srt" --title "Chinese (Simplified)"
     python3 addons/mkv-subs/embed_subs.py "Season 01/Sorozat - S01E01.hun.srt" --dry-run
 
 Mit csinál:
-  - a `<név>.hun.srt`-t szöveges (subrip) feliratsávként beteszi a `<név>.mkv`-ba
-    (`hun`, „Magyar”), újrakódolás nélkül (stream copy), és lecseréli az
-    eredeti .mkv-t; a .hun.srt a helyén marad (az a javítható forrás);
-  - csak a SAJÁT, korábban betett sávját cseréli (subrip + hun + „Magyar”), így
-    újrafuttatható; minden más sáv — angol, kínai, a hardsub-cover dobozos
-    ASS-sávja, más magyar sáv — megmarad, a jelöléseivel együtt;
-  - `--default`: a magyar sáv lesz az alapértelmezett (az első feliratsáv), a
+  - a `<név>.<nyelv>.srt`-t szöveges (subrip) feliratsávként beteszi a
+    `<név>.mkv`-ba, újrakódolás nélkül (stream copy), és lecseréli az eredeti
+    .mkv-t; az .srt a helyén marad (az a javítható forrás);
+  - nyelv: a fájlnév nyelvjelöléséből (`.hun`, `.eng`, `.chi`, `.ja` → jpn …),
+    vagy `--lang`; cím: a nyelv angol neve („English”, „Chinese”), a magyaré
+    „Magyar” — vagy `--title`;
+  - csak a SAJÁT, korábban betett sávját cseréli: ezt egy rejtett jelölő
+    címke (SUBTR=srt) azonosítja, nem a cím — így a kiadó saját, szintén
+    „English” című angol sávja megmarad, és egy `--title`-cserénél sem marad
+    bent a régi sáv. Minden más sáv — a kiadó sávjai, a hardsub-cover dobozos
+    ASS-sávja — megmarad, a jelöléseivel együtt;
+  - `--default`: az új sáv lesz az alapértelmezett (az első feliratsáv), a
     többiről lekerül a default jelölés (a forced és társai maradnak). Enélkül
     a sáv a meglévők után kerül, nem alapértelmezettként, és a többi sáv
     jelölése nem változik. Állandó beállításként: MKV_SUBS_DEFAULT=1 a .env-ben
@@ -24,7 +32,7 @@ Mit csinál:
     többit.
 
 A muxoló mag (embed) közös: a hardsub-cover add-on is ezt használja a dobozos
-ASS-sávhoz („Magyar (dobozos)”).
+ASS-sávhoz („Magyar (dobozos)”, jelölő: SUBTR=ass).
 
 Függőség: `ffmpeg` és `ffprobe` (PATH, `FFMPEG`/`FFPROBE` környezeti változó,
 vagy macOS-en a Homebrew ffmpeg-full). Python oldalról csak stdlib.
@@ -41,7 +49,21 @@ import subprocess
 import sys
 from pathlib import Path
 
-LANG = "hun"
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from extract_subs import normalize_lang  # noqa: E402  (a pipeline nyelvkód-kezelése)
+
+MARKER = "SUBTR"  # rejtett sávcímke: ezzel ismeri fel a saját, korábban betett sávját
+
+# A sáv címe alapból a nyelv angol neve (ahogy a kiadások sávjai is), a magyaré „Magyar”.
+LANG_NAMES = {
+    "hun": "Magyar", "eng": "English", "chi": "Chinese", "jpn": "Japanese", "kor": "Korean",
+    "ger": "German", "fre": "French", "spa": "Spanish", "por": "Portuguese", "ita": "Italian",
+    "rus": "Russian", "pol": "Polish", "tur": "Turkish", "vie": "Vietnamese", "ind": "Indonesian",
+    "may": "Malay", "tha": "Thai", "hin": "Hindi", "ara": "Arabic", "fil": "Filipino",
+    "tgl": "Tagalog", "ukr": "Ukrainian", "dut": "Dutch", "swe": "Swedish", "cze": "Czech",
+    "slo": "Slovak", "rum": "Romanian", "gre": "Greek", "heb": "Hebrew", "fin": "Finnish",
+    "dan": "Danish", "nor": "Norwegian",
+}
 
 
 class Fail(Exception):
@@ -49,23 +71,38 @@ class Fail(Exception):
 
 
 class Track:
-    """Egy saját feliratsáv fajtája: kodek + cím (+ régi címek, amiket még a
-    sajátjának ismer fel)."""
+    """Egy saját feliratsáv: fajta (srt/ass) + kodek + nyelv + cím.
 
-    def __init__(self, codec, title, legacy_titles=()):
-        self.codec, self.title, self.titles = codec, title, {title, *legacy_titles}
+    Sajátnak az a sáv számít, amelyen a jelölő címke (SUBTR=<fajta>) és a nyelv
+    egyezik — a cím nem számít, így a kiadó azonos című sávja nem keveredik
+    bele. A jelölő előtti (2026-11 eleji) magyar sávokat a legacy_titles alapján
+    ismeri fel: ugyanaz a kodek, `hun`, és az egyik régi cím."""
+
+    def __init__(self, kind, codec, lang, title, legacy_titles=()):
+        self.kind, self.codec, self.lang, self.title = kind, codec, lang, title
+        self.legacy_titles = set(legacy_titles)
 
     def owns(self, s):
+        if s.get("codec_type") != "subtitle":
+            return False
         t = tags(s)
-        return (s.get("codec_type") == "subtitle" and s.get("codec_name") == self.codec
-                and t.get("language") == LANG and t.get("title") in self.titles)
+        if t.get("language") != self.lang:
+            return False
+        if t.get(MARKER.lower()) == self.kind:
+            return True
+        return (MARKER.lower() not in t and s.get("codec_name") == self.codec
+                and t.get("title") in self.legacy_titles)
 
 
-# A cím a lejátszó sávválasztójában látszik (a fájlnévbe nem kerül).
-SRT_TRACK = Track("subrip", "Magyar")
-# a hardsub-cover első változata „Magyar” címmel tette be — azt is a sajátjának tekinti
-ASS_TRACK = Track("ass", "Magyar (dobozos)", legacy_titles=("Magyar",))
-KNOWN_TRACKS = (SRT_TRACK, ASS_TRACK)
+def srt_track(lang, title=None):
+    """Sima szöveges sáv az adott nyelvhez (cím: --title, vagy a nyelv neve)."""
+    legacy = ("Magyar",) if lang == "hun" else ()
+    return Track("srt", "subrip", lang, title or LANG_NAMES.get(lang, lang), legacy)
+
+
+SRT_TRACK = srt_track("hun")
+# a hardsub-cover dobozos sávja; a jelölő előtti címekkel betetteket is felismeri
+ASS_TRACK = Track("ass", "ass", "hun", "Magyar (dobozos)", legacy_titles=("Magyar", "Magyar (dobozos)"))
 
 
 # ── .env ────────────────────────────────────────────────────────────────────
@@ -148,7 +185,8 @@ def mux_cmd(ffmpeg, mkv, sub, tmp, streams, track, default):
     for o in order:
         cmd += ["-map", "1" if o == "new" else f"0:{next(it)['index']}"]
     cmd += ["-map", "0:t?", "-c", "copy",
-            f"-metadata:s:s:{pos}", f"language={LANG}", f"-metadata:s:s:{pos}", f"title={track.title}",
+            f"-metadata:s:s:{pos}", f"language={track.lang}", f"-metadata:s:s:{pos}", f"title={track.title}",
+            f"-metadata:s:s:{pos}", f"{MARKER}={track.kind}",
             f"-disposition:s:{pos}", "default" if default else "0"]
     if default:  # a többiről csak a default jelölés kerül le, a forced stb. marad
         for i in range(len(keep) + 1):
@@ -170,7 +208,7 @@ def check_mux(before, after, keep, pos, track, default):
     if len(subs) != len(keep) + 1:
         problems.append(f"feliratsávok száma {len(subs)}, várt {len(keep) + 1}")
     elif not track.owns(subs[pos]) or tags(subs[pos]).get("title") != track.title:
-        problems.append(f"nincs a(z) {pos + 1}. helyen a magyar „{track.title}” sáv")
+        problems.append(f"nincs a(z) {pos + 1}. helyen a(z) {track.lang} „{track.title}” sáv")
     else:
         if bool(subs[pos].get("disposition", {}).get("default")) != default:
             problems.append("az új sáv alapértelmezett-jelölése nem a kért")
@@ -186,9 +224,9 @@ def check_mux(before, after, keep, pos, track, default):
 
 
 def embed(mkv: Path, sub: Path, track: Track, default: bool):
-    """A feliratfájl beágyazása az mkv-ba. -> a megtartott idegen magyar sávok
-    leírása (figyelmeztetéshez; a két saját sávfajta nem számít idegennek). Hibánál Fail; az eredeti .mkv csak sikeres,
-    ellenőrzött mux után cserélődik, ideiglenes fájl nem marad."""
+    """A feliratfájl beágyazása az mkv-ba. -> a megtartott, azonos nyelvű, nem
+    általunk betett sávok leírása (tájékoztatáshoz). Hibánál Fail; az eredeti
+    .mkv csak sikeres, ellenőrzött mux után cserélődik, ideiglenes fájl nem marad."""
     ffmpeg, ffprobe = find_tool("ffmpeg"), find_tool("ffprobe")
     before = probe(ffprobe, mkv)
     tmp = mkv.with_name(f".tmp_{mkv.name}")
@@ -209,8 +247,13 @@ def embed(mkv: Path, sub: Path, track: Track, default: bool):
             tmp.unlink(missing_ok=True)
         except OSError:
             pass
-    return [describe(s) for s in keep
-            if tags(s).get("language") == LANG and not any(t.owns(s) for t in KNOWN_TRACKS)]
+    return [describe(s) for s in keep if tags(s).get("language") == track.lang and not is_ours(s)]
+
+
+def is_ours(s):
+    """Bármelyik saját sávfajta (a jelölő, vagy a régi magyar címek alapján)."""
+    t = tags(s)
+    return MARKER.lower() in t or SRT_TRACK.owns(s) or ASS_TRACK.owns(s)
 
 
 def describe(s):
@@ -220,11 +263,29 @@ def describe(s):
 
 # ── főprogram ───────────────────────────────────────────────────────────────
 
-def mkv_for(srt: Path) -> Path:
-    if not srt.name.endswith(".hun.srt"):
-        raise Fail("csak <név>.hun.srt ágyazható be (a .clean/.merge stb. változatot előbb "
-                   "nevezd át a végleges .hun.srt-re)")
-    return srt.with_name(srt.name.removesuffix(".hun.srt") + ".mkv")
+def split_name(srt: Path, lang=None):
+    """<név>.<nyelv>.srt -> (mkv útvonal, nyelvkód). A --lang felülírja a
+    fájlnév nyelvjelölését; jelölés nélküli névnél kötelező."""
+    if srt.suffix.lower() != ".srt":
+        raise Fail("csak .srt ágyazható be")
+    stem = srt.name[: -len(srt.suffix)]
+    base, dot, tag = stem.rpartition(".")
+    tag_lang = normalize_lang(tag) if dot and base else ""
+    if tag_lang not in LANG_NAMES:
+        tag_lang = ""
+    if tag_lang:
+        stem = base
+    if lang:
+        code = normalize_lang(lang)
+        if not re.fullmatch(r"[a-z]{3}", code):
+            raise Fail(f"ismeretlen nyelvkód: {lang!r} (3 betűs kód kell, pl. hun, eng, chi)")
+    elif tag_lang:
+        code = tag_lang
+    else:
+        raise Fail("a fájlnévből nem derül ki a nyelv (<név>.<nyelv>.srt, pl. .hun.srt) — add meg "
+                   "a --lang kapcsolóval; a .clean/.merge stb. köztes változatot előbb nevezd át "
+                   "a végleges névre")
+    return srt.with_name(stem + ".mkv"), code
 
 
 def check_srt(srt: Path):
@@ -236,29 +297,35 @@ def check_srt(srt: Path):
         raise Fail("nincs benne egyetlen felirat sem")
 
 
-def process(srt: Path, default: bool, dry_run: bool):
-    mkv = mkv_for(srt)
+def process(srt: Path, default: bool, dry_run: bool, lang=None, title=None):
+    mkv, code = split_name(srt, lang)
+    track = srt_track(code, title)
     if not mkv.exists():
         raise Fail(f"nincs hozzá videó: {mkv.name}")
     check_srt(srt)
+    mode = "alapértelmezett" if default else "nem alapértelmezett"
     if dry_run:
-        keep, pos = plan(probe(find_tool("ffprobe"), mkv).get("streams", []), SRT_TRACK, default)
+        streams = probe(find_tool("ffprobe"), mkv).get("streams", [])
+        keep, pos = plan(streams, track, default)
         print(f"{srt.name} -> {mkv.name} (próba, nem ír semmit)")
-        print(f"  új sáv: {pos + 1}. feliratsáv, „{SRT_TRACK.title}”, "
-              f"{'alapértelmezett' if default else 'nem alapértelmezett'}")
+        print(f"  új sáv: {pos + 1}. feliratsáv, {code}, „{track.title}”, {mode}")
+        for s in streams:
+            if s.get("codec_type") == "subtitle" and track.owns(s):
+                print(f"  cserélődik: {describe(s)} [{code}]")
         for s in keep:
             print(f"  marad: {describe(s)} [{tags(s).get('language') or '?'}]")
         return
-    others = embed(mkv, srt, SRT_TRACK, default)
-    print(f"{srt.name} -> beágyazva ({'alapértelmezett' if default else 'nem alapértelmezett'}, "
-          f"hun): {mkv.name}")
+    others = embed(mkv, srt, track, default)
+    print(f"{srt.name} -> beágyazva ({mode}, {code}, „{track.title}”): {mkv.name}")
     if others:
-        print(f"  megtartott másik magyar feliratsáv(ok): {', '.join(others)}")
+        print(f"  megmaradt a kiadó azonos nyelvű sávja is: {', '.join(others)}")
 
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("srt", nargs="+", type=Path, help="kész magyar <név>.hun.srt fájl(ok)")
+    ap.add_argument("srt", nargs="+", type=Path, help="kész felirat(ok): <név>.<nyelv>.srt")
+    ap.add_argument("--lang", help="nyelvkód (hun, eng, chi… vagy en/ja/ko); alap: a fájlnévből")
+    ap.add_argument("--title", help="a sáv címe; alap: a nyelv angol neve, magyarnál „Magyar”")
     ap.add_argument("--default", action=argparse.BooleanOptionalAction, default=None,
                     help="legyen az alapértelmezett feliratsáv [MKV_SUBS_DEFAULT, alap: nem]")
     ap.add_argument("--dry-run", action="store_true", help="csak kiírja, mi történne")
@@ -270,7 +337,7 @@ def main(argv=None):
     rc = 0
     for srt in args.srt:
         try:
-            process(srt, default, args.dry_run)
+            process(srt, default, args.dry_run, args.lang, args.title)
         except Fail as e:
             print(f"{srt.name}: ! {e}", file=sys.stderr)
             rc = 1

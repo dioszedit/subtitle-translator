@@ -81,6 +81,7 @@ def test_mux_cmd_ass_replaces_legacy_magyar_ass_keeps_srt():
     cmd, keep, _ = emb.mux_cmd("ffmpeg", "a.mkv", "a.ass", "t.mkv", streams, emb.ASS_TRACK, True)
     assert maps(cmd) == ["0:v", "0:a?", "1", "0:3", "0:t?"]
     assert ("-metadata:s:s:0", "title=Magyar (dobozos)") in opts(cmd, "-metadata")
+    assert ("-metadata:s:s:0", "SUBTR=ass") in opts(cmd, "-metadata")
 
 
 # ── ellenőrzés ──────────────────────────────────────────────────────────────
@@ -152,10 +153,73 @@ def test_embed_bad_result_keeps_original(files, monkeypatch):
 
 # ── főprogram ───────────────────────────────────────────────────────────────
 
-def test_mkv_for_requires_hun_srt(tmp_path):
-    assert emb.mkv_for(tmp_path / "Sorozat - S01E01.hun.srt").name == "Sorozat - S01E01.mkv"
-    with pytest.raises(emb.Fail, match="hun.srt"):
-        emb.mkv_for(tmp_path / "Sorozat - S01E01.hun.clean.srt")
+def test_split_name_language_from_filename(tmp_path):
+    mkv, lang = emb.split_name(tmp_path / "Sorozat - S01E01.hun.srt")
+    assert (mkv.name, lang) == ("Sorozat - S01E01.mkv", "hun")
+    assert emb.split_name(tmp_path / "Sorozat - S01E01.eng.srt")[1] == "eng"
+    assert emb.split_name(tmp_path / "Sorozat - S01E01.ja.srt")[1] == "jpn"      # alias
+
+
+def test_split_name_lang_option_overrides_and_fills_in(tmp_path):
+    mkv, lang = emb.split_name(tmp_path / "Sorozat - S01E01.srt", "ko")
+    assert (mkv.name, lang) == ("Sorozat - S01E01.mkv", "kor")
+    assert emb.split_name(tmp_path / "Sorozat - S01E01.eng.srt", "hun")[1] == "hun"
+
+
+def test_split_name_without_language_fails(tmp_path):
+    with pytest.raises(emb.Fail, match="--lang"):
+        emb.split_name(tmp_path / "Sorozat - S01E01.srt")
+    with pytest.raises(emb.Fail, match="--lang"):
+        emb.split_name(tmp_path / "Sorozat - S01E01.hun.clean.srt")
+    with pytest.raises(emb.Fail, match="nyelvkód"):
+        emb.split_name(tmp_path / "x.srt", "magyar")
+
+
+def test_srt_track_titles():
+    assert emb.srt_track("hun").title == "Magyar"
+    assert emb.srt_track("eng").title == "English"
+    assert emb.srt_track("chi").title == "Chinese"
+    assert emb.srt_track("chi", "Chinese (Simplified)").title == "Chinese (Simplified)"
+    assert emb.srt_track("xyz").title == "xyz"
+
+
+# ── jelölő címke: a kiadó azonos című sávja nem keveredik bele ─────────────
+
+def marked(index, lang, kind, codec, title, default=0):
+    s = sub(index, lang, codec, title, default)
+    s["tags"]["SUBTR"] = kind
+    return s
+
+
+def test_release_english_track_is_not_ours():
+    eng = emb.srt_track("eng")
+    assert not eng.owns(sub(2, "eng", "subrip", "English"))            # a kiadóé
+    assert eng.owns(marked(3, "eng", "srt", "subrip", "English"))
+    assert eng.owns(marked(3, "eng", "srt", "subrip", "Régi cím"))     # --title-csere után is
+    assert not eng.owns(marked(3, "hun", "srt", "subrip", "English"))  # más nyelv
+    assert not eng.owns(marked(3, "eng", "ass", "ass", "English"))     # más fajta
+
+
+def test_legacy_hungarian_titles_without_marker_still_ours():
+    assert emb.SRT_TRACK.owns(sub(2, "hun", "subrip", "Magyar"))
+    assert emb.ASS_TRACK.owns(sub(2, "hun", "ass", "Magyar (dobozos)"))
+    assert not emb.srt_track("eng").owns(sub(2, "eng", "subrip", "Magyar"))
+
+
+def test_mux_cmd_sets_marker_and_language():
+    streams = VA + [sub(2, "eng", "subrip", "English", default=1), marked(3, "eng", "srt", "subrip", "English")]
+    cmd, keep, pos = emb.mux_cmd("ffmpeg", "a.mkv", "a.srt", "t.mkv", streams, emb.srt_track("eng"), False)
+    assert maps(cmd) == ["0:v", "0:a?", "0:2", "1", "0:t?"]       # a kiadó angolja marad, a saját cserélődik
+    md = opts(cmd, "-metadata")
+    assert ("-metadata:s:s:1", "language=eng") in md
+    assert ("-metadata:s:s:1", "title=English") in md
+    assert ("-metadata:s:s:1", "SUBTR=srt") in md
+
+
+def test_is_ours():
+    assert emb.is_ours(marked(2, "eng", "srt", "subrip", "English"))
+    assert emb.is_ours(sub(2, "hun", "ass", "Magyar"))
+    assert not emb.is_ours(sub(2, "eng", "subrip", "English"))
 
 
 @pytest.mark.parametrize("val,expected", [("1", True), ("igen", True), ("true", True),
@@ -238,3 +302,11 @@ def test_embed_real_ffmpeg(tmp_path, monkeypatch):
     assert emb.main([str(srt), "--default"]) == 0          # újrafuttatás: csere, nem duplázás
     assert subs() == [("subrip", "hun", "Magyar", 1, 0), ("subrip", "eng", None, 0, 1)]
     assert srt.exists() and not list(tmp_path.glob(".tmp_*"))
+
+    # angol: a kiadó angolja (cím nélkül) marad; --title-cserénél a saját cserélődik
+    eng = tmp_path / "Sorozat - S01E01.eng.srt"
+    eng.write_text("1\n00:00:00,500 --> 00:00:01,500\nhello\n", encoding="utf-8")
+    assert emb.main([str(eng)]) == 0
+    assert emb.main([str(eng), "--title", "English (CC)"]) == 0
+    assert subs() == [("subrip", "hun", "Magyar", 1, 0), ("subrip", "eng", None, 0, 1),
+                      ("subrip", "eng", "English (CC)", 0, 0)]

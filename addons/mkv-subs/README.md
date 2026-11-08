@@ -5,8 +5,9 @@ Két script:
 - `extract_subs.py` — a videófájl feliratsávjait listázza, illetve **nyelvcímke
   szerint** kicsomagolja `.srt`-be, a pipeline névkonvenciójával
   (`Sorozat - S01E01.jpn.srt`);
-- `embed_subs.py` — a végén a **kész magyar feliratot** visszateszi az `.mkv`-ba,
-  kérésre alapértelmezett sávként (lásd lent: *Beágyazás*).
+- `embed_subs.py` — a **kész feliratot** (jellemzően a magyart, de bármilyen
+  nyelvűt) beteszi az `.mkv`-ba, kérésre alapértelmezett sávként (lásd lent:
+  *Beágyazás*).
 
 Python oldalról csak stdlib; kell viszont **`ffmpeg` + `ffprobe`** a PATH-on
 (macOS: `brew install ffmpeg`).
@@ -75,10 +76,17 @@ Kilépési kód: `0` siker, `1` hiba.
 
 ## Beágyazás — `embed_subs.py`
 
-A kész, lektorált `Season XX/<név>.hun.srt`-t szöveges (subrip) feliratsávként
-beteszi az azonos nevű `<név>.mkv`-ba (`hun`, „Magyar”), **újrakódolás nélkül**,
-majd lecseréli az eredeti `.mkv`-t. A `.hun.srt` a helyén marad — az a
-javítható forrás; javítás után a parancs egyszerűen újrafuttatható.
+A kész `Season XX/<név>.<nyelv>.srt`-t szöveges (subrip) feliratsávként
+beteszi az azonos nevű `<név>.mkv`-ba, **újrakódolás nélkül**, majd lecseréli
+az eredeti `.mkv`-t. Az `.srt` a helyén marad — az a javítható forrás; javítás
+után a parancs egyszerűen újrafuttatható.
+
+- **Nyelv:** a fájlnév nyelvjelöléséből (`.hun`, `.eng`, `.chi`, `.jpn`; a
+  kétbetűs `ja`/`ko`/`en` is jó), vagy `--lang`-gal — jelölés nélküli
+  fájlnévnél ez kötelező.
+- **Cím** (a lejátszó sávválasztójában látszik): alapból a nyelv angol neve
+  („English”, „Chinese”, „Korean”), a magyaré „Magyar”; `--title`-lal
+  bármi lehet (pl. „Chinese (Simplified)”).
 
 ```bash
 # mi történne? (nem ír semmit)
@@ -89,21 +97,30 @@ python3 addons/mkv-subs/embed_subs.py "Season 01/Sorozat - S01E01.hun.srt"
 
 # alapértelmezett sávként — egész évad
 python3 addons/mkv-subs/embed_subs.py "Season 01"/*.hun.srt --default
+
+# más nyelv: cím alapból a nyelv angol neve; saját cím --title-lal
+python3 addons/mkv-subs/embed_subs.py "Season 01/Sorozat - S01E01.eng.srt"
+python3 addons/mkv-subs/embed_subs.py "Season 01/Sorozat - S01E01.chi.srt" --title "Chinese (Simplified)"
+python3 addons/mkv-subs/embed_subs.py "Season 01/Sorozat - S01E01.srt" --lang kor   # jelölés nélküli név
 ```
 
-- **Alapértelmezett:** `--default` esetén a magyar lesz az első és az
+- **Alapértelmezett:** `--default` esetén az új sáv lesz az első és az
   alapértelmezett feliratsáv; a többiről **csak** a default jelölés kerül le
   (a `forced` és társai maradnak). Állandó beállításként a sorozat `.env`-jében:
   `MKV_SUBS_DEFAULT=1` — ezt egy futásra a `--no-default` felülírja.
-- **Csak a saját sávját cseréli** (subrip + `hun` + „Magyar”). Minden más sáv
-  megmarad: angol, eredeti nyelvű, a `hardsub-cover` dobozos ASS-sávja
-  („Magyar (dobozos)”), és más, máshonnan származó magyar sáv is (erről szól).
+- **Csak a saját sávját cseréli** — ugyanazon a nyelven. A sajátot egy rejtett
+  sávcímke (`SUBTR=srt`) jelöli, nem a cím: így a kiadó saját, szintén
+  „English” című angol sávja megmarad, és ha `--title`-lal más címet adsz, a
+  régi saját sáv cserélődik, nem marad bent duplán. (A jelölő előtti magyar
+  „Magyar” sávokat a címük alapján ismeri fel.) Minden más sáv megmarad: a
+  kiadó sávjai, a `hardsub-cover` dobozos ASS-sávja („Magyar (dobozos)”), és
+  egy máshonnan származó azonos nyelvű sáv is (erről szól).
 - **Biztonság:** csere előtt ellenőrzi az új fájlt (videó-, hang- és
   mellékletsávok száma, hossz, az új sáv helye és jelölése); hibánál az
   eredeti érintetlen marad, ideiglenes fájl nem marad hátra. Több fájlnál egy
   hibás rész nem állítja le a többit.
-- Csak `<név>.hun.srt` ágyazható be — a `.clean`/`.merge` és hasonló köztes
-  változatot előbb nevezd át a végleges névre.
+- A `.clean`/`.merge` és hasonló köztes változatot előbb nevezd át a
+  végleges `<név>.<nyelv>.srt` névre.
 - A muxoló mag közös: a `hardsub-cover --mux` is ezt használja.
 
 **Beégetett idegen feliratnál** a takaráshoz a dobozos ASS kell (`hardsub-cover`);
