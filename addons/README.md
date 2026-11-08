@@ -26,8 +26,12 @@ python addons/vtt2srt/vtt2srt.py "Season 01"/*.hun.vtt
 python addons/mkv-subs/extract_subs.py "Season 01/Sorozat - S01E01.mkv"
 python addons/mkv-subs/extract_subs.py "Season 01"/*.mkv --lang jpn --out-dir input
 
-# utómunka után — a kész magyar felirat beágyazása (opcionális)
-python addons/mkv-subs/embed_subs.py "Season 01"/*.hun.srt --default
+# utómunka után — a kész felirat beágyazása az mkv-ba (opcionális; a nyelv a fájlnévből)
+python addons/mkv-subs/embed_subs.py "Season 01/Sorozat - S01E01.hun.srt" --dry-run        # mi történne (nem ír semmit)
+python addons/mkv-subs/embed_subs.py "Season 01"/*.hun.srt --default                       # magyar, „Magyar”, alapértelmezett
+python addons/mkv-subs/embed_subs.py "Season 01/Sorozat - S01E01.eng.srt"                  # angol, „English”
+python addons/mkv-subs/embed_subs.py "Season 01/Sorozat - S01E01.chi.srt" --title "Chinese (Simplified)"   # saját cím
+python addons/mkv-subs/embed_subs.py "Season 01/Sorozat - S01E01.srt" --lang kor           # nyelvjelölés nélküli fájlnév
 
 # utómunka után — BEÉGETETT idegen feliratnál: dobozos ASS a takaráshoz, alapértelmezett sávként
 python addons/hardsub-cover/cover_ass.py "Season 01/Sorozat - S01E01.hun.srt" --out-dir proba   # előbb próba (ASS a proba/ mappába)
