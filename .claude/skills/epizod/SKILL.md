@@ -47,8 +47,10 @@ Az epizód azonosítójából (pl. `Sorozat - S01E01`) sorban ellenőrizd:
   `py subtr.py translate --provider claude`, `--provider gemini` (olcsóbb),
   `--provider codex`, `--provider grok` vagy `--provider antigravity` (Gemini
   előfizetésből, API-kvóta nélkül). Codex/Grok első próbánál
-  `--agents 1`. Grok-fordítás default modellje `grok-4.5`, Antigravityé
-  `gemini-3.8-flash-high` (review-nál is). Gemini-nél a parancs
+  `--agents 1`. `--provider` nélkül a `.env` `SUBTR_TRANSLATE_PROVIDER` sora
+  dönt; a modell és az effort is a `.env`-ből jön (alapértékek:
+  `subtr/defaults.env`) — hogy éppen mi futna, a `py subtr.py config` mutatja,
+  modellnevet ne feltételezz. Gemini-nél a parancs
   indulásakor kvóta-preflight fut — ha azt írja, a modell kimerült vagy nem fér
   bele, javasolj modellváltást (`--model`) vagy másik providert; állást a
   `py subtr.py quota` mutat. Újrafuttatás biztonságos: csak a hiányzó blokkokat
@@ -62,8 +64,9 @@ Az epizód azonosítójából (pl. `Sorozat - S01E01`) sorban ellenőrizd:
   tipikusan a preclean `.clean.srt`-jének splittelésekor, mert ott a `.clean`
   tag elfedi a nyelvkódot.
 - **Review**: a review providerei (gemini, claude, codex, grok, antigravity) függetlenek,
-  futhat az egyik vagy több is. Grok-review default modellje `grok-4.6`
-  (`py subtr.py review --provider grok`). A forrás SRT-t magától megtalálja
+  futhat az egyik vagy több is. `--provider` nélkül a `SUBTR_REVIEW_PROVIDER`
+  szerinti fut (alapérték: antigravity); a riport neve a providert követi
+  (`_REVIEW_ANTIGRAVITY`, `_REVIEW_GEMINI`, …). A forrás SRT-t magától megtalálja
   (a `.hun.` tag helyére bármely ismert nyelvkód); `--source "<forrás srt>"`
   csak akkor kell, ha a fájlnév nem követi a konvenciót.
 - **Review-javítások átvezetése**: add át a **review-triage** skillnek

@@ -19,14 +19,15 @@ COMMANDS = {
     "glossary":   ("subtr.tasks.glossary_extract",  "1.5 Szójegyzék kinyerése (opcionális, --provider)"),
     "bases":      ("subtr.tasks.bases",             "    Alap-szótárak: list / promote / check"),
     "register":   ("subtr.tasks.register_extract",  "1.6 Megszólítási regiszter kinyerése (opcionális, --provider)"),
-    "translate":  ("subtr.tasks.translate",         "2.  Blokkok fordítása (--provider, default: claude)"),
+    "translate":  ("subtr.tasks.translate",         "2.  Blokkok fordítása (--provider)"),
     "merge":      ("subtr.tasks.merge",             "3.  Blokkok összefűzése egy SRT-vé"),
     "verify":     ("subtr.tasks.verify",            "4.  Strukturális ellenőrzés"),
-    "review":     ("subtr.tasks.review",            "5.  Stilisztikai review (--provider, default: gemini)"),
+    "review":     ("subtr.tasks.review",            "5.  Stilisztikai review (--provider)"),
     "apply":      ("subtr.tasks.apply_review",      "5b. Review-javaslatok interaktív átvezetése"),
     "apply-auto": ("subtr.tasks.apply_review_auto", "5c. Átvezetés döntés-fájlból, kérdés nélkül"),
     "resegment":  ("subtr.tasks.resegment",         "7.  Sorhossz-riport / újratördelés"),
     "quota":      ("subtr.quota",                   "    Gemini napi kvóta állása"),
+    "config":     ("subtr.tasks.show_config",       "    Érvényes provider / modell / effort funkciónként"),
 }
 
 

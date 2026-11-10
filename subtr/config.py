@@ -8,6 +8,8 @@ fájl nem töltődik be (pl. ha a környezeti változók már máshonnan jönnek
 
 import os
 import sys
+from dataclasses import dataclass, field
+from pathlib import Path
 
 try:
     from dotenv import find_dotenv, load_dotenv
@@ -41,56 +43,6 @@ TRANSLATION_LOCAL_MD = "TRANSLATION.local.md"
 def api_key(name: str = "GEMINI_API_KEY") -> str:
     """A megadott nevű env-változó értéke, vagy üres string, ha nincs beállítva."""
     return os.environ.get(name, "") or ""
-
-
-def _validate(provider: str, task: str) -> None:
-    if provider not in PROVIDERS:
-        raise ValueError(f"Ismeretlen provider: {provider!r} (várt: {PROVIDERS})")
-    if task not in TASKS:
-        raise ValueError(f"Ismeretlen task: {task!r} (várt: {TASKS})")
-
-
-def _env_model_keys(provider: str, task: str) -> tuple[str, str]:
-    """A task-specifikus és a generikus env-kulcs neve a providerhez/taskhoz."""
-    provider_upper = provider.upper()
-    task_upper = task.upper()
-    task_specific = f"SUBTR_{provider_upper}_MODEL_{task_upper}"
-    generic = f"SUBTR_{provider_upper}_MODEL"
-    return task_specific, generic
-
-
-def resolve_model(cli_value, provider: str, task: str, builtin=None):
-    """Feloldja, melyik modell nevet kell használni egy adott providerhez/taskhoz.
-
-    Precedencia (a legerősebb nyer):
-      1. cli_value               — a --model kapcsolóval explicit megadott érték
-      2. SUBTR_<PROVIDER>_MODEL_<TASK>  — task-specifikus env
-      3. SUBTR_<PROVIDER>_MODEL         — generikus, provider-szintű env
-      4. builtin                 — a hívó script beégetett alapértelmezése
-
-    Az üres string env-érték úgy számít, mintha nem lenne beállítva (kihagyjuk
-    a láncból).
-    """
-    _validate(provider, task)
-
-    return replace_deprecated(provider, _resolve_model_raw(cli_value, provider, task, builtin))
-
-
-def _resolve_model_raw(cli_value, provider: str, task: str, builtin=None):
-    if cli_value:
-        return cli_value
-
-    task_specific_key, generic_key = _env_model_keys(provider, task)
-
-    task_specific_value = os.environ.get(task_specific_key, "")
-    if task_specific_value:
-        return task_specific_value
-
-    generic_value = os.environ.get(generic_key, "")
-    if generic_value:
-        return generic_value
-
-    return builtin
 
 
 # A Google által kivezetett Gemini API-modellek → amire a Google átirányítja őket.
@@ -148,7 +100,7 @@ def replace_deprecated(provider: str, model):
         successor, since = DEPRECATED_GEMINI_MODELS[model]
         print(f"FIGYELEM: a {model} modellt a Google {since}-én kivezette (deprecated), "
               f"a hívásokat a {successor} modellre irányítja át — ezt használjuk. "
-              f"Frissítsd a --model kapcsolót / a .env SUBTR_GEMINI_MODEL* sorait.",
+              f"Frissítsd a --model kapcsolót / a .env modell-sorait.",
               file=sys.stderr)
         return successor
     if provider == "antigravity":
@@ -160,71 +112,274 @@ def replace_deprecated(provider: str, model):
             if available is not None and model in available:
                 return model  # pl. Enterprise-előfizetés: nálad elérhető
             new_base, since = DEPRECATED_ANTIGRAVITY_MODELS[base]
-            successor = f"{new_base}-{effort or 'high'}"
+            successor = f"{new_base}-{effort}" if effort else new_base
             print(f"FIGYELEM: a {model} modell {since} óta csak Enterprise-előfizetésben "
                   f"érhető el az Antigravityben, a te `agy models` listádban nincs benne "
                   f"— helyette: {successor}. Frissítsd a --model kapcsolót / "
-                  f"a .env SUBTR_ANTIGRAVITY_MODEL* sorait.", file=sys.stderr)
+                  f"a .env modell-sorait.", file=sys.stderr)
             return successor
     return model
 
 
+
 # ────────────────────────────────────────────────────────────────────────────
-# Effort (csak a claude provider)
+# Provider / modell / effort feloldása
 # ────────────────────────────────────────────────────────────────────────────
 #
-# A Claude Code CLI `--effort` kapcsolója a gondolkodás mélységét és ezzel a
-# tokenfogyást szabályozza. Ha nincs megadva, a CLI a saját alapértelmezését
-# használja — ez modellenként más, és a Claude Code alapértéke magasabb lehet,
-# mint amire egy feliratfordításnak szüksége van. A beégetett default ezért
-# None (nem adunk át kapcsolót, a viselkedés változatlan); a költséghatékony
-# beállítást a README ajánlja a .env-be.
+# A kódban nincs beégetett provider vagy modellnév: minden alapérték a csomag
+# melletti defaults.env-ben él, a .env / környezet azt írja felül, a parancssori
+# kapcsoló pedig mindkettőt. Funkciónként egy hármas:
+#
+#   SUBTR_<TASK>_PROVIDER   SUBTR_<TASK>_MODEL   SUBTR_<TASK>_EFFORT
+#
+# és provider-szintű tartalék arra az esetre, ha a funkció nem a beállított
+# providerével fut:
+#
+#   SUBTR_<PROVIDER>_MODEL  SUBTR_<PROVIDER>_EFFORT
+
+DEFAULTS_PATH = Path(__file__).with_name("defaults.env")
 
 EFFORT_LEVELS = ("low", "medium", "high", "xhigh", "max")
+# Ezeknél a providereknél hat az effort; az antigravity-nél a modellnév utótagja.
+EFFORT_PROVIDERS = ("claude", "antigravity")
+ANTIGRAVITY_EFFORTS = ("low", "medium", "high")
+
+SRC_CLI = "kapcsoló"
+SRC_ENV = ".env"
+SRC_DEFAULTS = "defaults.env"
 
 
-def resolve_effort(cli_value, provider: str, task: str, builtin=None):
-    """Mint a resolve_model, csak effortra:
+class SettingsError(ValueError):
+    """Hibás vagy hiányzó provider / modell / effort beállítás."""
 
-      --effort > SUBTR_<PROVIDER>_EFFORT_<TASK> > SUBTR_<PROVIDER>_EFFORT > builtin
 
-    Érvénytelen szintnél ValueError — egy elgépelt .env-érték ne némán
-    essen vissza a drágább CLI-alapértelmezésre.
+def read_env_file(path) -> dict:
+    """Egyszerű KEY=VALUE olvasó (# komment, üres sor kimarad) — a defaults.env-hez,
+    hogy az alapértékek a python-dotenv nélkül is betöltődjenek."""
+    values = {}
+    try:
+        with open(path, encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, _, value = line.partition("=")
+                value = value.split(" #", 1)[0].strip().strip("'\"")
+                values[key.strip()] = value
+    except OSError:
+        pass
+    return values
+
+
+_DEFAULTS = read_env_file(DEFAULTS_PATH)
+
+
+def _layers():
+    """A beállítás-rétegek erősségi sorrendben: (név, kulcs→érték)."""
+    return ((SRC_ENV, os.environ), (SRC_DEFAULTS, _DEFAULTS))
+
+
+def _validate(provider: str, task: str) -> None:
+    if provider not in PROVIDERS:
+        raise ValueError(f"Ismeretlen provider: {provider!r} (várt: {PROVIDERS})")
+    if task not in TASKS:
+        raise ValueError(f"Ismeretlen task: {task!r} (várt: {TASKS})")
+
+
+def legacy_env_names() -> list:
+    """A környezetben talált, már nem olvasott változónevek: (régi, teendő)."""
+    found = []
+    if "SUBTR_DEFAULT_PROVIDER" in os.environ:
+        found.append(("SUBTR_DEFAULT_PROVIDER",
+                      "funkciónként: " + ", ".join(
+                          f"SUBTR_{t.upper()}_PROVIDER" for t in TASKS)))
+    for provider in PROVIDERS:
+        for kind in ("MODEL", "EFFORT"):
+            for task in TASKS:
+                old = f"SUBTR_{provider.upper()}_{kind}_{task.upper()}"
+                if old in os.environ:
+                    found.append((old, f"SUBTR_{task.upper()}_{kind} (és "
+                                       f"SUBTR_{task.upper()}_PROVIDER={provider})"))
+    return found
+
+
+def check_legacy_env() -> None:
+    found = legacy_env_names()
+    if found:
+        lines = ["a .env-ben / környezetben megszűnt változónév van:"]
+        lines += [f"  {old}  →  {new}" for old, new in found]
+        lines.append("Írd át az új nevekre (minta: .env.example; az érvényes "
+                     "beállítást a `subtr config` mutatja).")
+        raise SettingsError("\n".join(lines))
+
+
+def _task_provider(task: str, start: int = 0):
+    """A funkció beállított providere a `start`. rétegtől lefelé: (érték, forrás)."""
+    key = f"SUBTR_{task.upper()}_PROVIDER"
+    for name, layer in _layers()[start:]:
+        value = (layer.get(key) or "").strip()
+        if value:
+            return value, f"{name}: {key}"
+    return "", ""
+
+
+def _lookup(kind: str, provider: str, task: str):
+    """A funkció MODEL / EFFORT értéke a futó providerhez: (érték, forrás).
+
+    A funkció-szintű sor csak akkor érvényes, ha ahhoz a providerhez tartozik,
+    amelyik éppen fut: egy rétegbeli sor gazdája az a provider, amelyet a
+    funkcióhoz ugyanaz vagy egy gyengébb réteg állít be. Így a defaults.env
+    modellje nem megy át egy olyan providernek, amelyet csak a .env választott.
+    Az üres érték is beállítás (modell: a CLI sajátja; effort: nincs szint).
+
+    A rétegek sorban jönnek: a .env bármely sora — a provider-szintű is —
+    erősebb a defaults.env-nél.
     """
-    _validate(provider, task)
-    value = cli_value or os.environ.get(
-        f"SUBTR_{provider.upper()}_EFFORT_{task.upper()}", "") or os.environ.get(
-        f"SUBTR_{provider.upper()}_EFFORT", "") or builtin
-    if value and value not in EFFORT_LEVELS:
-        raise ValueError(f"Érvénytelen effort: {value!r} (várt: {', '.join(EFFORT_LEVELS)})")
-    return value or None
+    task_key = f"SUBTR_{task.upper()}_{kind}"
+    provider_key = f"SUBTR_{provider.upper()}_{kind}"
+    for index, (name, layer) in enumerate(_layers()):
+        if task_key in layer and _task_provider(task, index)[0] == provider:
+            return (layer[task_key] or "").strip(), f"{name}: {task_key}"
+        if provider_key in layer:
+            return (layer[provider_key] or "").strip(), f"{name}: {provider_key}"
+    return "", "nincs beállítva"
+
+
+def split_antigravity_effort(model: str):
+    """'gemini-x-high' → ('gemini-x', 'high'); utótag nélkül (model, '')."""
+    base, _, suffix = (model or "").rpartition("-")
+    if base and suffix in ANTIGRAVITY_EFFORTS:
+        return base, suffix
+    return model or "", ""
+
+
+@dataclass
+class Settings:
+    """Egy funkció feloldott beállítása. A `model` az, ami a providernek megy
+    (antigravity-nél már az effort-utótaggal); az `effort` csak ott nem None,
+    ahol külön kapcsolóként megy át (claude). A `shown_effort` a kijelzéshez
+    való: az antigravity utótagját is tartalmazza."""
+    task: str
+    provider: str
+    model: str | None
+    effort: str | None
+    shown_effort: str | None = None
+    sources: dict = field(default_factory=dict)
+    warnings: list = field(default_factory=list)
+
+
+def resolve_settings(task: str, cli_provider=None, cli_model=None,
+                     cli_effort=None) -> Settings:
+    """A funkció providere, modellje és effortja.
+
+      provider: --provider > SUBTR_<TASK>_PROVIDER
+      modell:   --model    > SUBTR_<TASK>_MODEL  > SUBTR_<PROVIDER>_MODEL
+      effort:   --effort   > SUBTR_<TASK>_EFFORT > SUBTR_<PROVIDER>_EFFORT
+
+    előbb a .env / környezet rétegben (ott a funkció-, majd a provider-szintű
+    sor), és csak utána ugyanígy a defaults.env-ben. Hibás vagy
+    hiányzó beállításnál SettingsError — nincs néma visszaesés.
+    """
+    if task not in TASKS:
+        raise ValueError(f"Ismeretlen task: {task!r} (várt: {TASKS})")
+    check_legacy_env()
+    upper = task.upper()
+    sources, warnings = {}, []
+
+    if cli_provider:
+        provider, sources["provider"] = cli_provider, f"{SRC_CLI}: --provider"
+    else:
+        provider, sources["provider"] = _task_provider(task)
+        if not provider:
+            raise SettingsError(f"nincs provider beállítva: SUBTR_{upper}_PROVIDER "
+                                f"(lehet: {', '.join(PROVIDERS)})")
+    if provider not in PROVIDERS:
+        raise SettingsError(f"ismeretlen provider: {provider!r} "
+                            f"({sources['provider']}; lehet: {', '.join(PROVIDERS)})")
+
+    if cli_model:
+        model, sources["model"] = cli_model, f"{SRC_CLI}: --model"
+    else:
+        model, sources["model"] = _lookup("MODEL", provider, task)
+    if cli_effort:
+        effort, sources["effort"] = cli_effort, f"{SRC_CLI}: --effort"
+    else:
+        effort, sources["effort"] = _lookup("EFFORT", provider, task)
+    if effort and effort not in EFFORT_LEVELS:
+        raise SettingsError(f"érvénytelen effort: {effort!r} ({sources['effort']}; "
+                            f"lehet: {', '.join(EFFORT_LEVELS)})")
+
+    shown_effort = effort or None
+    if provider == "antigravity":
+        base, suffix = split_antigravity_effort(model)
+        if suffix:
+            # A modellnévbe írt utótag nyer — kivéve, ha az --effort kapcsoló
+            # egy nem kapcsolóval megadott modellt pontosít.
+            if effort and effort != suffix:
+                if cli_effort and not cli_model:
+                    suffix = ""
+                else:
+                    warnings.append(f"a modellnév utótagja ({model}) felülírja az "
+                                    f"effortot ({effort}; {sources['effort']}).")
+            if suffix:
+                effort, sources["effort"] = suffix, sources["model"] + " (utótag)"
+        if effort and effort not in ANTIGRAVITY_EFFORTS:
+            raise SettingsError(f"az antigravity providernél az effort "
+                                f"{' | '.join(ANTIGRAVITY_EFFORTS)} lehet (kaptam: "
+                                f"{effort!r}; {sources['effort']})")
+        if base and effort:
+            model = f"{base}-{effort}"
+        shown_effort, effort = effort or None, None
+    elif provider not in EFFORT_PROVIDERS:
+        if effort:
+            warnings.append(f"az effort ({effort}; {sources['effort']}) a(z) {provider} "
+                            f"providernél nem hat, kimarad.")
+        effort = shown_effort = None
+
+    model = replace_deprecated(provider, model) or None
+    if provider == "gemini" and not model:
+        raise SettingsError(f"a gemini providerhez kötelező a modell: állítsd be a "
+                            f"SUBTR_{upper}_MODEL vagy a SUBTR_GEMINI_MODEL sort, "
+                            f"vagy add meg a --model kapcsolót")
+    return Settings(task, provider, model, effort or None, shown_effort,
+                    sources, warnings)
+
+
+def settings_or_exit(task: str, args) -> Settings:
+    """A task-ok main()-jéhez: feloldás az argparse-eredményből; hibánál
+    üzenet és kilépés, a figyelmeztetések kiírva."""
+    try:
+        settings = resolve_settings(task, getattr(args, "provider", None),
+                                    getattr(args, "model", None),
+                                    getattr(args, "effort", None))
+    except SettingsError as e:
+        print(f"HIBA: {e}")
+        sys.exit(1)
+    for warning in settings.warnings:
+        print(f"FIGYELEM: {warning}")
+    return settings
+
+
+def add_provider_argument(parser, task: str, role: str = "Provider") -> None:
+    parser.add_argument(
+        "--provider", choices=PROVIDERS, default=None,
+        help=f"{role} (alapérték: SUBTR_{task.upper()}_PROVIDER a .env-ből, "
+             f"különben a defaults.env-ből — lásd: subtr config)")
+
+
+def add_model_argument(parser, task: str) -> None:
+    parser.add_argument(
+        "--model", type=str, default=None,
+        help=f"Modell-azonosító. Feloldás: --model > SUBTR_{task.upper()}_MODEL > "
+             f"SUBTR_<PROVIDER>_MODEL (.env, különben defaults.env)")
 
 
 def add_effort_argument(parser, task: str) -> None:
     parser.add_argument(
         "--effort", choices=EFFORT_LEVELS, default=None,
-        help=f"Gondolkodási szint (csak claude). Feloldás: --effort > "
-             f"SUBTR_CLAUDE_EFFORT_{task.upper()} > SUBTR_CLAUDE_EFFORT > "
-             f"a Claude Code saját alapértelmezése")
-
-
-def default_provider(builtin: str = "claude") -> str:
-    """A SUBTR_DEFAULT_PROVIDER env értéke, ha az egy érvényes provider-név.
-
-    Ha az env nincs beállítva, üres, vagy érvénytelen provider-nevet tartalmaz,
-    a builtin alapértelmezést adja vissza.
-    """
-    value = os.environ.get("SUBTR_DEFAULT_PROVIDER", "")
-    if value in PROVIDERS:
-        return value
-    return builtin
-
-
-def model_help(provider: str, task: str, builtin) -> str:
-    """Emberi olvasásra szánt szöveg a --help kimenetéhez a feloldási láncról."""
-    _validate(provider, task)
-    task_specific_key, generic_key = _env_model_keys(provider, task)
-    return f"default: {task_specific_key} / {generic_key} / {builtin}"
+        help=f"Gondolkodási szint (claude: kapcsoló; antigravity: a modellnév "
+             f"utótagja, low|medium|high; máshol nem hat). Feloldás: --effort > "
+             f"SUBTR_{task.upper()}_EFFORT > SUBTR_<PROVIDER>_EFFORT")
 
 
 # ────────────────────────────────────────────────────────────────────────────

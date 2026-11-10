@@ -57,12 +57,11 @@ sys.stderr.reconfigure(encoding="utf-8")
 from subtr import config
 from subtr.providers import get_provider
 from subtr.providers.claude_cli import extract_json, find_claude as find_claude_cli, run_prompt
-from subtr.config import CLI_PROVIDERS, PROVIDERS
+from subtr.config import CLI_PROVIDERS
 from subtr.context import load_translation_context
 
 LOCAL_FILE_DEFAULT = "TRANSLATION.local.md"
 SECTION_HEADER = "Megszólítási regiszter:"
-GEMINI_MODEL_DEFAULT = "gemini-3.8-flash"
 FORMS = ("MAGÁZ", "TEGEZ")
 MIN_EVIDENCE = 2   # ennyi idézhető bizonyíték alatt a sor bizonytalan
 
@@ -393,17 +392,13 @@ def run_cli(adapter, prompt: str, model, timeout: int) -> list[dict]:
     return _validate(result.get("relations"))
 
 
-def run_claude(prompt: str, timeout: int, model: str | None = None) -> list[dict]:
+def run_claude(prompt: str, timeout: int, model: str | None = None,
+               effort: str | None = None) -> list[dict]:
     claude_cmd = find_claude_cli()
     print(f"Claude Code elemzi a feliratot... ({claude_cmd})")
     prompt += ('\n\nKIMENET: kizárólag egy JSON objektum, semmi más szöveg:\n'
                '{"relations":[{"a":"","b":"","mutual":false,"form":"MAGÁZ",'
                '"confidence":"biztos","relation":"","evidence":[""]}]}')
-    try:
-        effort = config.resolve_effort(None, "claude", "register")
-    except ValueError as e:
-        print(f"HIBA: {e}")
-        return []
     raw, err = run_prompt(prompt, timeout, claude_bin=claude_cmd,
                           model=model, effort=effort)
     if err:
@@ -537,11 +532,9 @@ def main():
                         help="A megadott fájl(ok) a KÉSZ MAGYAR fordítás (pl. más forrásból "
                              "átvett korábbi részek): a tegezés/magázás közvetlenül a magyar "
                              "igealakból olvasódik le, a forrásnyelv nem számít")
-    parser.add_argument("--provider", choices=PROVIDERS,
-                        default=config.default_provider(builtin="gemini"),
-                        help="Kinyerő provider (default: gemini, "
-                             "felülírható: SUBTR_DEFAULT_PROVIDER env)")
-    parser.add_argument("--model", help="Modellazonosító (claude: haiku|sonnet|opus)")
+    config.add_provider_argument(parser, "register", "Kinyerő provider")
+    config.add_model_argument(parser, "register")
+    config.add_effort_argument(parser, "register")
     parser.add_argument("--local-file", default=LOCAL_FILE_DEFAULT,
                         help=f"A regisztert tartalmazó fájl (default: {LOCAL_FILE_DEFAULT})")
     parser.add_argument("--timeout", type=int, default=300,
@@ -569,10 +562,8 @@ def main():
     print(f"Meglévő regiszter: {len(existing)} pár "
           f"({'szakasz megvan' if has_section else 'még nincs szakasz'}) — {args.local_file}")
 
-    model = config.resolve_model(args.model, args.provider, "register",
-                                 builtin={"gemini": GEMINI_MODEL_DEFAULT,
-                                          "grok": "grok-4.5",
-                                          "antigravity": "gemini-3.8-flash-high"}.get(args.provider))
+    settings = config.settings_or_exit("register", args)
+    args.provider, model = settings.provider, settings.model
     per_episode = []
     for path in args.srt:
         label = Path(path).stem
@@ -590,7 +581,7 @@ def main():
         elif args.provider in CLI_PROVIDERS:
             rel = run_cli(get_provider(args.provider), prompt, model, args.timeout)
         else:
-            rel = run_claude(prompt, args.timeout, model)
+            rel = run_claude(prompt, args.timeout, model, settings.effort)
         print(f"  {len(rel)} viszony")
         per_episode.append((label, rel))
 

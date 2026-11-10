@@ -43,3 +43,6 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 packages = ["subtr"]
+
+[tool.setuptools.package-data]
+subtr = ["defaults.env"]   # az alapértékek (provider / modell / effort)

@@ -28,7 +28,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from subtr import config
-from subtr.config import CLI_PROVIDERS, PROVIDERS
+from subtr.config import CLI_PROVIDERS
 from subtr.blocks import get_all_blocks, get_pending_blocks, hun_path, safe_remove
 from subtr.context import load_translation_context
 from subtr.glossary import as_prompt_text, count_entries, describe_bases, filter_for_source, load_merged
@@ -38,9 +38,6 @@ from subtr.srt import count_sections, count_sections_text, parse_sections, read_
 
 TEMPERATURE = 0.3
 MAX_RETRIES = 4
-MODEL_BUILTIN = {"gemini": "gemini-3.8-flash", "claude": "sonnet",
-                 "codex": None, "grok": "grok-4.5",
-                 "antigravity": "gemini-3.8-flash-high"}
 
 CLAUDE_SYS_PROMPT_PREFIX = ".translate_sys_prompt_"
 
@@ -661,21 +658,14 @@ def main(argv=None):
     parser = argparse.ArgumentParser(
         description="Párhuzamos SRT blokk-fordítás (Gemini API / Claude Code / Codex CLI / Grok CLI / Antigravity CLI)")
     parser.add_argument("blocks_dir", help="Blokkok mappája (a split kimenete)")
-    parser.add_argument("--provider", choices=PROVIDERS,
-                        default=config.default_provider(builtin="claude"),
-                        help="Fordító provider (default: claude, "
-                             "felülírható: SUBTR_DEFAULT_PROVIDER env)")
+    config.add_provider_argument(parser, "translate", "Fordító provider")
     parser.add_argument("--agents", type=int, default=None,
                         help="Párhuzamos futások száma (default: gemini/claude/antigravity 3, "
                              "codex/grok 1)")
     parser.add_argument("--block", type=str, default=None,
                         help="Csak egy konkrét blokk fordítása (pl. 003 vagy 3 — auto zero-pad)")
     config.add_source_lang_argument(parser)
-    parser.add_argument("--model", type=str, default=None,
-                        help="Modell-azonosító. Feloldás: --model > "
-                             "SUBTR_<PROVIDER>_MODEL_TRANSLATE > SUBTR_<PROVIDER>_MODEL > "
-                             "beégetett (gemini: gemini-3.8-flash, claude: sonnet, grok: grok-4.5, "
-                             "antigravity: gemini-3.8-flash-high)")
+    config.add_model_argument(parser, "translate")
     config.add_effort_argument(parser, "translate")
     parser.add_argument("--timeout", type=int, default=None,
                         help="Timeout blokkonként mp-ben (default: 900; a gemini-ágon "
@@ -689,8 +679,8 @@ def main(argv=None):
                         help="Ne takarítsa ki a régi sys prompt fájlokat startup-kor (csak claude)")
     args = parser.parse_args(argv)
 
-    provider = args.provider
-    builtin = MODEL_BUILTIN[provider]
+    settings = config.settings_or_exit("translate", args)
+    provider, model, effort = settings.provider, settings.model, settings.effort
 
     # Provider-függő defaultok feloldása
     if args.agents is None:
@@ -716,16 +706,6 @@ def main(argv=None):
         print(f"HIBA: Nem találom a mappát: {args.blocks_dir}")
         sys.exit(1)
 
-    model = config.resolve_model(args.model, provider, "translate", builtin=builtin)
-    effort = None
-    if provider == "claude":
-        try:
-            effort = config.resolve_effort(args.effort, provider, "translate")
-        except ValueError as e:
-            print(f"HIBA: {e}")
-            sys.exit(1)
-    elif args.effort:
-        print(f"FIGYELEM: az --effort csak a claude providernél hat, a(z) {provider} ágon kimarad.")
 
     # Provider-előfeltételek
     claude_bin = cli_bin = adapter = client = None

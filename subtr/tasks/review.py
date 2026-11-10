@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 
 from subtr import config, reports
-from subtr.config import CLI_PROVIDERS, PROVIDERS
+from subtr.config import CLI_PROVIDERS
 from subtr.context import load_translation_context
 from subtr.glossary import as_prompt_text, describe_bases, load_merged
 from subtr.providers import claude_cli, get_provider
@@ -32,11 +32,6 @@ MAX_RETRIES = 4                 # Gemini-ág (a backoff az adapterben)
 CLAUDE_TIMEOUT_PER_CHUNK = 600  # 10 perc chunkonként
 CLAUDE_SYS_PROMPT_PREFIX = ".review_claude_sys_prompt_"
 
-# Beégetett modell-defaultok — a .env (SUBTR_<P>_MODEL_REVIEW / SUBTR_<P>_MODEL)
-# és a --model kapcsoló a config.resolve_model() precedenciája szerint felülbírálja.
-MODEL_BUILTIN = {"gemini": "gemini-3.8-flash", "claude": "sonnet",
-                 "codex": None, "grok": "grok-4.6",
-                 "antigravity": "gemini-3.8-flash-high"}
 
 # Codex strict séma (a Gemini-adapter ugyanennek az additionalProperties
 # nélküli változatát használná — de a Gemini-ág pydantic sémával megy)
@@ -407,17 +402,10 @@ def main(argv=None):
     parser = argparse.ArgumentParser(
         description="Magyar fordítás stilisztikai review (Gemini API / Claude Code / Codex CLI / Grok CLI / Antigravity CLI)")
     parser.add_argument("srt_file", help="Az összefűzött hun.srt fájl")
-    parser.add_argument("--provider", choices=PROVIDERS,
-                        default=config.default_provider(builtin="gemini"),
-                        help="Lektor provider (default: gemini, "
-                             "felülírható: SUBTR_DEFAULT_PROVIDER env)")
+    config.add_provider_argument(parser, "review", "Lektor provider")
     parser.add_argument("--chunk-size", type=int, default=DEFAULT_CHUNK_SIZE,
                         help=f"Feliratok chunkonként (default: {DEFAULT_CHUNK_SIZE})")
-    parser.add_argument("--model", type=str, default=None,
-                        help="Modell-azonosító. Feloldás: --model > "
-                             "SUBTR_<PROVIDER>_MODEL_REVIEW > SUBTR_<PROVIDER>_MODEL > "
-                             "beégetett (gemini: gemini-3.8-flash, claude: sonnet, grok: grok-4.6, "
-                             "antigravity: gemini-3.8-flash-high)")
+    config.add_model_argument(parser, "review")
     config.add_effort_argument(parser, "review")
     parser.add_argument("--timeout", type=int, default=None,
                         help="Timeout chunkonként mp-ben (default: claude 600, codex/grok/antigravity 900; "
@@ -442,8 +430,8 @@ def main(argv=None):
                         help="Forrásnyelvi SRT kihagyása akkor is, ha megtalálható")
     args = parser.parse_args(argv)
 
-    provider = args.provider
-    builtin = MODEL_BUILTIN[provider]
+    settings = config.settings_or_exit("review", args)
+    provider, model, effort = settings.provider, settings.model, settings.effort
     if args.timeout is None:
         args.timeout = 600 if provider == "claude" else 900
     if args.max_retries is None:
@@ -462,17 +450,6 @@ def main(argv=None):
     if args.max_retries < 1:
         print(f"HIBA: --max-retries legalább 1 legyen (kaptam: {args.max_retries})")
         sys.exit(1)
-
-    model = config.resolve_model(args.model, provider, "review", builtin=builtin)
-    effort = None
-    if provider == "claude":
-        try:
-            effort = config.resolve_effort(args.effort, provider, "review")
-        except ValueError as e:
-            print(f"HIBA: {e}")
-            sys.exit(1)
-    elif args.effort:
-        print(f"FIGYELEM: az --effort csak a claude providernél hat, a(z) {provider} ágon kimarad.")
 
     srt_path = Path(args.srt_file)
     if not srt_path.exists():

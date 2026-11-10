@@ -242,7 +242,10 @@ def test_parse_denied_tool_gives_clear_error():
 
 
 def test_antigravity_default_modellek():
-    """Fordítás és review: 3.8 Flash (a 3.1 Pro 2026-10-13 óta nem érhető el)."""
-    from subtr.tasks import review, translate
-    assert translate.MODEL_BUILTIN["antigravity"] == "gemini-3.8-flash-high"
-    assert review.MODEL_BUILTIN["antigravity"] == "gemini-3.8-flash-high"
+    """A defaults.env antigravity-sora: 3.8 Flash, high (a 3.1 Pro 2026-10-13 óta
+    nem érhető el) — ezzel megy a review alapból, és a fordítás --provider váltással."""
+    from subtr import config
+    values = config.read_env_file(config.DEFAULTS_PATH)
+    assert values["SUBTR_ANTIGRAVITY_MODEL"] == "gemini-3.8-flash"
+    assert values["SUBTR_ANTIGRAVITY_EFFORT"] == "high"
+    assert values["SUBTR_REVIEW_PROVIDER"] == "antigravity"

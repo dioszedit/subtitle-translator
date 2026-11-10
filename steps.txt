@@ -96,7 +96,7 @@ py subtr.py glossary "input\Sorozat - S01E01.eng.srt"
 # Csak a biztosak, kérdés nélkül:   --yes
 # Mindent végigkérdez:              --all-interactive
 # Próbafutás, nem ír fájlba:        --dry-run
-# Másik providerrel (default: claude):
+# Másik providerrel (alapérték: SUBTR_GLOSSARY_PROVIDER, a defaults.env-ben claude):
 # py subtr.py glossary "input\Sorozat - S01E01.eng.srt" --provider codex
 # py subtr.py glossary "input\Sorozat - S01E01.eng.srt" --provider gemini
 # py subtr.py glossary "input\Sorozat - S01E01.eng.srt" --provider grok
@@ -141,7 +141,7 @@ py subtr.py glossary "input\Sorozat - S01E01.eng.srt"
 #     Több rész pontosabb (a részek közti eltérés VÁLTÁS-jelöltként jön fel):
 # py subtr.py register "input\S01E01.eng.srt" "input\S01E02.eng.srt"
 #     Opcionálisan:
-#       --provider gemini|claude|codex|grok|antigravity   default: gemini
+#       --provider gemini|claude|codex|grok|antigravity   alapérték: SUBTR_REGISTER_PROVIDER
 #       --dry-run                        csak kiírja, nem ír a fájlba
 #       --all-interactive                minden párnál kérdezzen
 #       --yes                            ne kérdezzen (csak a biztos sorok)
@@ -149,8 +149,13 @@ py subtr.py glossary "input\Sorozat - S01E01.eng.srt"
 #     bizonytalanoknál kérdez. A meglévő regisztert nem írja felül csendben:
 #     ütközésnél megkérdez. Mentés előtt TRANSLATION.local.md.bak készül.
 
-# 2. Fordítás — a --provider választja ki a fordítót (default: claude,
-#    felülírható a SUBTR_DEFAULT_PROVIDER env-vel)
+# A provider, a modell és az effort funkciónként a .env-ből jön
+# (SUBTR_<FUNKCIÓ>_PROVIDER / _MODEL / _EFFORT; alapértékek: subtr\defaults.env).
+# Hogy ebből a mappából éppen mi futna:
+# py subtr.py config
+
+# 2. Fordítás — a --provider választja ki a fordítót (nélküle a .env
+#    SUBTR_TRANSLATE_PROVIDER sora dönt)
 py subtr.py translate "blocks\Sorozat - S01E01.eng" --provider claude --agents 3
 
 # ALTERNATÍVA: fordítás Gemini API-val (olcsóbb, ugyanazt a blocks/ mappát fordítja)
@@ -172,13 +177,13 @@ py subtr.py translate "blocks\Sorozat - S01E01.eng" --provider claude --agents 3
 # Utána a hiányzó blokkok fordítása:
 # py subtr.py translate "blocks\Sorozat - S01E01.eng" --provider codex --agents 1
 
-# ALTERNATÍVA: fordítás Grok CLI-vel (default modell: grok-4.5)
+# ALTERNATÍVA: fordítás Grok CLI-vel (modell: SUBTR_GROK_MODEL)
 # Előfeltétel: telepített és bejelentkezett `grok` parancs, vagy XAI_API_KEY.
 # py subtr.py translate "blocks\Sorozat - S01E01.eng" --provider grok --block 1 --agents 1
 # py subtr.py translate "blocks\Sorozat - S01E01.eng" --provider grok --agents 1
 
 # ALTERNATÍVA: fordítás Antigravity CLI-vel — Gemini-modellek ELŐFIZETÉSBŐL
-#    (nincs GEMINI_API_KEY, nincs napi API-kvóta; default: gemini-3.8-flash-high)
+#    (nincs GEMINI_API_KEY, nincs napi API-kvóta; modell: SUBTR_ANTIGRAVITY_MODEL + _EFFORT)
 # Előfeltétel: telepített és bejelentkezett `agy` parancs. Modellek: agy models
 # py subtr.py translate "blocks\Sorozat - S01E01.eng" --provider antigravity --agents 3
 #   Átmeneti "503 No capacity" hibára az adapter magától vár és újrapróbál.
@@ -190,29 +195,39 @@ py subtr.py merge "blocks\Sorozat - S01E01.eng" "output\Sorozat - S01E01.hun.srt
 # 4. Ellenőrzés — ✓ vagy ✗ jelzi ha valami nem stimmel
 py subtr.py verify "input\Sorozat - S01E01.eng.srt" "output\Sorozat - S01E01.hun.srt"
 
-# 5. Stilisztikai review — a --provider választja ki a lektort (default: gemini)
+# 5. Stilisztikai review — a --provider választja ki a lektort; nélküle a .env
+#    SUBTR_REVIEW_PROVIDER sora dönt (alapérték: antigravity, gemini-3.8-flash,
+#    high effort — Gemini előfizetésből, GEMINI_API_KEY és napi API-kvóta nélkül)
 py subtr.py review "output\Sorozat - S01E01.hun.srt"
-# Default modell (gemini ág): gemini-3.8-flash
 # Ha megtalálja a forrásnyelvi SRT-t (input\Sorozat - S01E01.eng.srt), automatikusan
 # odaadja a modellnek szekciónként [FORRÁS] sorként — így kevesebb a téves találat.
 # Opcionálisan:
-#   --chunk-size 150            nagyobb chunkok = kevesebb API hívás
-#   --model <név>               más Gemini modell (pl. gemini-3.8-flash = a legújabb,
-#                               gemini-3.5-flash-lite = olcsó/bő kvóta)
+#   --chunk-size 150            nagyobb chunkok = kevesebb hívás
+#   --model <név>               más modell (Antigravity: lásd `agy models`,
+#                               pl. claude-opus-5-5-high)
+#   --effort low|medium|high    gondolkodási szint (.env: SUBTR_REVIEW_EFFORT)
 #   --source "input\....srt"    forrásnyelvi SRT kézi megadása (bármilyen nyelv;
 #                               a régi név, --english, továbbra is működik)
 #   --no-source                 forrásnyelvi SRT kihagyása
 #   --start-chunk N             chunk-tartomány pl. kvótahiba utáni pótlásra
 #   --end-chunk N --suffix _part2  hogy ne írja felül a meglévő riportot
-# Kimenet: output\Sorozat - S01E01.hun_REVIEW_GEMINI.txt (olvasható riport)
-#          output\Sorozat - S01E01.hun_REVIEW_GEMINI.json (a subtr.py apply-hoz)
+# Kimenet: output\Sorozat - S01E01.hun_REVIEW_ANTIGRAVITY.txt (olvasható riport)
+#          output\Sorozat - S01E01.hun_REVIEW_ANTIGRAVITY.json (a subtr.py apply-hoz)
+#          (a riport neve a providert követi: _REVIEW_GEMINI, _REVIEW_CLAUDE, …)
 # A javításokat az 5b. lépés (subtr.py apply) viszi át interaktívan
 
-# 5. ALTERNATÍVA/KIEGÉSZÍTÉS: Stilisztikai review Claude Code-dal
-py subtr.py review "output\Sorozat - S01E01.hun.srt" --provider claude
-# Default modell: sonnet (default chunk-size: 100)
+# 5. MÁSODIK KÖR (ajánlott): Stilisztikai review Claude Code-dal, Opus modellel
+#    A két lektor mást vesz észre, ezért érdemes mindkettőt lefuttatni, és a
+#    találatokat együtt átnézni (az 5b. lépés a riportokat összefésüli).
+#    Mérés (2026-11, három rész, Opus-fordítás, 2151 felirat): az Opus-review
+#    59 valódi javítást adott, az Antigravity-review 36-ot; ebből 17 volt közös,
+#    19-et csak az Antigravity talált meg. Együtt 78, vagyis a második kör
+#    kb. harmadával több valódi hibát hoz. Ha csak egy kör fér bele, az Opus
+#    az erősebb.
+py subtr.py review "output\Sorozat - S01E01.hun.srt" --provider claude --model opus
+# --model nélkül: SUBTR_CLAUDE_MODEL (default chunk-size: 100)
 # Opcionálisan:
-#   --model haiku|sonnet|opus   modell-választás (default sonnet)
+#   --model haiku|sonnet|opus   modell-választás
 #   --source / --no-source      mint fent
 #   --start-chunk / --end-chunk / --suffix  mint fent
 # Kimenet: output\Sorozat - S01E01.hun_REVIEW_CLAUDE.txt (olvasható riport)
@@ -222,16 +237,14 @@ py subtr.py review "output\Sorozat - S01E01.hun.srt" --provider claude
 # py subtr.py review "output\Sorozat - S01E01.hun.srt" --provider codex
 # Kimenet: output\Sorozat - S01E01.hun_REVIEW_CODEX.txt + .json
 
-# 5. ALTERNATÍVA/KIEGÉSZÍTÉS: Stilisztikai review Grok CLI-vel (default: grok-4.6)
+# 5. ALTERNATÍVA/KIEGÉSZÍTÉS: Stilisztikai review Grok CLI-vel (modell: SUBTR_GROK_MODEL)
 # py subtr.py review "output\Sorozat - S01E01.hun.srt" --provider grok
 # Kimenet: output\Sorozat - S01E01.hun_REVIEW_GROK.txt + .json
 
-# 5. ALTERNATÍVA/KIEGÉSZÍTÉS: Stilisztikai review Antigravity CLI-vel
-#    (Gemini előfizetésből; default: gemini-3.8-flash-high — a 3.1 Pro 2026-10-13
-#    óta csak Enterprise-előfizetésben érhető el; más modell: agy models,
-#    pl. --model claude-opus-5-5-high)
-# py subtr.py review "output\Sorozat - S01E01.hun.srt" --provider antigravity
-# Kimenet: output\Sorozat - S01E01.hun_REVIEW_ANTIGRAVITY.txt + .json
+# 5. ALTERNATÍVA/KIEGÉSZÍTÉS: Stilisztikai review Gemini API-val
+#    (modell: SUBTR_GEMINI_MODEL; pl. --model gemini-3.5-flash-lite = olcsó/bő kvóta)
+# py subtr.py review "output\Sorozat - S01E01.hun.srt" --provider gemini
+# Kimenet: output\Sorozat - S01E01.hun_REVIEW_GEMINI.txt + .json
 
 # (5. lépéshez) GEMINI KVÓTA — mennyi hívás van még ma?
 #     A Gemini API NEM adja vissza a maradék napi kvótát (kipróbálva: a Service

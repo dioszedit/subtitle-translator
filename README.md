@@ -46,7 +46,7 @@ subtitle-translator/
 ├── TRANSLATION.local.md         ← Az aktuális sorozat adatai (gitignore-olt, sorozatonként más)
 ├── glossary.json                ← Fordítási szójegyzék (kézzel validált)
 ├── glossaries/                  ← Alap-szótárak műfaj × kultúra szerint (a glossary.json `meta.bases` választ)
-├── .env.example                 ← .env sablon: API-kulcsok, modell- és effort-defaultok, default provider
+├── .env.example                 ← .env sablon: API-kulcsok, funkciónkénti provider / modell / effort
 ├── .gitignore                   ← Mit ne commit-oljunk
 ├── LICENSE                      ← MIT licenc
 ├── pyproject.toml               ← Csomagolás (pip install -e .) és pytest-konfiguráció
@@ -58,11 +58,12 @@ subtitle-translator/
 │
 ├── subtr.py                     ← Egyparancsos CLI — minden lépés ezen keresztül fut
 │                                  (split, glossary, register, translate, merge,
-│                                  verify, review, apply, apply-auto, resegment, quota)
+│                                  verify, review, apply, apply-auto, resegment, quota, config)
 │
 ├── subtr/                       ← A tényleges fordítás- és review-logika
 │   ├── cli.py                   ← az alparancsok elosztója (subtr.py és python -m subtr)
-│   ├── config.py                ← .env betöltése, modell- és forrásnyelv-feloldás, API-kulcsok
+│   ├── config.py                ← .env betöltése, provider- / modell- / effort- és forrásnyelv-feloldás
+│   ├── defaults.env             ← az alapértékek EGYETLEN helye (provider / modell / effort funkciónként)
 │   ├── srt.py                   ← SRT parser
 │   ├── blocks.py                ← Blokk-alapú szegmentálás
 │   ├── context.py               ← TRANSLATION.md + glossary.json beolvasása
@@ -231,15 +232,15 @@ python subtr.py split "input\Sorozat - S01E01.eng.srt"
 # enélkül a parancs leáll, hogy a két generáció ne keveredjen a merge-nél
 # .vtt bemenetre (vagy WEBVTT fejlécre) is leáll: előbb addons\vtt2srt
 
-# 2. Fordítás — a --provider választja ki a fordítót (default: claude)
+# 2. Fordítás — a --provider választja ki a fordítót (nélküle: SUBTR_TRANSLATE_PROVIDER)
 python subtr.py translate "blocks\Sorozat - S01E01.eng" --provider claude --agents 3
 # vagy Gemini API-val (olcsóbb alternatíva, ugyanazokat a blokkokat dolgozza fel)
 # python subtr.py translate "blocks\Sorozat - S01E01.eng" --provider gemini --agents 3
 # vagy Codex CLI-vel — első futáskor egy blokkot, egy agenttel ellenőrizz
 # python subtr.py translate "blocks\Sorozat - S01E01.eng" --provider codex --block 1 --agents 1
-# vagy Grok CLI-vel (fordítás default: grok-4.5)
+# vagy Grok CLI-vel
 # python subtr.py translate "blocks\Sorozat - S01E01.eng" --provider grok --block 1 --agents 1
-# vagy Antigravity CLI-vel (Gemini előfizetésből; default: gemini-3.8-flash-high)
+# vagy Antigravity CLI-vel (Gemini előfizetésből)
 # python subtr.py translate "blocks\Sorozat - S01E01.eng" --provider antigravity --agents 3
 
 # 3. Összefűzés egy fájlba
@@ -248,8 +249,12 @@ python subtr.py merge "blocks\Sorozat - S01E01.eng" "output\Sorozat - S01E01.hun
 # 4. Strukturális ellenőrzés (sorszámok, időbélyegek, szekciószámok)
 python subtr.py verify "input\Sorozat - S01E01.eng.srt" "output\Sorozat - S01E01.hun.srt"
 
-# 5. Stilisztikai review — a default provider gemini, --provider-rel válthatsz
+# 5. Stilisztikai review — alapból Antigravity (SUBTR_REVIEW_PROVIDER), --provider-rel válthatsz
 python subtr.py review "output\Sorozat - S01E01.hun.srt"
+# Kimenet: output\Sorozat - S01E01.hun_REVIEW_ANTIGRAVITY.txt + .json
+
+# vagy Gemini API-val
+python subtr.py review "output\Sorozat - S01E01.hun.srt" --provider gemini
 # Kimenet: output\Sorozat - S01E01.hun_REVIEW_GEMINI.txt + .json
 
 # vagy Claude Code-dal
@@ -260,13 +265,9 @@ python subtr.py review "output\Sorozat - S01E01.hun.srt" --provider claude
 python subtr.py review "output\Sorozat - S01E01.hun.srt" --provider codex
 # Kimenet: output\Sorozat - S01E01.hun_REVIEW_CODEX.txt + .json
 
-# vagy Grok CLI-vel (review default: grok-4.6)
+# vagy Grok CLI-vel
 python subtr.py review "output\Sorozat - S01E01.hun.srt" --provider grok
 # Kimenet: output\Sorozat - S01E01.hun_REVIEW_GROK.txt + .json
-
-# vagy Antigravity CLI-vel (review default: gemini-3.8-flash-high)
-python subtr.py review "output\Sorozat - S01E01.hun.srt" --provider antigravity
-# Kimenet: output\Sorozat - S01E01.hun_REVIEW_ANTIGRAVITY.txt + .json
 
 # 5b. Review-javaslatok alkalmazása (a riportokat összefésüli, deduplikálja,
 #     találatonként y/n/e/q kérdéssel viszi át a fájlba, .bak mentéssel)
@@ -279,10 +280,15 @@ python subtr.py resegment report "output\Sorozat - S01E01.hun.srt"
 python subtr.py resegment reflow "output\Sorozat - S01E01.hun.srt" -o "output\Sorozat - S01E01.hun.reflow.srt"
 ```
 
-A review parancs **öt providere** — Gemini (default), Claude, Codex, Grok, Antigravity —
+A review parancs **öt providere** — Antigravity (alapérték), Gemini, Claude, Codex, Grok —
 **független** egymástól: futtathatod csak az egyiket vagy többet, `--provider`-rel
 váltva. A találatokat a `subtr.py apply` fésüli össze és viszi át
 interaktívan; kézzel is javíthatsz a riportok alapján.
+
+**Ajánlott: két review-kör.** Előbb az alapértelmezett Antigravity-review, utána
+egy Claude-kör Opus modellel (`--provider claude --model opus`), és a két riport
+találatait együtt nézd át — a lektorok más-más hibatípust vesznek észre. A mérést
+és a számokat lásd a *Review — opciók* szakasz elején.
 
 ### Forrásnyelv
 
@@ -410,7 +416,7 @@ ugyanazon a projekten akár felváltva is.
 # Egyedi blokk méret szétvágáshoz
 python subtr.py split "input\eng.srt" --block-size 100
 
-# Claude modell-választás (default: sonnet; ajánlott: opus — lásd „Claude — ajánlott modell és effort")
+# Claude modell-választás (alapérték a defaults.env-ben: sonnet; ajánlott: opus — lásd „Claude — ajánlott modell és effort")
 python subtr.py translate "blocks\eng" --provider claude --model haiku    # olcsóbb
 python subtr.py translate "blocks\eng" --provider claude --model opus     # alaposabb
 
@@ -437,7 +443,7 @@ python subtr.py translate "blocks\eng" --provider claude --agents 1
 
 #### Gemini API fordító (`subtr.py translate --provider gemini`) — alternatíva
 ```powershell
-# Default modell: gemini-3.8-flash
+# Modell: SUBTR_GEMINI_MODEL (defaults.env: gemini-3.8-flash)
 python subtr.py translate "blocks\eng" --provider gemini --agents 3
 
 # Tetszőleges Gemini modell --model flag-gel
@@ -464,7 +470,7 @@ python subtr.py translate "blocks\eng" --provider codex --agents 2 --model gpt-5
 
 #### Grok fordító (`subtr.py translate --provider grok`) — alternatíva
 ```powershell
-# Default modell: grok-4.5. Előfeltétel: `grok` a PATH-on, `grok login` vagy XAI_API_KEY.
+# Modell: SUBTR_GROK_MODEL (defaults.env: grok-4.5). Előfeltétel: `grok` a PATH-on, `grok login` vagy XAI_API_KEY.
 # Első futás: egy blokk, egy agent
 python subtr.py translate "blocks\eng" --provider grok --block 1 --agents 1
 
@@ -477,7 +483,7 @@ python subtr.py translate "blocks\eng" --provider grok --model grok-4.6
 
 #### Antigravity fordító (`subtr.py translate --provider antigravity`) — alternatíva
 ```powershell
-# Default modell: gemini-3.8-flash-high. Előfeltétel: `agy` a PATH-on, bejelentkezve.
+# Modell: SUBTR_ANTIGRAVITY_MODEL + _EFFORT (defaults.env: gemini-3.8-flash + high). Előfeltétel: `agy` a PATH-on, bejelentkezve.
 # A Gemini-modelleket az előfizetés adja — nincs GEMINI_API_KEY és napi API-kvóta.
 python subtr.py translate "blocks\eng" --provider antigravity --agents 3
 
@@ -498,6 +504,9 @@ python subtr.py translate "blocks\eng" --provider antigravity --model claude-opu
 > Ha a `--model` vagy a `.env` ilyen nevet ad, a pipeline az `agy models` listájából
 > ellenőrzi: ha nálad elérhető (Enterprise), azt használja; ha nem, figyelmeztet, és a
 > `gemini-3.8-flash` azonos effortú változatát hívja.
+> Az effort az Antigravity-ágon a modellnév utótagja (`-low` / `-medium` / `-high`): a
+> pipeline a `SUBTR_…_MODEL` és a `SUBTR_…_EFFORT` sorból fűzi össze, de a modellnévbe
+> írt utótag is érvényes.
 > A lista szerint a `gpt-oss-120b-medium` **2026. november 2-án** kikerül; a Gemini 4
 > Argon csak Ultra / Enterprise előfizetéssel érhető el (a CLI-ből is) — hogy nálad mi
 > választható, azt mindig az `agy models` mutatja.
@@ -529,12 +538,35 @@ változatlan marad — a modell csak a szöveget kapja és csak szöveget ad vis
 
 ### Review — opciók
 
+> **Két review-kör (mérés, 2026-11):** három, Opus-szal fordított részen (összesen
+> 2151 felirat; két angol és egy kínai forrású) az alapértelmezett Antigravity-review
+> (`gemini-3.8-flash`, `high` effort) és a Claude Opus-review találatait egyenként a
+> forráshoz mértük.
+>
+> | | Valódi javítás |
+> |---|---|
+> | Claude Opus-review | 59 |
+> | Antigravity-review | 36 |
+> | ebből közös | 17 |
+> | a kettő együtt | 78 |
+>
+> Az Antigravity 51 találatából 36 volt valódi hiba, 12 ízlés kérdése, 1 téves, 1 videó
+> nélkül eldönthetetlen, 1 pedig egy másik találat ismétlése — kevés a zaj. Jellemzően a szabálysértéseket (megszólítási
+> regiszter, szójegyzék, névragozás) és a nyelvtani hibákat fogta meg; az Opus több
+> félrefordítást és természetellenes mondatot talált. Egyik sem váltja ki a másikat:
+> **a két kör együtt kb. harmadával több valódi hibát hoz, mint az Opus egyedül.**
+> Ha csak egy kör fér bele, az Opus az erősebb (`SUBTR_REVIEW_PROVIDER=claude`,
+> `SUBTR_REVIEW_MODEL=opus`).
+>
+> Kis minta, és a besorolást is modell végezte, videó nélkül — iránymutatásnak jó,
+> pontos aránynak nem.
+
 #### Claude review (`subtr.py review --provider claude`)
 ```powershell
-# Default modell: sonnet (default chunk-size: 100)
+# Modell: SUBTR_CLAUDE_MODEL (defaults.env: sonnet); default chunk-size: 100
 python subtr.py review "output\hun.srt" --provider claude
 
-# Modell-választás: haiku (olcsóbb), sonnet (default), opus (alaposabb)
+# Modell-választás: haiku (olcsóbb), sonnet, opus (alaposabb)
 python subtr.py review "output\hun.srt" --provider claude --model haiku
 python subtr.py review "output\hun.srt" --provider claude --model opus
 
@@ -552,15 +584,16 @@ python subtr.py review "output\hun.srt" --provider claude --no-source
 
 #### Grok review (`subtr.py review --provider grok`)
 ```powershell
-# Default modell: grok-4.6
+# Modell: SUBTR_GROK_MODEL (defaults.env: grok-4.5)
 python subtr.py review "output\hun.srt" --provider grok
-python subtr.py review "output\hun.srt" --provider grok --model grok-4.5
+python subtr.py review "output\hun.srt" --provider grok --model grok-4.6
 ```
 
-#### Antigravity review (`subtr.py review --provider antigravity`)
+#### Antigravity review (`subtr.py review` — az alapérték)
 ```powershell
-# Default modell: gemini-3.8-flash-high (előfizetésből, API-kvóta nélkül) — lásd a fenti mérést
-python subtr.py review "output\hun.srt" --provider antigravity
+# defaults.env: antigravity, gemini-3.8-flash, effort high → gemini-3.8-flash-high
+# (előfizetésből, API-kvóta nélkül) — lásd a fenti mérést
+python subtr.py review "output\hun.srt"
 python subtr.py review "output\hun.srt" --provider antigravity --model claude-opus-5-5-high   # más modell: agy models
 ```
 
@@ -651,10 +684,10 @@ javaslattal, azt nem írja újra — a parancs idempotens.
 > Ezt a szűrési folyamatot a **`/review-triage`** skill automatizálja Claude
 > Code-ban (lásd a *Claude Code skillek* szakaszt).
 
-#### Gemini review (`subtr.py review` — a default provider)
+#### Gemini review (`subtr.py review --provider gemini`)
 ```powershell
-# Default modell: gemini-3.8-flash
-python subtr.py review "output\hun.srt"
+# Modell: SUBTR_GEMINI_MODEL (defaults.env: gemini-3.8-flash)
+python subtr.py review "output\hun.srt" --provider gemini
 
 # Tetszőleges modell-azonosító --model flag-gel
 python subtr.py review "output\hun.srt" --model gemini-3.8-flash
@@ -678,7 +711,7 @@ A forrásnyelvi SRT párosítása itt is működik (lásd fent a Claude review-n
 
 | Modell | Mire jó |
 |---|---|
-| `gemini-3.8-flash` | **Default** a fordításban és a review-ban is; a legújabb Flash (a kivezetett 3.5/3.6/3.7 utódja). Az Antigravity-ágon mért review-n a 3.6-nál jóval több valódi hibát talált (lásd az Antigravity-szakaszt). |
+| `gemini-3.8-flash` | A `defaults.env` Gemini-modellje (API-n és Antigravityn is); a legújabb Flash (a kivezetett 3.5/3.6/3.7 utódja). Az Antigravity-ágon mért review-n a 3.6-nál jóval több valódi hibát talált (lásd az Antigravity-szakaszt). |
 | `gemini-3.5-flash-lite`, `gemini-3.1-flash-lite` | Olcsó, gyors, **bő napi kvóta** free tier-en. Nagy tömegű fordításra, illetve ha a nem-lite napi limit elfogyott. |
 | `gemini-flash-latest`, `gemini-flash-lite-latest`, `gemini-pro-latest` | Alias-ok, mindig az adott sáv legújabb kiadására mutatnak. Kényelmes, de nem determinisztikus (kiadásváltáskor csendben más modellt kapsz). |
 
@@ -691,7 +724,7 @@ A forrásnyelvi SRT párosítása itt is működik (lásd fent a Claude review-n
 | `gemini-3.6-flash` | `gemini-3.8-flash` (2026-10-19) |
 | `gemini-3.7-flash` | `gemini-3.8-flash` |
 
-Ha `--model`-lel vagy a `.env`-ben (`SUBTR_GEMINI_MODEL*`) még a régi nevet adod
+Ha `--model`-lel vagy a `.env` modell-soraiban még a régi nevet adod
 meg, a pipeline figyelmeztet, és az utódot hívja.
 
 A pontos, aktuális listát a saját kulcsoddal is le tudod kérni:
@@ -800,7 +833,7 @@ python subtr.py glossary "input\eng.srt" "output\hun.srt"
 # Egyéni glossary útvonal (mindkét módban)
 python subtr.py glossary "input\eng.srt" --glossary my_glossary.json
 
-# Másik provider (Claude az alapértelmezett)
+# Másik provider (alapérték: SUBTR_GLOSSARY_PROVIDER, a defaults.env-ben claude)
 python subtr.py glossary "input\eng.srt" --provider codex
 python subtr.py glossary "input\eng.srt" --provider grok
 python subtr.py glossary "input\eng.srt" --provider antigravity
@@ -902,7 +935,7 @@ szakaszt). Ezt **kézzel is megírhatod** — ez a parancs csak felkínál egy e
 változatot, illetve továbbvezeti a meglévőt.
 
 ```powershell
-# Egy epizód alapján, Gemini API-val (default provider)
+# Egy epizód alapján (alapérték: SUBTR_REGISTER_PROVIDER, a defaults.env-ben gemini)
 python subtr.py register "input\S01E01.eng.srt"
 
 # Több rész = pontosabb. A részek közti eltérés VÁLTÁS-jelöltként jön fel,
@@ -926,8 +959,9 @@ python subtr.py register "Season 01\S01E01.hun.srt" "Season 01\S01E02.hun.srt" -
 
 | Kapcsoló | Jelentés |
 |---|---|
-| `--provider gemini\|claude\|codex\|grok\|antigravity` | Modell-provider (default: gemini) |
-| `--model NÉV` | Modell-felülbírálás (a `.env` `SUBTR_<PROVIDER>_MODEL_REGISTER` is jó) |
+| `--provider gemini\|claude\|codex\|grok\|antigravity` | Modell-provider (alapérték: `SUBTR_REGISTER_PROVIDER`) |
+| `--model NÉV` | Modell-felülbírálás (a `.env` `SUBTR_REGISTER_MODEL` sora is jó) |
+| `--effort SZINT` | Gondolkodási szint (a `.env` `SUBTR_REGISTER_EFFORT` sora is jó) |
 | `--source-lang KÓD` | A forrás nyelve, ha a fájlnév nem árulkodik (lásd *Forrásnyelv*) |
 | `--hungarian` | A bemenet(ek) kész **magyar** felirat(ok): a formát a magyar szövegből olvassa le |
 | `--local-file ÚTVONAL` | Melyik fájlban van a regiszter (default: `TRANSLATION.local.md`) |
@@ -970,7 +1004,7 @@ Minden fordító- és review-ág átadja a **TRANSLATION.md**-t és a
 | `translate --provider grok` | Grok CLI `--json-schema` |
 | `translate --provider antigravity` | Antigravity CLI `--json-schema` (prompt a stdin-en) |
 | `review --provider claude` | `--append-system-prompt-file` (Claude Code) |
-| `review` (default: gemini) | `system_instruction` (Gemini API) |
+| `review --provider gemini` | `system_instruction` (Gemini API) |
 | `review --provider codex` | Codex `exec --output-schema` |
 | `review --provider grok` | Grok CLI `--json-schema` |
 | `review --provider antigravity` | Antigravity CLI `--json-schema` (prompt a stdin-en) |
@@ -1013,88 +1047,128 @@ szakaszt). Ami **nem** áll át magától, az a szabályzat szövege:
 A `glossary.json` szerepe nem angol forrásnál még nagyobb: mivel a hibaminta-szabályok
 kiesnek, a konzisztencia jórészt a szójegyzéken múlik.
 
-## Modell-defaultok .env-ből
+## Provider, modell és effort .env-ből
 
-Az összes fordítási és review parancs (Claude, Gemini, Codex, Grok, Antigravity ág) a `.env` fájlból
-automatikusan betölt modell-beállításokat. A definiálandó változók neve mindig
-`SUBTR_<PROVIDER>_MODEL` formátumú, ahol a `<PROVIDER>` az egyik: `GEMINI`,
-`CLAUDE`, `CODEX`, `GROK` vagy `ANTIGRAVITY`.
+A négy LLM-es parancs — `translate`, `review`, `glossary`, `register` — beállítása
+funkciónként egy hármas. A kódban nincs beégetett provider vagy modellnév: minden
+alapérték a `subtr/defaults.env` fájlban van, a `.env` azt írja felül, a parancssori
+kapcsoló pedig mindkettőt.
 
 | Env-kulcs | Hatás |
 |---|---|
-| `SUBTR_GEMINI_MODEL` | Gemini default modell minden feladathoz |
-| `SUBTR_GEMINI_MODEL_TRANSLATE` | task-specifikus felülbírálás fordításhoz |
-| `SUBTR_GEMINI_MODEL_REVIEW` | task-specifikus felülbírálás review-hoz |
-| `SUBTR_GEMINI_MODEL_GLOSSARY` | task-specifikus felülbírálás glossary extractionhez |
-| `SUBTR_GEMINI_MODEL_REGISTER` | task-specifikus felülbírálás regiszter extractionhez |
-| `SUBTR_CLAUDE_MODEL` + `_TRANSLATE` / `_REVIEW` / `_GLOSSARY` / `_REGISTER` | ugyanez Claude CLI-hez |
-| `SUBTR_CODEX_MODEL` + `_TRANSLATE` / `_REVIEW` / `_GLOSSARY` / `_REGISTER` | ugyanez Codex CLI-hez |
-| `SUBTR_GROK_MODEL` + `_TRANSLATE` / `_REVIEW` / `_GLOSSARY` / `_REGISTER` | ugyanez Grok CLI-hez (beégetett: translate / glossary / register `grok-4.5`, review `grok-4.6`) |
-| `SUBTR_ANTIGRAVITY_MODEL` + `_TRANSLATE` / `_REVIEW` / `_GLOSSARY` / `_REGISTER` | ugyanez Antigravity CLI-hez (beégetett: mind a négy feladathoz `gemini-3.8-flash-high`) |
-| `SUBTR_DEFAULT_PROVIDER` | fordításnál kötelező helyettesítő (`--provider` nélkül ez dönt), a `subtr.py glossary` default providere (`claude`, felülírható), a `subtr.py register` default providere (`gemini`, felülírható) |
+| `SUBTR_<FUNKCIÓ>_PROVIDER` | a funkció providere: `gemini`, `claude`, `codex`, `grok` vagy `antigravity` |
+| `SUBTR_<FUNKCIÓ>_MODEL` | a modell ehhez a providerhez |
+| `SUBTR_<FUNKCIÓ>_EFFORT` | gondolkodási szint: `low`, `medium`, `high`, `xhigh`, `max` |
+| `SUBTR_<PROVIDER>_MODEL`, `SUBTR_<PROVIDER>_EFFORT` | tartalék arra az esetre, ha a funkciót **nem** a beállított providerével futtatod (pl. `--provider grok`) |
 
-**Feloldási precedencia** (az első nem-üres érték nyer):
-1. CLI `--model` kapcsoló (ha megadva)
-2. Task-specifikus env (`SUBTR_<PROVIDER>_MODEL_<TASK>`)
-3. Generikus env (`SUBTR_<PROVIDER>_MODEL`)
-4. Beégetett default a parancsban
+A `<FUNKCIÓ>` a `TRANSLATE`, `REVIEW`, `GLOSSARY` vagy `REGISTER`.
 
-**Példa .env-ből:**
-```bash
-# Gemini alapértelmezés: gemini-3.8-flash minden feladathoz
-SUBTR_GEMINI_MODEL=gemini-3.8-flash
+**Alapértékek** (`subtr/defaults.env`):
 
-# Fordítást egy gyorsabb, olcsóbb modellel végezzük
-SUBTR_GEMINI_MODEL_TRANSLATE=gemini-3.5-flash-lite
+| Funkció | Provider | Modell | Effort |
+|---|---|---|---|
+| `translate` | claude | sonnet | – |
+| `review` | antigravity | gemini-3.8-flash | high |
+| `glossary` | claude | a CLI sajátja | – |
+| `register` | gemini | gemini-3.8-flash | – |
 
-# Review a default Flash-sel
-SUBTR_GEMINI_MODEL_REVIEW=gemini-3.8-flash
+**Feloldás** (az erősebb nyer):
 
-# Glossary extraction alapvetően Claudeval, Geminivel nem
-SUBTR_DEFAULT_PROVIDER=claude
+- provider: `--provider` > `SUBTR_<FUNKCIÓ>_PROVIDER`
+- modell: `--model` > `SUBTR_<FUNKCIÓ>_MODEL` > `SUBTR_<PROVIDER>_MODEL`
+- effort: `--effort` > `SUBTR_<FUNKCIÓ>_EFFORT` > `SUBTR_<PROVIDER>_EFFORT`
 
-# Claude fordító: Opus minden fordítási jobhoz
-SUBTR_CLAUDE_MODEL_TRANSLATE=opus
+Előbb a `.env` sorai döntenek ebben a sorrendben, és csak ha ott nincs találat, akkor
+ugyanígy a `defaults.env` — a `.env` bármely sora (a provider-szintű is) erősebb az
+alapértékeknél. Néhány szabály:
+
+- **A funkció modell- és effort-sora a funkció provider-sorához tartozik.** Ha más
+  providerrel futtatsz (`--provider`, vagy a `.env`-ben csak a providert írod át), a
+  provider-szintű sorok lépnek be — a `sonnet` nem megy át a Groknak.
+- **Az üres érték is beállítás.** Üres modellnél a provider CLI-je a saját
+  alapértelmezésével fut (a Gemini API-nál a modell kötelező); üres effortnál nem megy
+  át szint. Így kapcsolható ki például a review `high` effortja: `SUBTR_REVIEW_EFFORT=`.
+- **Az effort** a Claude-ágon a CLI `--effort` kapcsolója, az Antigravity-ágon a
+  modellnév utótagja (`gemini-3.8-flash` + `high` → `gemini-3.8-flash-high`; itt csak
+  `low` / `medium` / `high`). A Gemini API, a Codex és a Grok ágán nincs hatása: a
+  parancs figyelmeztet, és kihagyja.
+- **Nincs néma visszaesés.** Ismeretlen provider, elgépelt effort vagy a Gemini-ágon
+  hiányzó modell hibával megállítja a parancsot.
+
+Hogy egy mappából éppen mi futna, és melyik érték honnan jön:
+
+```powershell
+python subtr.py config                    # a négy funkció hármasa, forrással
+python subtr.py config --provider grok    # mi lenne --provider grok mellett
 ```
+
+**Példa `.env`:**
+```bash
+# Fordítás: Claude Opus, közepes gondolkodással
+SUBTR_TRANSLATE_PROVIDER=claude
+SUBTR_TRANSLATE_MODEL=opus
+SUBTR_TRANSLATE_EFFORT=medium
+
+# Review: Gemini API az Antigravity helyett
+SUBTR_REVIEW_PROVIDER=gemini
+SUBTR_REVIEW_MODEL=gemini-3.8-flash
+
+# Ha néha Grokkal futtatsz valamit (--provider grok)
+SUBTR_GROK_MODEL=grok-4.6
+```
+
+**Régi változónevek.** A korábbi `SUBTR_DEFAULT_PROVIDER`,
+`SUBTR_<PROVIDER>_MODEL_<FUNKCIÓ>` és `SUBTR_<PROVIDER>_EFFORT_<FUNKCIÓ>` megszűnt: ha a
+`.env`-ben ilyen sor van, a parancs megáll, és megnevezi az új nevet.
+
+| Régi | Új |
+|---|---|
+| `SUBTR_DEFAULT_PROVIDER=x` | funkciónként `SUBTR_<FUNKCIÓ>_PROVIDER=x` |
+| `SUBTR_CLAUDE_MODEL_TRANSLATE=opus` | `SUBTR_TRANSLATE_PROVIDER=claude` + `SUBTR_TRANSLATE_MODEL=opus` |
+| `SUBTR_CLAUDE_EFFORT_GLOSSARY=low` | `SUBTR_GLOSSARY_PROVIDER=claude` + `SUBTR_GLOSSARY_EFFORT=low` |
+| `SUBTR_<PROVIDER>_MODEL`, `SUBTR_<PROVIDER>_EFFORT` | megmaradt, de már csak provider-váltáskor érvényes |
 
 ### Claude — ajánlott modell és effort
 
 A Claude-ág a Claude Code CLI **aliasait** adja át (`haiku`, `sonnet`, `opus`),
 és a CLI ezeket mindig a legfrissebb modellre oldja fel — 2026 szeptemberében az
 `opus` a Claude Opus 5.5-öt, a `sonnet` a Claude Sonnet 5-öt jelenti. A
-beégetett default a `sonnet`; ezen szándékosan nem változtatunk, mert az Opus
+`defaults.env` fordító modellje a `sonnet`; ezen szándékosan nem változtatunk, mert az Opus
 tokenenként kétszer annyiba kerül (API-áron 4 / 20 USD vs. 2 / 10 USD millió
 bemeneti / kimeneti tokenenként), előfizetésnél pedig gyorsabban fogyasztja a
 keretet.
 
 **Ajánlás: az Opus fordítson, minden más maradjon olcsóbb.** A fordításnál
 számít a legtöbbet a minőség (regiszter, nevek, hosszú kontextus), és egy jobb
-első fordítás kevesebb review-kört és javítást jelent. A review-ra a Gemini a
-jó ár-érték (lásd *Tippek*), a glossary és a register pedig rövid, egyszeri hívás.
+első fordítás kevesebb review-kört és javítást jelent. A glossary és a register
+rövid, egyszeri hívás.
 
-A `SUBTR_CLAUDE_MODEL` sor azért kell, mert a glossary és a register
-Claude-ágának nincs beégetett modellje: beállítás nélkül a Claude Code **saját
-mentett alapértelmezése** fut, ami könnyen éppen a legdrágább modell.
+A `SUBTR_GLOSSARY_MODEL` sort érdemes kitölteni: a `defaults.env`-ben üres, így
+beállítás nélkül a Claude Code **saját mentett alapértelmezése** fut, ami könnyen
+éppen a legdrágább modell.
 
 A második költségkar a **gondolkodási szint** (`--effort`). Ha nincs megadva, a
 Claude Code a saját alapértelmezésével fut, ami modellenként más, és magasabb
 lehet, mint amire egy jól specifikált fordítási feladatnak szüksége van — a
 minőséget itt a `TRANSLATION.md`, a regiszter és a szójegyzék adja, nem a
-modell hosszú töprengése. Ugyanaz a precedencia, mint a modellnél:
-`--effort` > `SUBTR_CLAUDE_EFFORT_<TASK>` > `SUBTR_CLAUDE_EFFORT` > a CLI
-alapértelmezése. Elgépelt értéknél a parancs hibával leáll — a CLI maga
-csendben visszaállna az alapértelmezésre.
+modell hosszú töprengése.
 
 ```bash
-SUBTR_CLAUDE_MODEL=sonnet            # minden Claude-hívás alapból Sonnet 5 …
-SUBTR_CLAUDE_MODEL_TRANSLATE=opus    # … kivéve a fordítást: Opus 5.5
-SUBTR_CLAUDE_EFFORT=medium           # minden Claude-hívás: közepes gondolkodás
-SUBTR_CLAUDE_EFFORT_GLOSSARY=low     # a szójegyzék-javaslathoz elég az alacsony
+SUBTR_TRANSLATE_PROVIDER=claude
+SUBTR_TRANSLATE_MODEL=opus           # a fordítás: Opus 5.5
+SUBTR_TRANSLATE_EFFORT=medium        # közepes gondolkodás
+
+SUBTR_GLOSSARY_PROVIDER=claude
+SUBTR_GLOSSARY_MODEL=sonnet          # a szójegyzék-javaslat: Sonnet 5 …
+SUBTR_GLOSSARY_EFFORT=low            # … alacsony szinten
+
+SUBTR_CLAUDE_MODEL=sonnet            # ha a review-t / registert --provider claude-dal futtatod
+SUBTR_CLAUDE_EFFORT=medium
 ```
 
 Ez kiindulópont, nem mért optimum. Érdemes egy epizódon kipróbálni: ha a
 review sok regiszter- vagy név-hibát talál, a fordításnál emeld `high`-ra
-(`SUBTR_CLAUDE_EFFORT_TRANSLATE=high`); ha tiszta, maradhat `medium`, vagy
+(`SUBTR_TRANSLATE_EFFORT=high`); ha tiszta, maradhat `medium`, vagy
 kipróbálható a `low` is. A `--agents` szám a költséget nem, csak a
 futásidőt és a párhuzamos terhelést befolyásolja.
 

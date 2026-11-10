@@ -43,7 +43,7 @@ from subtr.glossary import CATEGORIES, as_prompt_text, describe_bases, with_base
 from subtr.providers import get_provider
 from subtr import config
 from subtr.srt import read_text
-from subtr.config import CLI_PROVIDERS, GLOSSARIES_DIR, PROVIDERS
+from subtr.config import CLI_PROVIDERS, GLOSSARIES_DIR
 from subtr.context import load_translation_context as load_claude_md
 from subtr.providers.claude_cli import (find_claude as find_claude_cli,
                                         json_candidates, run_prompt)
@@ -196,7 +196,6 @@ CODEX_GLOSSARY_SCHEMA = {
     "additionalProperties": False,
 }
 
-GEMINI_MODEL_DEFAULT = "gemini-3.8-flash"
 
 
 def _existing_note(new_terms) -> str:
@@ -391,7 +390,8 @@ FONTOS:
 def extract_terms(src_path: str, hun_path: str, existing_terms: set,
                   claude_md: str = "", glossary_text: str = "", timeout: int = 300,
                   provider: str = "claude", model: str | None = None,
-                  src_lang: str = config.DEFAULT_SOURCE_LANG) -> list[dict]:
+                  src_lang: str = config.DEFAULT_SOURCE_LANG,
+                  effort: str | None = None) -> list[dict]:
     """Claude Code-dal kifejezések kinyerése a feliratpárból (utólagos mód).
     Hosszú fájlnál több darabban — a teljes epizód elemzésre kerül."""
     with open(src_path, 'r', encoding='utf-8-sig') as f:
@@ -414,7 +414,7 @@ def extract_terms(src_path: str, hun_path: str, existing_terms: set,
                                    claude_md, src_lang)
 
         valid = _run_extraction(prompt, seen, timeout, provider, model,
-                                source_text=eng_content)
+                                source_text=eng_content, effort=effort)
         for v in valid:
             seen.add(v["en"].lower())
         all_valid.extend(valid)
@@ -425,7 +425,8 @@ def extract_terms_source(src_path: str, existing_terms: set, claude_md: str = ""
                          glossary_text: str = "",
                          timeout: int = 300, provider: str = "claude",
                          model: str | None = None,
-                         src_lang: str = config.DEFAULT_SOURCE_LANG) -> list[dict]:
+                         src_lang: str = config.DEFAULT_SOURCE_LANG,
+                  effort: str | None = None) -> list[dict]:
     """Fordítás ELŐTTI kinyerés CSAK a forrásfeliratból.
 
     Az agent JAVASLATOT tesz a magyar fordításra (a CLAUDE.md szabályai +
@@ -450,7 +451,7 @@ def extract_terms_source(src_path: str, existing_terms: set, claude_md: str = ""
                                      claude_md, src_lang)
 
         valid = _run_extraction(prompt, seen, timeout, provider, model,
-                                source_text=eng_content)
+                                source_text=eng_content, effort=effort)
         for v in valid:
             seen.add(v["en"].lower())
         all_valid.extend(valid)
@@ -507,7 +508,6 @@ def _run_gemini(prompt: str, existing_terms: set, model: str | None,
         print("      Telepítés: pip install google-genai python-dotenv pydantic")
         return []
 
-    model = model or GEMINI_MODEL_DEFAULT
     gemini_provider.preflight(model, needed=1)
     print(f"Gemini elemzi a feliratot... ({model})")
     gemini_prompt = (prompt + "\n\nKIMENET: kizárólag egy JSON objektum "
@@ -529,7 +529,7 @@ def _run_gemini(prompt: str, existing_terms: set, model: str | None,
 
 def _run_extraction(prompt: str, existing_terms: set, timeout: int,
                     provider: str = "claude", model: str | None = None,
-                    source_text: str = "") -> list[dict]:
+                    source_text: str = "", effort: str | None = None) -> list[dict]:
     """Közös rész: provider hívás, válasz-parse és validáció."""
     if provider == "gemini":
         return _run_gemini(prompt, existing_terms, model, source_text)
@@ -555,13 +555,7 @@ def _run_extraction(prompt: str, existing_terms: set, timeout: int,
 
     claude_cmd = find_claude_cli()
     print(f"Claude Code elemzi a feliratot... ({claude_cmd})")
-    # A modell a main()-ben feloldott érték (SUBTR_CLAUDE_MODEL_GLOSSARY /
-    # SUBTR_CLAUDE_MODEL); az effort csak env-ből jön (rövid, egyszeri hívás).
-    try:
-        effort = config.resolve_effort(None, "claude", "glossary")
-    except ValueError as e:
-        print(f"HIBA: {e}")
-        return []
+    # A modell és az effort a main()-ben feloldott érték (config.resolve_settings).
     raw, err = run_prompt(prompt, timeout, claude_bin=claude_cmd,
                           model=model, effort=effort)
     if err:
@@ -770,14 +764,9 @@ def main():
                         help="Szójegyzék fájl útvonala (alapértelmezett: glossary.json)")
     parser.add_argument("--timeout", type=int, default=300,
                         help="Provider timeout másodpercben (alapértelmezett: 300)")
-    parser.add_argument("--provider", choices=PROVIDERS,
-                        default=config.default_provider(builtin="claude"),
-                        help="Kinyerő provider (alapértelmezett: claude, "
-                             "felülírható: SUBTR_DEFAULT_PROVIDER env)")
-    parser.add_argument("--model",
-                        help="Opcionális modellazonosító (codex / gemini / grok / antigravity; "
-                             f"gemini default: {GEMINI_MODEL_DEFAULT}, grok: grok-4.5, "
-                             "antigravity: gemini-3.8-flash-high)")
+    config.add_provider_argument(parser, "glossary", "Kinyerő provider")
+    config.add_model_argument(parser, "glossary")
+    config.add_effort_argument(parser, "glossary")
     parser.add_argument("--dry-run", action="store_true",
                         help="Csak kiírja, mi kerülne be — a szójegyzéket nem módosítja; nem is "
                              "kérdez, a bizonytalanok DÖNTENDŐ jelöléssel listázódnak")
@@ -792,12 +781,9 @@ def main():
         print("HIBA: A --yes és a --all-interactive kizárja egymást.")
         sys.exit(1)
 
-    # Modell-feloldás: CLI --model > SUBTR_<P>_MODEL_GLOSSARY > SUBTR_<P>_MODEL
-    # > beégetett default (Gemini-nél GEMINI_MODEL_DEFAULT, CLI-knél None).
-    args.model = config.resolve_model(
-        args.model, args.provider, "glossary",
-        builtin={"gemini": GEMINI_MODEL_DEFAULT, "grok": "grok-4.5",
-                 "antigravity": "gemini-3.8-flash-high"}.get(args.provider))
+    settings = config.settings_or_exit("glossary", args)
+    args.provider, args.model, args.effort = (settings.provider, settings.model,
+                                              settings.effort)
 
     pre_mode = args.hun_srt is None  # fordítás előtti, forrás-only mód
     src_lang = config.resolve_source_lang(args.source_lang, args.source_srt)
@@ -854,11 +840,11 @@ def main():
     if pre_mode:
         suggestions = extract_terms_source(args.source_srt, existing_terms, claude_md,
                                            glossary_text, args.timeout, args.provider,
-                                           args.model, src_lang)
+                                           args.model, src_lang, effort=args.effort)
     else:
         suggestions = extract_terms(args.source_srt, args.hun_srt, existing_terms,
                                     claude_md, glossary_text, args.timeout,
-                                    args.provider, args.model, src_lang)
+                                    args.provider, args.model, src_lang, effort=args.effort)
 
     if not suggestions:
         print("Nem találtam új kifejezést.")
