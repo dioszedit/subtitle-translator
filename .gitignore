@@ -33,6 +33,10 @@ input/*.srt
 output/*.srt
 output/*.txt
 output/*.json
+output/*.partial
+output/*.partial.stale
+*_REVIEW_*.partial
+*_REVIEW_*.partial.stale
 blocks/**
 !blocks/.gitkeep
 !input/.gitkeep

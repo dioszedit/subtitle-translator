@@ -14,6 +14,7 @@ Belépési pont: `subtr.py review [--provider claude|gemini|codex|grok|antigravi
 """
 
 import argparse
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -22,7 +23,7 @@ from subtr import config, reports
 from subtr.config import CLI_PROVIDERS
 from subtr.context import load_translation_context
 from subtr.glossary import as_prompt_text, describe_bases, load_merged
-from subtr.providers import claude_cli, get_provider
+from subtr.providers import claude_cli, get_provider, quota_signal
 from subtr.providers import gemini as gemini_provider
 from subtr.srt import parse_by_index, parse_entries
 
@@ -323,7 +324,10 @@ def _make_gemini_executor(client, model, instruction, max_retries=MAX_RETRIES):
             schema=ErrorReport, system=instruction,
             temperature=TEMPERATURE, max_retries=max_retries)
         if err:
-            return None, err
+            # Csak a NAPI limit állítja meg a futást; a percenkénti 429, ami
+            # túlélte az adapter újrapróbálkozásait, egyetlen hibás chunk.
+            return None, ChunkError(
+                err, quota=gemini_provider.daily_quota_exhausted(err))
         return [{"sorszam": e.sorszam, "eredeti": e.eredeti,
                  "hiba": e.hiba, "javaslat": e.javaslat}
                 for e in parsed.errors], None
@@ -345,18 +349,31 @@ def _make_claude_executor(claude_bin, sys_prompt_path, model,
                 input=prompt, capture_output=True, text=True,
                 timeout=timeout, encoding="utf-8")
         except subprocess.TimeoutExpired:
-            return None, f"[TIMEOUT a chunkban {i} ({timeout // 60} perc)]"
+            return None, ChunkError(f"[TIMEOUT a chunkban {i} ({timeout // 60} perc)]")
         except FileNotFoundError:
             print("HIBA: A 'claude' parancs nem található!")
             sys.exit(1)
         if proc.returncode != 0:
-            return None, f"[HIBA a chunkban {i}]: exit code {proc.returncode}\n{proc.stderr}"
+            # A CLI saját üzenete a stderr-en jön, vagy rövid stdout (pl.
+            # „Claude AI usage limit reached|…”). Hosszú stdout már modell-
+            # válasz lehet — abban nem keresünk keret-jelet.
+            stdout = proc.stdout.strip()
+            short = stdout if len(stdout) <= CLI_MESSAGE_MAX_CHARS else ""
+            cli_message = "\n".join(part for part in (proc.stderr.strip(), short) if part)
+            return None, ChunkError(
+                f"[HIBA a chunkban {i}]: exit code {proc.returncode}\n{cli_message}",
+                quota=quota_signal(cli_message))
         findings = parse_json_findings(proc.stdout.strip())
+        stdout = proc.stdout.strip()
+        if findings is None and len(stdout) <= CLI_MESSAGE_MAX_CHARS and quota_signal(stdout):
+            # Sikeres kilépés, de a kimenet a CLI limit-üzenete, nem lektori válasz.
+            return None, ChunkError(f"[A Claude Code üzenete a chunkban {i}]: {stdout}",
+                                    quota=True)
         if findings is None:
             # Nem értelmezhető válasz — a nyers szöveget megőrizzük,
             # hogy esetleges találat ne veszhessen el.
-            return None, ("[Nem JSON válasz — nyers kimenet megőrizve:]\n"
-                          + proc.stdout.strip())
+            return None, ChunkError("[Nem JSON válasz — nyers kimenet megőrizve:]\n"
+                                    + proc.stdout.strip())
         return findings, None
     return executor
 
@@ -366,7 +383,7 @@ def _make_cli_executor(adapter, cli_bin, model, instruction, timeout, retries):
     subtr.providers közös CLI-felülete (run_json / RunError / LABEL)."""
     def executor(chunk_text, i, total):
         prompt = f"{instruction}\n\n=== REVIEW BLOKK ({i}/{total}) ===\n{chunk_text}"
-        error = None
+        error, quota = None, False
         for attempt in range(1, retries + 1):
             try:
                 parsed = adapter.run_json(prompt, CODEX_REVIEW_SCHEMA,
@@ -385,10 +402,129 @@ def _make_cli_executor(adapter, cli_bin, model, instruction, timeout, retries):
                 return findings, None
             except adapter.RunError as exc:
                 error = str(exc)
+                # A jelzőt az adapter adja: ő tudja, a szöveg melyik része a
+                # provider saját üzenete. Kimerült keretnél nincs értelme újrapróbálni.
+                quota = bool(getattr(exc, "quota", False))
+                if quota:
+                    break
                 if attempt < retries:
                     print(f"  {adapter.LABEL} hiba, újrapróbálás ({attempt}/{retries})...")
-        return None, error
+        return None, ChunkError(error, quota=quota)
     return executor
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# Chunk-ciklus: részeredmény-mentés, korai leállás, megszakítás
+# ────────────────────────────────────────────────────────────────────────────
+
+# Keret-kimerülés: a jelzőt az executor adja a ChunkError-ban, és a provider-
+# adapterből veszi (CliRunError.quota, gemini.daily_quota_exhausted,
+# providers.quota_signal a Claude CLI saját üzenetére). A tasks réteg nem
+# keresgél hibaszövegben — ott nem tudható, mi jön a providertől és mi a
+# modell válaszából (amiben feliratszöveg van).
+MAX_CONSECUTIVE_ERRORS = 2
+# Rövid kimenet = a CLI saját üzenete (pl. „usage limit reached|…”), nem
+# lektori válasz; a hosszabb már modellválasz lehet.
+CLI_MESSAGE_MAX_CHARS = 300
+
+
+class ChunkError(str):
+    """Egy chunk hibaüzenete — minden executor ezt adja vissza. A `quota` jelzőt
+    az executor állítja be, mert csak ő tudja, hogy a szöveg a providertől
+    jön-e, vagy a modell válaszából."""
+    quota = False
+
+    def __new__(cls, message, quota=False):
+        obj = super().__new__(cls, message)
+        obj.quota = bool(quota)
+        return obj
+
+
+# Az ujjlenyomat kulcsai emberi néven — az elavult részeredmény indoklásához.
+_FINGERPRINT_LABELS = {
+    "instruction": "a lektor-utasítás (TRANSLATION.md, regiszter, szójegyzék)",
+    "chunk_size": "a chunkméret", "total_chunks": "a chunkok száma",
+    "range": "a chunk-tartomány", "provider": "a provider", "model": "a modell",
+    "effort": "az effort", "fejléc": "a fájl fejléce olvashatatlan",
+}
+
+
+def run_chunks(chunks, todo, total_chunks, executor, on_done=None, on_error=None,
+               retry=()):
+    """A `todo` chunkok (1-alapú sorszámok) lektorálása a megadott sorrendben.
+
+    Vissza: (results {szám: findings}, errors {szám: ChunkError}, interrupted).
+    Minden kész chunk után `on_done(szám, findings)`, minden hibás után
+    `on_error(szám, üzenet)` fut (részeredmény-mentés).
+
+    Leállás, a hátralévő chunkok „kihagyva” hibát kapnak:
+      - keret-kimerülésnél (az executor ChunkError.quota jelzője), bármikor;
+      - MAX_CONSECUTIVE_ERRORS egymást követő hibánál az ELŐSZÖR próbált
+        chunkokon;
+      - a `retry` halmaz chunkjain (korábban már hibáztak; a hívó a `todo`
+        végére teszi őket, a legkevesebbszer elbukottal kezdve) csak akkor, ha
+        MAX_CONSECUTIVE_ERRORS egymást követő chunk UGYANAZZAL a hibával bukik
+        — az a provider baja (pl. fel nem ismert limit-üzenet), nem a chunké.
+        Eltérő hibák nem állítanak meg semmit, így egy-két makacs chunk nem
+        zárja el a többit.
+    Ctrl+C (bárhol a ciklusban): interrupted=True.
+    """
+    results, errors, consecutive = {}, {}, 0
+    retry = set(retry)
+    same_error, last_line = 0, None
+    try:
+        for pos, i in enumerate(todo):
+            chunk_text = "\n\n".join(chunks[i - 1])
+            print(f"[{i}/{total_chunks}] Ellenőrzés folyamatban...")
+            findings, err_msg = executor(chunk_text, i, total_chunks)
+            if not err_msg:
+                consecutive, same_error, last_line = 0, 0, None
+                if on_done:
+                    on_done(i, findings)
+                results[i] = findings
+                continue
+            err = err_msg if isinstance(err_msg, ChunkError) else ChunkError(err_msg)
+            if on_error:
+                on_error(i, err)
+            errors[i] = err
+            first_line = err.splitlines()[0] if err.strip() else ""
+            print(f"  {first_line}")
+            reason = None
+            if err.quota:
+                reason = "a provider kerete kimerült"
+            elif i in retry:
+                same_error = same_error + 1 if first_line == last_line else 1
+                last_line = first_line
+                if same_error >= MAX_CONSECUTIVE_ERRORS:
+                    reason = (f"{same_error} újrapróbált chunk egymás után ugyanazzal "
+                              "a hibával bukott el")
+            else:
+                consecutive += 1
+                if consecutive >= MAX_CONSECUTIVE_ERRORS:
+                    reason = f"{consecutive} chunk egymás után hibára futott"
+            rest = todo[pos + 1:]
+            if rest and reason:
+                print(f"\nLEÁLLÁS: {reason} — a hátralévő {len(rest)} chunk kimarad.")
+                for j in rest:
+                    errors[j] = ChunkError(f"{SKIPPED_PREFIX} a futás leállt: {reason}]")
+                break
+    except KeyboardInterrupt:
+        return results, errors, True
+    return results, errors, False
+
+
+SKIPPED_PREFIX = "[KIHAGYVA —"
+
+
+def _partial_op(operation, path) -> bool:
+    """Részeredmény-karbantartás (törlés, félretevés) hibatűrően: a zárolt vagy
+    nem írható fájl nem buktathatja el a review-t. True, ha sikerült."""
+    try:
+        operation(path)
+        return True
+    except OSError as e:
+        print(f"  FIGYELEM: a részeredmény-fájl nem kezelhető ({path.name}: {e}).")
+        return False
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -419,6 +555,12 @@ def main(argv=None):
                         help="Eddig a chunkig (bezárólag, 1-alapú). Default: utolsó")
     parser.add_argument("--suffix", type=str, default="",
                         help="Riport fájl utótag, pl. '_part2' → _REVIEW_GEMINI_part2.txt")
+    parser.add_argument("--no-resume", action="store_true",
+                        help="Ne folytassa a megszakadt futást: a részeredményt "
+                             "(.partial) eldobja, és elölről kezdi")
+    parser.add_argument("--from-partial", action="store_true",
+                        help="Riport a meglévő részeredményből (.partial), a provider "
+                             "hívása nélkül; a hiányzó chunkok hibásként szerepelnek")
     config.add_source_lang_argument(parser)
     parser.add_argument("--source", "--english", type=str, default=None,
                         help="Forrásnyelvi SRT (default: automatikus keresés — "
@@ -450,15 +592,20 @@ def main(argv=None):
     if args.max_retries < 1:
         print(f"HIBA: --max-retries legalább 1 legyen (kaptam: {args.max_retries})")
         sys.exit(1)
+    if args.from_partial and args.no_resume:
+        print("HIBA: --from-partial és --no-resume együtt nem használható.")
+        sys.exit(1)
 
     srt_path = Path(args.srt_file)
     if not srt_path.exists():
         print(f"HIBA: Fájl nem található: {srt_path}")
         sys.exit(1)
 
-    # Provider-előfeltételek
+    # Provider-előfeltételek (--from-partial nem hív providert, ott nem kellenek)
     claude_bin = cli_bin = adapter = client = None
-    if provider == "gemini":
+    if args.from_partial:
+        pass
+    elif provider == "gemini":
         if not gemini_provider.DEPS_OK:
             print(f"HIBA: Hiányzó Python függőség: {gemini_provider.DEPS_ERROR}")
             print(f"      Telepítés: pip install google-genai python-dotenv pydantic")
@@ -567,48 +714,176 @@ def main(argv=None):
     if start > 1 or end < total_chunks:
         print(f"Tartomány: {start}–{end}")
 
-    if provider == "gemini":
-        # Kvóta-előrejelzés: a Gemini API nem adja vissza a maradékot, ezért
-        # helyi (gépszintű, kulcs szerinti) könyvelésből becsüljük meg, hogy
-        # a most következő (end - start + 1) kérés belefér-e a napi limitbe.
-        gemini_provider.preflight(model, needed=end - start + 1)
-    print()
-
     report_path, json_path = reports.report_paths(srt_path, provider, args.suffix)
+    partial_path = reports.partial_path(json_path)
+
+    # Részeredmény: a megszakadt futás kész chunkjai. A fejléc-ujjlenyomat a
+    # beállításokat fedi le (ezek változása MINDEN korábbi találatot érint), a
+    # chunkonkénti hash a szöveget — így a felirat egy részének módosítása
+    # (pl. átvezetett javítások) csak az érintett chunkokat küldi újra.
+    # Az „instruction” ujjlenyomat a SZŰRETLEN szójegyzékkel épített utasításé:
+    # a promptba kerülő szójegyzék a felirat szövegére szűkül, így egy
+    # átvezetett javítás (egy terminus egyetlen előfordulása) megváltoztatná —
+    # pedig a beállítás ugyanaz, és a többi chunk eredménye érvényes maradt.
+    fingerprint = {
+        "instruction": reports.text_hash(build_system_instruction(
+            claude_md, as_prompt_text(merged_glossary), has_source,
+            json_output=(provider != "claude"), src_lang=src_lang)),
+        "chunk_size": args.chunk_size, "total_chunks": total_chunks,
+        "range": f"{start}-{end}", "provider": provider,
+        "model": model or "", "effort": settings.shown_effort or "",
+    }
+    chunk_hashes = {i: reports.text_hash("\n\n".join(chunks[i - 1]))
+                    for i in range(1, total_chunks + 1)}
+    in_range = list(range(start, end + 1))
+    partial_usable = True     # olvasható és írható-e a részeredmény
+    try:
+        state = reports.load_partial(partial_path, fingerprint, chunk_hashes)
+    except OSError as e:
+        print(f"FIGYELEM: a részeredmény nem olvasható ({e}) — a review nélküle "
+              "fut, és ez a futás megszakadás után nem lesz folytatható.")
+        state, partial_usable = reports.PartialState(), False
+    done, failed, outdated, changed = (state.done, state.failed, state.outdated,
+                                       state.changed)
+    resuming = (partial_usable and partial_path.exists() and not changed
+                and not args.no_resume)
 
     # Felülírás-védelem: rész-tartomány futtatása suffix nélkül letörölné
     # a korábbi teljes riportot (pl. chunk 1-8 találatai vesznének el).
-    if (start > 1 or end < total_chunks) and not args.suffix and report_path.exists():
+    # Kivétel: ha ehhez a futáshoz érvényes részeredmény tartozik, a meglévő
+    # riport ennek a rész-tartománynak a (hiányos) riportja — azt folytatjuk.
+    # A védelem MINDEN részeredmény-módosítás előtt fut: egy elutasított
+    # parancs semmit nem dobhat el.
+    if ((start > 1 or end < total_chunks) and not args.suffix
+            and report_path.exists() and not resuming):
         print(f"HIBA: Létező riport ({report_path.name}) + rész-tartomány futtatás.")
         print("      A futás felülírná a teljes korábbi riportot!")
         print("      Adj meg --suffix _part2 (vagy hasonló) utótagot.")
         sys.exit(1)
 
-    # Executor összeállítása
-    if provider == "gemini":
-        executor = _make_gemini_executor(client, model, instruction,
-                                         max_retries=args.max_retries)
-    elif provider == "claude":
-        # A más hash-ű (párhuzamos futás által használt) fájlokat nem bántjuk,
-        # csak a kor szerint elavultakat — lásd claude_cli.write_sys_prompt_file.
-        claude_cli.cleanup_stale_sys_prompts(CLAUDE_SYS_PROMPT_PREFIX)
-        sys_prompt_path, _ = claude_cli.write_sys_prompt_file(
-            instruction, CLAUDE_SYS_PROMPT_PREFIX)
-        executor = _make_claude_executor(claude_bin, sys_prompt_path, model,
-                                         timeout=args.timeout, effort=effort)
-    else:
-        executor = _make_cli_executor(adapter, cli_bin, model, instruction,
-                                      args.timeout, args.max_retries)
+    if args.no_resume:
+        if partial_path.exists():
+            print(f"Részeredmény eldobva (--no-resume): {partial_path.name}")
+        partial_usable = _partial_op(reports.discard_partial, partial_path) and partial_usable
+        done, failed, outdated, changed = {}, {}, [], None
+    if changed:
+        why = ", ".join(_FINGERPRINT_LABELS.get(k, k) for k in changed)
+        if args.from_partial:
+            print(f"HIBA: a részeredmény ({partial_path.name}) nem ehhez a futáshoz "
+                  f"tartozik — megváltozott: {why}.")
+            print("      Ugyanazokkal a kapcsolókkal futtasd, amivel a megszakadt "
+                  "review indult.")
+            sys.exit(1)
+        print(f"A korábbi részeredmény nem ehhez a futáshoz tartozik (megváltozott: "
+              f"{why}) — a review elölről indul.")
+        if _partial_op(reports.set_aside_partial, partial_path):
+            print(f"  A régi részeredmény megmaradt: "
+                  f"{reports.stale_path(partial_path).name}. Visszahozható: állítsd "
+                  f"vissza a beállítást, nevezd át {partial_path.name} névre, és "
+                  "futtasd újra (vagy kérj belőle riportot: --from-partial).")
+        else:
+            partial_usable = False
+    done = {i: f for i, f in done.items() if i in in_range}
+    failed = {i: m for i, m in failed.items() if i in in_range and i not in done}
+    outdated = [i for i in outdated if i in in_range]
+    # A korábban hibára futott chunkok a sor végére kerülnek: előbb a még meg
+    # sem próbáltak jönnek.
+    # Az újrapróbáltak között a legkevesebbszer elbukott megy előre — egy
+    # egyszer megbotlott chunk ne ragadjon a mindig hibázók mögé.
+    todo = ([i for i in in_range if i not in done and i not in failed]
+            + sorted(failed, key=lambda i: (state.attempts.get(i, 1), i)))
+    if args.from_partial:
+        if not done:
+            print(f"HIBA: nincs felhasználható részeredmény ({partial_path.name}).")
+            sys.exit(1)
+        print(f"Riport a részeredményből: {len(done)}/{len(in_range)} chunk kész, "
+              "a provider nem fut.")
+    elif done or failed:
+        print(f"Folytatás: {len(done)}/{len(in_range)} chunk már kész "
+              f"({partial_path.name}), hátravan: {len(todo)}.")
+    if outdated and args.from_partial:
+        print(f"  Megváltozott szövegű chunk, a korábbi eredménye nem használható: "
+              f"{reports.chunk_ranges(outdated)}.")
+    elif outdated:
+        print(f"  Megváltozott szövegű chunk, újra lektorálva: "
+              f"{reports.chunk_ranges(outdated)}.")
+    if failed and not args.from_partial:
+        print(f"  Korábban hibás, a sor végén újrapróbálva: "
+              f"{reports.chunk_ranges(failed)}.")
 
-    finding_blocks, json_findings, error_chunks = [], [], []
-    for i in range(start, end + 1):
-        chunk_text = "\n\n".join(chunks[i - 1])
-        print(f"[{i}/{total_chunks}] Ellenőrzés folyamatban...")
-        findings, err_msg = executor(chunk_text, i, total_chunks)
-        if err_msg:
-            error_chunks.append(f"--- Chunk {i}/{total_chunks} ---\n{err_msg}\n")
-            print(f"  {err_msg.splitlines()[0]}")
+    if provider == "gemini" and todo and not args.from_partial:
+        # Kvóta-előrejelzés: a Gemini API nem adja vissza a maradékot, ezért
+        # helyi (gépszintű, kulcs szerinti) könyvelésből becsüljük meg, hogy
+        # a most következő kérések beleférnek-e a napi limitbe.
+        gemini_provider.preflight(model, needed=len(todo))
+    print()
+
+    results, errors, interrupted = dict(done), {}, False
+    if args.from_partial:
+        errors = {i: ChunkError(f"{SKIPPED_PREFIX} nincs lektorálva (a riport "
+                                "részeredményből készült)]") for i in todo}
+    elif todo:
+        # Executor összeállítása
+        if provider == "gemini":
+            executor = _make_gemini_executor(client, model, instruction,
+                                             max_retries=args.max_retries)
+        elif provider == "claude":
+            # A más hash-ű (párhuzamos futás által használt) fájlokat nem bántjuk,
+            # csak a kor szerint elavultakat — lásd claude_cli.write_sys_prompt_file.
+            claude_cli.cleanup_stale_sys_prompts(CLAUDE_SYS_PROMPT_PREFIX)
+            sys_prompt_path, _ = claude_cli.write_sys_prompt_file(
+                instruction, CLAUDE_SYS_PROMPT_PREFIX)
+            executor = _make_claude_executor(claude_bin, sys_prompt_path, model,
+                                             timeout=args.timeout, effort=effort)
+        else:
+            executor = _make_cli_executor(adapter, cli_bin, model, instruction,
+                                          args.timeout, args.max_retries)
+
+        # A részeredmény írása kényelmi funkció: ha nem megy (megtelt lemez,
+        # zárolt fájl), a review attól még fusson végig, és írjon riportot.
+        save_ok = [partial_usable]
+
+        def save(write, *write_args):
+            if not save_ok[0]:
+                return
+            try:
+                write(partial_path, *write_args)
+            except (OSError, ValueError) as e:      # ValueError: kódolási hiba is
+                save_ok[0] = False
+                print(f"  FIGYELEM: a részeredmény nem írható ({e}) — a review "
+                      "megy tovább, de ez a futás megszakadás után nem folytatható.")
+
+        if not partial_path.exists():
+            save(reports.start_partial, fingerprint)
+        new, errors, interrupted = run_chunks(
+            chunks, todo, total_chunks, executor,
+            on_done=lambda i, f: save(reports.append_partial, i, chunk_hashes[i], f),
+            on_error=lambda i, e: save(reports.append_partial_error, i,
+                                       chunk_hashes[i], e),
+            retry=failed)
+        results.update(new)
+
+    if interrupted:
+        # Félkész riportot nem írunk — a triage teljesnek nézhetné.
+        print(f"\nMEGSZAKÍTVA: {len(results)}/{len(in_range)} chunk kész, "
+              f"a részeredmény megmaradt ({partial_path.name}).")
+        print("  Folytatás: ugyanez a parancs újra.")
+        print("  Riport a kész részből, a provider hívása nélkül: --from-partial")
+        sys.exit(130)
+
+    # Egy chunk korábbi futásokból származó hibaüzeneteit megtartjuk a riportban
+    # (akár sorra került most, akár nem): bennük lehet a modell nem értelmezhető,
+    # de megőrzött nyers válasza, amit egy újabb hiba nem írhat felül.
+    for i, message in errors.items():
+        earlier = [m for m in failed.get(i, []) if m != message]
+        if earlier:
+            errors[i] = ChunkError("\n".join([*earlier, message]))
+
+    finding_blocks, json_findings = [], []
+    for i in in_range:
+        if i in errors:
             continue
+        findings = results.get(i, [])
         block = reports.format_findings(findings, i, total_chunks)
         if block:
             finding_blocks.append(block)
@@ -620,9 +895,25 @@ def main(argv=None):
                           model_label=model or "default",
                           finding_blocks=finding_blocks,
                           json_findings=json_findings,
-                          error_chunks=error_chunks)
+                          errors=errors,
+                          total_chunks=total_chunks,
+                          chunk_range=((start, end) if (start > 1 or end < total_chunks)
+                                       else None))
 
     # Hibás/kihagyott chunk esetén nem-nulla exit kód — MINDEN providernél,
-    # hogy a hívó ne csak a riport végéből tudja meg, hogy hiányos.
-    if error_chunks:
+    # hogy a hívó ne csak a riport végéből tudja meg, hogy hiányos. A
+    # részeredmény ilyenkor megmarad: a következő futás csak a hiányzókat pótolja.
+    if errors:
+        if args.from_partial:
+            print(f"  A részeredmény megmaradt ({partial_path.name}): a hiányzó "
+                  "chunkok pótlásához futtasd újra --from-partial NÉLKÜL.")
+        else:
+            print(f"  A részeredmény megmaradt ({partial_path.name}): ugyanez a "
+                  "parancs újra csak a hiányzó chunkokat futtatja (előbb a még "
+                  "meg sem próbáltakat, a most hibásakat a végén).")
         sys.exit(1)
+    # Sikeres, teljes futás: a részeredmény és egy korábban félretett változata
+    # sem kell már. Ha nem törölhető (zárolt fájl), az csak figyelmeztetés —
+    # a review kész, a riport megvan.
+    _partial_op(reports.discard_partial, partial_path)
+    _partial_op(reports.discard_partial, reports.stale_path(partial_path))

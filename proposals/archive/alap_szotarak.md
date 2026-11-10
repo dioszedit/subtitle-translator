@@ -2,7 +2,7 @@
 
 > **Státusz: MEGVALÓSULT (2026-10)** — archiválva 2026-11-én. Azóta elkészült a
 > `zh-wuxia` és a `ph-common` alap is. A nyitott tételek (`ja-common`, `ko-sageuk`,
-> `"keep": true` jelző): [../deep_review_otletek_v3.md](../deep_review_otletek_v3.md) #4.
+> `"keep": true` jelző): [../deep_review_otletek_v3.md](../deep_review_otletek_v3.md) #3.
 
 Állapot: **mind az öt fázis kész** (2026-10) — mechanizmus, `tmdb-init`-javaslat,
 hat alap (v1.0), a futó sorozatok átállítása és a `subtr.py bases` parancs

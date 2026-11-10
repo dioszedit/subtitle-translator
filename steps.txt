@@ -209,8 +209,20 @@ py subtr.py review "output\Sorozat - S01E01.hun.srt"
 #   --source "input\....srt"    forrásnyelvi SRT kézi megadása (bármilyen nyelv;
 #                               a régi név, --english, továbbra is működik)
 #   --no-source                 forrásnyelvi SRT kihagyása
-#   --start-chunk N             chunk-tartomány pl. kvótahiba utáni pótlásra
-#   --end-chunk N --suffix _part2  hogy ne írja felül a meglévő riportot
+#   --start-chunk N             csak egy chunk-tartomány (külön riportba:
+#   --end-chunk N --suffix _part2  a --suffix védi a meglévő riportot)
+#   --no-resume                 a megszakadt futás részeredményét eldobja
+#   --from-partial              riport a kész részből, a provider hívása nélkül
+# MEGSZAKADT VAGY HIÁNYOS FUTÁS: a kész chunkok a riport melletti .partial
+#   fájlba mentődnek. Ugyanez a parancs újra → csak a hiányzó chunkok futnak.
+#   Kvóta elfogyásakor (vagy két egymást követő hibás chunk után) a futás
+#   megáll, és HIÁNYOS riportot ír a kész részből — ez triage-olható, közben
+#   a teljes részt egy másik providerrel is lektoráltathatod. Ctrl+C után nem
+#   készül riport: folytasd ugyanazzal a paranccsal, vagy kérd a kész részt
+#   --from-partial kapcsolóval. Ha a felirat egy része közben megváltozott
+#   (pl. átvezetett javítások), csak az érintett chunkok mennek újra. Ha a
+#   modell, az effort vagy a szójegyzék változott, a részeredmény .partial.stale
+#   néven félrekerül, és a review elölről indul.
 # Kimenet: output\Sorozat - S01E01.hun_REVIEW_ANTIGRAVITY.txt (olvasható riport)
 #          output\Sorozat - S01E01.hun_REVIEW_ANTIGRAVITY.json (a subtr.py apply-hoz)
 #          (a riport neve a providert követi: _REVIEW_GEMINI, _REVIEW_CLAUDE, …)

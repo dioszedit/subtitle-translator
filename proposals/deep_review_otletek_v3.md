@@ -6,23 +6,14 @@
 >   az `epizod` skill viszi végig, a fájlokból felismerve, hol tart a pipeline;
 > - **bekerültek** az alap-szótárak nyitva maradt tételei (a megvalósult terv:
 >   [archive/alap_szotarak.md](archive/alap_szotarak.md));
+> - **megvalósult** a review folytatása megszakadás után (részeredmény-fájl, korai
+>   leállás kvótánál, hiányos riport) — a leírása a fő README-ben van;
 > - a hivatkozások a mai kódhoz igazodnak (öt provider, alap-szótárak,
 >   funkciónkénti provider / modell / effort a `subtr/defaults.env`-ből).
 
 ---
 
-## 1. Review folytatása megszakadás után
-
-A `subtr.py review` chunkonként azonnal írja a találatokat (`.partial`
-sidecar), és újrafutáskor a kész chunkokat kihagyja — ahogy a translate
-fájl-alapú checkpointtal fut. Ma egy megszakadt review minden addigi
-találatot elveszít, a pótlás kézi `--start-chunk` / `--end-chunk` / `--suffix`
-művelet. A megvalósítás helye a `subtr/tasks/review.py` közös chunk-ciklusa:
-egy helyen kell megírni, mind az öt provider örökli. Az Antigravity-ágon egy
-rész review-ja 20 perc körül is lehet, ott a legnagyobb a nyereség.
-**Méret: S.**
-
-## 2. Szójegyzék-konzisztencia ellenőrzés a verify-ban
+## 1. Szójegyzék-konzisztencia ellenőrzés a verify-ban
 
 A `subtr.py verify` (vagy külön check) jelezze, ha a forrásban szerepel egy
 szójegyzék-terminus (`en`), de a magyarban nem az előírt `hu` fordítás áll.
@@ -38,7 +29,7 @@ alakokra prefix-egyezés, figyelmeztetés-szinten. A review-mérés szerint a
 lektor-modellek éppen a szójegyzék- és regiszter-sértésekben térnek el
 leginkább — ezek egy részét ez a kapu ingyen megfogná. **Méret: S.**
 
-## 3. Költség-kimutatás epizódonként
+## 2. Költség-kimutatás epizódonként
 
 A Gemini `usage_metadata` token-számaiból és a `claude -p --output-format
 json` költség-mezőjéből epizódonkénti összesítés (`costs.log`). A
@@ -47,7 +38,7 @@ költségmérés a kódban nincs. A gyűjtés természetes helye a `subtr/provid
 adapterek. Az előfizetésből futó CLI-providereknél (Codex, Grok, Antigravity)
 költség helyett hívásszám és futásidő mérhető. **Méret: S–M.**
 
-## 4. Alap-szótárak — ami nyitva maradt
+## 3. Alap-szótárak — ami nyitva maradt
 
 - **`ja-common`** (japán megszólítások, utótagok) és **`ko-sageuk`** (Joseon-udvar,
   rangok): az `index.json`-ban szerepelnek, fájljuk még nincs. Forrásanyag
@@ -60,7 +51,7 @@ költség helyett hívásszám és futásidő mérhető. **Méret: S–M.**
 
 **Méret: tartalomfüggő (alaponként S), a jelző S.**
 
-## 5. Desktop GUI — újratervezendő alapokon
+## 4. Desktop GUI — újratervezendő alapokon
 
 A [archive/desktop_gui_v1.md](archive/desktop_gui_v1.md) a régi (törölt)
 gyökér-scriptek subprocess-hívására épült. Ha a GUI-irány újra előkerül, az
@@ -73,8 +64,7 @@ koncepció újrahasznosítható. A beállítások képernyője ma már egyszerű
 
 ## Javasolt sorrend
 
-1. **#1 review folytatása** — napi bosszúság-spórolás, kis munka.
-2. **#2 szójegyzék-ellenőrzés** — ingyen minőség-kapu.
-3. **#3 költség-kimutatás** — bármikor, független.
-4. **#4 alap-szótárak** — amikor japán vagy sageuk sorozat jön.
-5. **#5 GUI** — csak ha az igény tényleg felmerül.
+1. **#1 szójegyzék-ellenőrzés** — ingyen minőség-kapu.
+2. **#2 költség-kimutatás** — bármikor, független.
+3. **#3 alap-szótárak** — amikor japán vagy sageuk sorozat jön.
+4. **#4 GUI** — csak ha az igény tényleg felmerül.

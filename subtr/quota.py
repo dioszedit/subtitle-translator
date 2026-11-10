@@ -395,6 +395,12 @@ def _is_daily_exhaustion(exc) -> bool:
     return bool(re.search(r"per\s*day|daily|napi", s, re.IGNORECASE))
 
 
+def is_daily_exhaustion(exc) -> bool:
+    """Nyilvános belépő a napi keret kimerülésének eldöntéséhez (kivétel vagy
+    a hibaszövege) — a review ezzel dönt a futás leállításáról."""
+    return _is_daily_exhaustion(exc)
+
+
 def note_limit_from_error(model: str, exc) -> "int | None":
     """429 feldolgozása: a NAPI limit megtanulása + a mai nap megjelölése.
 

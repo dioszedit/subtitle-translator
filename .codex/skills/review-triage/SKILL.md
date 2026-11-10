@@ -9,7 +9,7 @@ Olvasd el a `TRANSLATION.md`-t, a `TRANSLATION.local.md`-t (ebben van a *Megszó
 
 ## Bemenet és ellenőrzés
 
-1. Keresd meg a megadott `hun.srt` melletti `_REVIEW_CLAUDE*`, `_REVIEW_GEMINI*`, `_REVIEW_CODEX*`, `_REVIEW_GROK*` és `_REVIEW_ANTIGRAVITY*` `.json` riportokat. A JSON kanonikus; a `.txt` csak fallback.
+1. Keresd meg a megadott `hun.srt` melletti `_REVIEW_CLAUDE*`, `_REVIEW_GEMINI*`, `_REVIEW_CODEX*`, `_REVIEW_GROK*` és `_REVIEW_ANTIGRAVITY*` `.json` riportokat. A JSON kanonikus; a `.txt` csak fallback. Ha egy JSON-ban `missing_chunks` mező van, a riport hiányos (kvóta vagy hibás chunk): a találatait dolgozd fel, de az összegzésben jelezd, mely chunkok maradtak lektorálatlanul. A `.partial` fájl nem riport, ne olvasd.
 2. Keresd meg a forrás SRT-t az `input/` mappában vagy kérd be. Forrás nélkül csak óvatos, nem automatikus triage végezhető.
 3. A magyar SRT aktuális szövegét használd; a riport `eredeti` mezője elavulhatott.
 

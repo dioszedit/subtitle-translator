@@ -34,6 +34,7 @@ import shutil
 import sys
 from pathlib import Path
 
+from subtr import reports
 from subtr.srt import parse_blocks_with_index as parse_srt_blocks
 
 sys.stdout.reconfigure(encoding='utf-8')
@@ -49,6 +50,18 @@ TXT_FINDING_RE = re.compile(
 def load_json_report(path):
     data = json.loads(Path(path).read_text(encoding="utf-8"))
     reviewer = data.get("reviewer", Path(path).stem)
+    missing = data.get("missing_chunks")
+    if missing:
+        # Hiányos riport (kvóta / hibás chunk): a találatok jók, de nem fedik
+        # az egész feliratot — ne higgye senki teljesnek.
+        print(f"FIGYELEM: hiányos riport — {Path(path).name}: "
+              f"nem minden chunk van lektorálva "
+              f"({reports.chunk_ranges(missing)} / {data.get('total_chunks', '?')}).")
+    chunk_range = data.get("chunk_range")
+    if isinstance(chunk_range, list) and len(chunk_range) == 2:
+        print(f"Megjegyzés: rész-tartomány riport — {Path(path).name}: csak a(z) "
+              f"{chunk_range[0]}–{chunk_range[1]}. chunkot fedi "
+              f"(összesen {data.get('total_chunks', '?')}).")
     out = []
     for f in data.get("findings", []):
         try:

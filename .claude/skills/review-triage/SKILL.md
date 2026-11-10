@@ -24,7 +24,11 @@ NE innen idézd, hanem onnan.
 2. **Riportok**: a hun.srt mellett `<stem>_REVIEW_CLAUDE*.json`,
    `<stem>_REVIEW_GEMINI*.json`, `<stem>_REVIEW_CODEX*.json`,
    `<stem>_REVIEW_GROK*.json` és `<stem>_REVIEW_ANTIGRAVITY*.json` (ha egy riportnak .json és .txt változata is van,
-   a .json a kanonikus). Ha EGYIK sincs → állj meg, és mondd meg, hogy előbb
+   a .json a kanonikus). Ha egy riport JSON-jában `missing_chunks` mező van, a
+   riport HIÁNYOS (kvóta vagy hibás chunk miatt nem fedi az egész feliratot): a
+   találatait ugyanúgy dolgozd fel, de az összegzésben mondd meg, mely chunkok
+   maradtak lektorálatlanul, és hogy pótolni kell (ugyanaz a review-parancs újra,
+   vagy másik provider). A `.partial` fájl nem riport, ne olvasd. Ha EGYIK sincs → állj meg, és mondd meg, hogy előbb
    review-t kell futtatni
    (`py subtr.py review [--provider gemini|claude|codex|grok|antigravity]`;
    `--provider` nélkül a `.env` `SUBTR_REVIEW_PROVIDER` sora dönt).

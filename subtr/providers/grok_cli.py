@@ -17,7 +17,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from subtr.providers import CliRunError
+from subtr.providers import CliRunError, quota_signal
 
 LABEL = "Grok"
 MISSING_HINT = ("A 'grok' parancs nem található a PATH-on.\n"
@@ -136,7 +136,8 @@ def parse_grok_response(raw: str):
     data = _loads(str(raw).strip(), "A Grok válasza")
 
     if isinstance(data, dict) and data.get("type") == "error":
-        raise GrokRunError(data.get("message") or "Grok hiba")
+        raise GrokRunError(data.get("message") or "Grok hiba",
+                           quota=quota_signal(data.get("message")))
 
     if isinstance(data, dict):
         structured = data.get("structuredOutput")
@@ -217,7 +218,8 @@ def run_grok_json(prompt: str, schema: dict, *, timeout: int,
         if proc.returncode != 0:
             details = ((proc.stderr or "") + "\n" + (proc.stdout or "")).strip()
             tail = " | ".join(line for line in details.splitlines() if line.strip())[-1200:]
-            raise GrokRunError(f"Grok hiba (exit {proc.returncode}): {tail}")
+            raise GrokRunError(f"Grok hiba (exit {proc.returncode}): {tail}",
+                               quota=quota_signal(proc.stderr))
 
         return parse_grok_response(proc.stdout)
 

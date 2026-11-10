@@ -22,7 +22,7 @@ Az epizód azonosítójából (pl. `Sorozat - S01E01`) sorban ellenőrizd:
 | 2. translate | MINDEN `<X>_block_NNN_*.srt`-hez van `*_HUN.srt` párja |
 | 3. merge | `output/<X>.hun.srt` létezik |
 | 4. verify | le kell futtatni (olcsó, mindig futtatható) |
-| 5. review | `output/<X>.hun_REVIEW_CLAUDE*`, `_REVIEW_GEMINI*`, `_REVIEW_CODEX*`, `_REVIEW_GROK*` vagy `_REVIEW_ANTIGRAVITY*` létezik |
+| 5. review | `output/<X>.hun_REVIEW_<PROVIDER>*.json` (vagy `.txt`) létezik, a JSON-ban NINCS `missing_chunks`, és nincs `chunk_range` sem (az rész-tartomány riportja: csak akkor elég, ha a riportok együtt minden chunkot lefednek). Ha csak `…_REVIEW_<PROVIDER>*.partial` van, a review megszakadt; ha a JSON-ban van `missing_chunks`, hiányos — mindkét esetben a lépés NINCS kész: ugyanazzal a paranccsal folytatandó |
 | 5b/5c. triage | a review-javítások átvezetve (ezt a felhasználótól kérdezd, fájlból nem látszik) |
 | 6/b. SDH-tisztítás | CSAK SDH-forrásnál (beszélőcímkék `[Név]`, hangjegyzetek): `output/<X>.hun.clean.srt` létezik |
 | 7. resegment | `*.reflow.srt` létezik, vagy a felhasználó Subtitle Editben folytatja |
@@ -66,7 +66,11 @@ Az epizód azonosítójából (pl. `Sorozat - S01E01`) sorban ellenőrizd:
 - **Review**: a review providerei (gemini, claude, codex, grok, antigravity) függetlenek,
   futhat az egyik vagy több is. `--provider` nélkül a `SUBTR_REVIEW_PROVIDER`
   szerinti fut (alapérték: antigravity); a riport neve a providert követi
-  (`_REVIEW_ANTIGRAVITY`, `_REVIEW_GEMINI`, …). A forrás SRT-t magától megtalálja
+  (`_REVIEW_ANTIGRAVITY`, `_REVIEW_GEMINI`, …). Megszakadt vagy hibás chunkkal
+  zárult review-t ugyanazzal a paranccsal folytass — a kész chunkok a `.partial`
+  fájlból jönnek, csak a hiányzók futnak. Ha a keret elfogyott, a parancs hiányos
+  riportot ír (`missing_chunks` a JSON-ban): ez triage-olható, a teljes részre
+  pedig ajánlj másik providert. A forrás SRT-t magától megtalálja
   (a `.hun.` tag helyére bármely ismert nyelvkód); `--source "<forrás srt>"`
   csak akkor kell, ha a fájlnév nem követi a konvenciót.
 - **Review-javítások átvezetése**: add át a **review-triage** skillnek

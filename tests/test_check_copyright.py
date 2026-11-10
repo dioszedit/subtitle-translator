@@ -22,6 +22,8 @@ _spec.loader.exec_module(cc)
     "input/Sorozat - S01E01.eng.srt", "output/Sorozat - S01E01.hun.srt",
     "blocks/Sorozat - S01E01.eng/block_001.srt", "output/valami.txt",
     "output/Sorozat - S01E01.hun_REVIEW_GEMINI.json", "x_REVIEW_CLAUDE.txt",
+    "x.hun_REVIEW_CLAUDE.partial", "work/x.hun_REVIEW_ANTIGRAVITY_part2.partial",
+    "x.hun_REVIEW_GEMINI_part2.json", "x.hun_REVIEW_CODEX.partial.stale",
     "decisions.json", ".translate.log", ".translate.log.1",
     ".translate_sys_prompt_abc.txt", ".review_claude_sys_prompt_x.txt",
     "anything.srt", "docs/sample.VTT", "movie.mkv", "audio.mp3",

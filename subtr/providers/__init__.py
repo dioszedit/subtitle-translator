@@ -21,9 +21,43 @@ függvénynevekben eltérő másolatot hordozott):
 """
 
 
+import re
+
+# Keret-kimerülés (előfizetéses limit, elfogyott kredit) a provider SAJÁT
+# üzenetében. Csak ott hívható, ahol a szöveg biztosan a providertől jön
+# (stderr, a CLI hiba-eseményének üzenete) — a modell válaszában feliratszöveg
+# van, abban ezek a szavak bármikor előfordulhatnak.
+_QUOTA_SIGNAL_RE = re.compile(
+    r"usage limit|hit your (?:usage )?limit|"
+    r"(?:\d+.?hour|hourly|daily|weekly|monthly|session|plan|message) limit (?:reached|exceeded|hit)|"
+    r"\blimit reached\b|rate.?limit.?(?:error|exceeded|reached)|"
+    r"quota (?:exceeded|exhausted|will reset)|exceeded your (?:current )?quota|"
+    r"exhausted your (?:capacity|quota)|insufficient[_ ]quota|"
+    r"out of credits|insufficient credit", re.I)
+# Átmeneti kapacitáshiány — nem a felhasználó kerete fogyott el, egy perc múlva
+# megy tovább. Ha ilyen jel is van az üzenetben, NEM tekintjük kimerülésnek.
+_TRANSIENT_SIGNAL_RE = re.compile(
+    r"no capacity|overloaded|temporarily|try again (?:later|in a)|"
+    r"\b(?:500|502|503|504)\b|unavailable", re.I)
+
+
+def quota_signal(provider_message) -> bool:
+    """Keret-kimerülésre utal-e a provider saját üzenete."""
+    text = str(provider_message or "")
+    return bool(_QUOTA_SIGNAL_RE.search(text)) and not _TRANSIENT_SIGNAL_RE.search(text)
+
+
 class CliRunError(RuntimeError):
     """Egy headless CLI (Codex, Grok, Antigravity) nem futott le, vagy nem adott érvényes
-    JSON választ. A konkrét adapterek ebből származtatnak."""
+    JSON választ. A konkrét adapterek ebből származtatnak.
+
+    `quota`: az adapter állítja be, ha a provider saját üzenete keret-kimerülést
+    jelez — a tasks réteg ebből tudja, hogy a hátralévő hívások is elbuknának.
+    """
+
+    def __init__(self, message="", *, quota: bool = False):
+        super().__init__(message)
+        self.quota = bool(quota)
 
 
 def get_provider(name: str):

@@ -56,7 +56,8 @@ _FORBIDDEN_PATH_RULES: list[tuple[str, re.Pattern]] = [
     ("sorozat-kontextus (TRANSLATION.local.md)", re.compile(r"(^|/)TRANSLATION\.local\.md$")),
     ("munkamappa tartalma (input/ output/ blocks/)",
      re.compile(r"(^|/)(input|output|blocks)/(?!\.gitkeep$).+")),
-    ("review-riport", re.compile(r"_REVIEW_[A-Z0-9]+\.(json|txt)$")),
+    # a --suffix utótagos (_part2) riport és a .partial(.stale) részeredmény is
+    ("review-riport", re.compile(r"_REVIEW_[A-Z0-9]+[^/]*\.(json|txt|partial|partial\.stale)$")),
     ("review-döntésfájl", re.compile(r"(^|/)decisions\.json$")),
     ("futási napló", re.compile(r"(^|/)\.translate\.log")),
     ("generált system prompt", re.compile(r"(^|/)\.(translate|review_claude)_sys_prompt_")),

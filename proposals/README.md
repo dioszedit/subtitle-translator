@@ -12,7 +12,7 @@ research jegyzetek, alternatív megoldások, tervezési dokumentumok.
 
 | Fájl | Téma | Státusz |
 |------|------|---------|
-| [deep_review_otletek_v3.md](deep_review_otletek_v3.md) | A még nyitott fejlesztési ötletek: review folytatása megszakadás után, szójegyzék-ellenőrzés a `verify`-ban, költség-kimutatás, hiányzó alap-szótárak (`ja-common`, `ko-sageuk`), GUI-újratervezés | Fontolgatott opciók, javasolt sorrenddel |
+| [deep_review_otletek_v3.md](deep_review_otletek_v3.md) | A még nyitott fejlesztési ötletek: szójegyzék-ellenőrzés a `verify`-ban, költség-kimutatás, hiányzó alap-szótárak (`ja-common`, `ko-sageuk`), GUI-újratervezés | Fontolgatott opciók, javasolt sorrenddel |
 
 ## Archívum
 

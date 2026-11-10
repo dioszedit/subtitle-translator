@@ -38,7 +38,7 @@ def test_write_reports_json_alak(tmp_path):
     findings = [{"sorszam": 3, "eredeti": "a", "hiba": "b", "javaslat": "c", "chunk": 1}]
     reports.write_reports(srt, txt, js, reviewer="codex", model_label="default",
                           finding_blocks=["--- Chunk 1/1 ---\nvalami"],
-                          json_findings=findings, error_chunks=[])
+                          json_findings=findings, errors={})
     data = json.loads(js.read_text(encoding="utf-8"))
     # az apply_review.py ezt az alakot olvassa
     assert data["reviewer"] == "codex"
@@ -51,7 +51,7 @@ def test_write_reports_ures(tmp_path, capsys):
     srt = tmp_path / "y.hun.srt"
     txt, js = reports.report_paths(srt, "gemini")
     reports.write_reports(srt, txt, js, reviewer="gemini", model_label="m",
-                          finding_blocks=[], json_findings=[], error_chunks=[])
+                          finding_blocks=[], json_findings=[], errors={})
     assert not txt.exists() and not js.exists()
     assert "Nincs hiba" in capsys.readouterr().out
 
@@ -65,17 +65,20 @@ def test_write_reports_removes_stale_reports_when_no_findings(tmp_path):
     txt.write_text("régi riport", encoding="utf-8")
     js.write_text('{"findings": [{"sorszam": 1}]}', encoding="utf-8")
     reports.write_reports(srt, txt, js, reviewer="gemini", model_label="m",
-                          finding_blocks=[], json_findings=[], error_chunks=[])
+                          finding_blocks=[], json_findings=[], errors={})
     assert not txt.exists() and not js.exists()
 
 
-def test_write_reports_keeps_txt_but_removes_json_on_error_only(tmp_path):
-    """Csak hibás chunk van: a .txt (hibalista) készül, a régi .json megy."""
+def test_write_reports_hibas_chunknal_a_json_jelzi_a_hianyt(tmp_path):
+    """Csak hibás chunk van: a .txt hibalistája ÉS a .json is elkészül — a JSON
+    üres találatlistával, de `missing_chunks` mezővel, hogy senki ne nézze teljesnek."""
     srt = tmp_path / "x.hun.srt"
     srt.write_text("1\n00:00:01,000 --> 00:00:02,000\nSzia\n", encoding="utf-8")
     txt, js = reports.report_paths(srt, "codex")
     js.write_text("{}", encoding="utf-8")
     reports.write_reports(srt, txt, js, reviewer="codex", model_label="m",
                           finding_blocks=[], json_findings=[],
-                          error_chunks=["--- Chunk 1/1 ---\nTimeout\n"])
-    assert txt.exists() and not js.exists()
+                          errors={1: "Timeout"}, total_chunks=1)
+    assert "--- Chunk 1/1 ---\nTimeout" in txt.read_text(encoding="utf-8")
+    data = json.loads(js.read_text(encoding="utf-8"))
+    assert data["missing_chunks"] == [1] and data["findings"] == []

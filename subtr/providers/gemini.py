@@ -71,6 +71,17 @@ def preflight(model: str, needed: int = 0) -> None:
             pass
 
 
+def daily_quota_exhausted(api_error) -> bool:
+    """A hiba (kivétel vagy a call_json hibaszövege) a NAPI keret kimerülését
+    jelzi-e. A percenkénti / token-alapú 429 nem az — lásd subtr/quota.py."""
+    if not _gq:
+        return False
+    try:
+        return _gq.is_daily_exhaustion(api_error)
+    except Exception:
+        return False
+
+
 def call_json(client, model: str, prompt: str, *, schema,
               system: str | None = None, temperature: float = 0.2,
               max_retries: int = MAX_RETRIES_DEFAULT):

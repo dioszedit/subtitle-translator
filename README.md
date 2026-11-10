@@ -561,6 +561,56 @@ változatlan marad — a modell csak a szöveget kapja és csak szöveget ad vis
 > Kis minta, és a besorolást is modell végezte, videó nélkül — iránymutatásnak jó,
 > pontos aránynak nem.
 
+#### Megszakadt vagy hiányos review
+
+A review chunkonként lemezre menti a kész találatokat a riport mellé, egy
+`…_REVIEW_<PROVIDER>.partial` fájlba — egy megszakadt futás nem vész el.
+
+```powershell
+# Folytatás: ugyanaz a parancs újra — a kész chunkok kimaradnak
+python subtr.py review "output\hun.srt"
+
+# Riport a kész részből, a provider hívása nélkül (pl. Ctrl+C után)
+python subtr.py review "output\hun.srt" --from-partial
+
+# A részeredmény eldobása, elölről
+python subtr.py review "output\hun.srt" --no-resume
+```
+
+| Helyzet | Mi történik |
+|---|---|
+| Egy chunk hibára fut | A riport elkészül a többiből, a `.partial` megmarad; a következő futás csak a hiányzókat pótolja (előbb a még meg sem próbáltakat, a korábban hibásakat a végén), és a teljes riportot írja felül |
+| Elfogy a provider kerete, vagy két először próbált chunk egymás után hibázik | A futás megáll (nem próbálja végig a maradékot), és **hiányos riportot** ír a kész részből. A korábban is hibás, újrapróbált chunkok a sor végére kerülnek (a legkevesebbszer elbukottal kezdve); köztük csak az állítja meg a futást, ha kettő egymás után ugyanazzal a hibával bukik el |
+| Ctrl+C / lefagyás | Riport nem készül, csak a `.partial` marad — folytatható, vagy `--from-partial` |
+| A felirat egy része közben megváltozott (pl. átvezetett javítások) | Csak az érintett chunkok mennek újra, a többi kész chunk eredménye megmarad |
+| A modell, az effort, a chunkméret vagy a lektor-utasítás (szójegyzék, `TRANSLATION.md`) megváltozott | A részeredmény nem ehhez a futáshoz tartozik: a parancs kiírja az okot, `….partial.stale` néven félreteszi, és elölről kezd. Visszahozható: a beállítás visszaállítása után nevezd vissza `.partial`-ra |
+
+A hiányos riport **triage-olható**: a `.json`-ban a `missing_chunks` mező jelzi a
+nem lektorált chunkokat, a `subtr.py apply` és a `/review-triage` ezt kiírja.
+Közben a teljes részt egy másik providerrel is lektoráltathatod — a riportok
+függetlenek. Ha a hiányos riport javításait már átvezetted, ugyanaz a parancs
+akkor is folytat: a hiányzó chunkokat pótolja, a javítással érintetteket újra
+lektorálja, a változatlanok korábbi találatait megtartja (ezek a riportban újra
+megjelennek — a triage-ban már elbírált tételek).
+
+A keret kimerülését a provider-adapter jelzi, a provider saját hibaüzenete
+alapján (a modell válaszának szövegéből soha). A Gemini API-nál csak a napi
+limit számít — a percenkénti 429 egyetlen hibás chunk —, és az átmeneti
+kapacitáshiány („No capacity", 503) sehol sem keret-kimerülés. Ahol a limit-üzenet
+nem ismerhető fel, a „két egymást követő hiba" szabály állítja meg a futást. Egy chunk
+korábbi hibaüzenetei — köztük a nem értelmezhető modellválasz megőrzött nyers
+szövege — a riportban az újabb futások után is megmaradnak. Rész-tartomány
+(`--start-chunk` / `--end-chunk`) futása ugyanígy folytatható, `--suffix` nélkül is.
+
+Rész-tartomány riportja (`--start-chunk` / `--end-chunk`) a `.json`-ban
+`chunk_range` mezővel jelzi, mely chunkokat fedi — önmagában nem teljes review.
+
+A `.partial` fájlt sem az `apply`, sem a triage nem olvassa; sikeres futás végén
+törlődik, a félretett `.partial.stale`-lel együtt. Ha a részeredmény nem
+olvasható, nem írható vagy nem törölhető (megtelt lemez, zárolt fájl), a review
+figyelmeztet és végigfut, legfeljebb nem lesz folytatható. A `.partial` és a
+`.partial.stale` feliratszöveget tartalmaz, ezért a commit előtti szűrő tiltja.
+
 #### Claude review (`subtr.py review --provider claude`)
 ```powershell
 # Modell: SUBTR_CLAUDE_MODEL (defaults.env: sonnet); default chunk-size: 100
@@ -573,7 +623,7 @@ python subtr.py review "output\hun.srt" --provider claude --model opus
 # Egyedi chunk méret
 python subtr.py review "output\hun.srt" --provider claude --chunk-size 150
 
-# Csak egy chunk-tartomány lefuttatása (pl. megszakítás utáni pótlás)
+# Csak egy chunk-tartomány lefuttatása, külön riportba
 python subtr.py review "output\hun.srt" --provider claude --start-chunk 9 --suffix _part2
 python subtr.py review "output\hun.srt" --provider claude --start-chunk 5 --end-chunk 7 --suffix _part2
 
@@ -694,7 +744,7 @@ python subtr.py review "output\hun.srt" --model gemini-3.8-flash
 python subtr.py review "output\hun.srt" --model gemini-3.5-flash-lite   # olcsó, bő napi kvóta
 # Modell-lista: https://ai.google.dev/gemini-api/docs/models
 
-# Csak egy chunk-tartomány lefuttatása (pl. kvótahiba utáni pótlás)
+# Csak egy chunk-tartomány lefuttatása, külön riportba
 python subtr.py review "output\hun.srt" --start-chunk 9 --suffix _part2
 python subtr.py review "output\hun.srt" --start-chunk 5 --end-chunk 7 --suffix _part2
 
@@ -1189,8 +1239,9 @@ futásidőt és a párhuzamos terhelést befolyásolja.
   `subtr.py register` felkínál egy első változatot (lásd fent).
 - **Checkpoint:** mind a három fordító-ág fájl-alapú checkpointtal fut (újraindításkor
   csak a hiányzó blokkokat fordítja; a szekció-eltéréses blokk outputja
-  törlődik, így az is újramegy), mind a három review-ág pedig `--start-chunk` /
-  `--end-chunk` / `--suffix` kapcsolókkal folytatható. A `subtr.py merge`
+  törlődik, így az is újramegy). A review is folytatható: a kész chunkok
+  részeredmény-fájlba (`.partial`) mentődnek, ugyanaz a parancs újra csak a
+  hiányzókat futtatja (lásd *Megszakadt vagy hiányos review*). A `subtr.py merge`
   `--force` kapcsolóval hiányzó blokkok mellett is összefűz (a hiányt listázza).
 - **Részleges megtagadás:** ha az agent szerkezetileg ép fájlt ír, de egyes cue-k
   helyére placeholdert tesz (`[DAL]`, `[SONG]`, `[TODO]`, üres szöveg ott, ahol a
@@ -1217,8 +1268,9 @@ futásidőt és a párhuzamos terhelést befolyásolja.
   nem-lite modellek viszont tapasztalat szerint napi ~20 kérésnél elfogynak —
   **modellenként külön**, ezért modellváltással aznap tovább lehet dolgozni.
   (Nagyságrend: egy ~400 szekciós rész review-ja 4-5 kérés.) Hogy hol tartasz:
-  `python subtr.py quota`. Ha egy hosszú futás közben fogyna el, a review
-  `--start-chunk` / `--end-chunk` / `--suffix` kapcsolókkal folytatható.
+  `python subtr.py quota`. Ha egy hosszú futás közben fogyna el, a review megáll,
+  hiányos riportot ír a kész részből, és később ugyanazzal a paranccsal
+  folytatható (lásd *Megszakadt vagy hiányos review*).
 - **Prompt cache:** a `subtr.py translate --provider claude` a system promptot tartalom-hash
   alapján fájlba menti, így a párhuzamos agent-ek és az ismételt futások is
   cache-hit-tel indulhatnak — drasztikus költségcsökkenés.

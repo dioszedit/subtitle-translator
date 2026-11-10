@@ -7,7 +7,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from subtr.providers import CliRunError
+from subtr.providers import CliRunError, quota_signal
 
 LABEL = "Codex"
 MISSING_HINT = "A 'codex' parancs nem található a PATH-on."
@@ -72,7 +72,8 @@ def run_codex_json(prompt: str, schema: dict, *, timeout: int,
         if proc.returncode != 0:
             details = ((proc.stderr or "") + "\n" + (proc.stdout or "")).strip()
             tail = " | ".join(line for line in details.splitlines() if line.strip())[-1200:]
-            raise CodexRunError(f"Codex hiba (exit {proc.returncode}): {tail}")
+            raise CodexRunError(f"Codex hiba (exit {proc.returncode}): {tail}",
+                                quota=quota_signal(proc.stderr))
 
         raw = (response_path.read_text(encoding="utf-8").strip()
                if response_path.is_file() else proc.stdout.strip())

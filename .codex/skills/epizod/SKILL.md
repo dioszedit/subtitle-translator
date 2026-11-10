@@ -14,7 +14,7 @@ Az utasítások forrása a `steps.txt`; a fordítási szabályzat a `TRANSLATION
 | Fordítás | minden inputblokkhoz van `_HUN.srt` |
 | Merge | `output/<X>.hun.srt` létezik |
 | Verify | a `subtr.py verify` már lefutott a megfelelő forrással |
-| Review | `_REVIEW_CLAUDE*`, `_REVIEW_GEMINI*`, `_REVIEW_CODEX*`, `_REVIEW_GROK*` vagy `_REVIEW_ANTIGRAVITY*` riport létezik |
+| Review | `_REVIEW_<PROVIDER>*.json` (vagy `.txt`) riport létezik, a JSON-ban nincs `missing_chunks`, és nincs `chunk_range` sem (az rész-tartomány riportja: csak akkor elég, ha a riportok együtt minden chunkot lefednek). Ha csak `.partial` fájl van (megszakadt), vagy a JSON-ban van `missing_chunks` (hiányos), a lépés nincs kész: ugyanazzal a paranccsal folytatandó |
 | Triage | ezt a felhasználó erősíti meg |
 | Resegment | `*.reflow.srt` létezik, vagy külső szerkesztőben folytatják |
 
@@ -27,6 +27,7 @@ Az utasítások forrása a `steps.txt`; a fordítási szabályzat a `TRANSLATION
 - Merge-nél hiányzó blokk esetén ne használj `--force`-ot külön felhasználói kérés nélkül.
 - Preclean után a `.clean.srt` legyen a `subtr.py verify` forrása.
 - A forrásnyelvet a fájlnév `.kód` tagjából minden lépés felismeri; `--source-lang` csak akkor kell, ha a név nem árulkodik (pl. a `.clean.srt` splittelésekor). A review a forrás SRT-t magától megtalálja; `--source` csak nem konvenció szerinti fájlnévnél kell.
+- Megszakadt vagy hibás chunkkal zárult review-t ugyanazzal a paranccsal folytass: a kész chunkok a `.partial` fájlból jönnek, csak a hiányzók futnak. Ha a keret elfogyott, a parancs hiányos riportot ír (`missing_chunks` a JSON-ban) — ez triage-olható, a teljes részre ajánlj másik providert.
 - A review-javaslatokat a `review-triage` skill szerint szűrd, és csak ezután futtasd a resegmentet.
 - SDH-forrásnál (beszélőcímkék `[Név]`, hangjegyzetek) a triage és a glossary után futtasd a 6/b lépést: `py addons/srt-preclean/postclean_srt.py "output/<X>.hun.srt"` → `output/<X>.hun.clean.srt` (előtte `--dry-run`); a resegment ezzel a fájllal megy tovább. Nem SDH forrásnál tilos.
 

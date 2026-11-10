@@ -31,7 +31,7 @@ import subprocess
 import tempfile
 import time
 
-from subtr.providers import CliRunError
+from subtr.providers import CliRunError, quota_signal
 
 LABEL = "Antigravity"
 MISSING_HINT = ("Az 'agy' parancs (Antigravity CLI) nem található a PATH-on.\n"
@@ -135,7 +135,8 @@ def parse_agy_response(raw: str, schema: dict | None = None) -> dict:
         message = envelope.get("error") or f"status: {status}"
         if _STDIN_ERROR_RE.search(message):
             message = f"{message} — {STDIN_FORMAT_HINT}"
-        raise AntigravityRunError(f"Antigravity hiba: {message}")
+        raise AntigravityRunError(f"Antigravity hiba: {message}",
+                                  quota=quota_signal(message))
 
     structured = envelope.get("structured_output")
     if isinstance(structured, dict):
@@ -240,7 +241,8 @@ def _run_once(prompt: str, schema: dict, *, timeout: int,
             if _STDIN_ERROR_RE.search(tail):
                 tail = f"{tail} — {STDIN_FORMAT_HINT}"
             raise AntigravityRunError(
-                f"Antigravity hiba (exit {proc.returncode}): {tail}") from None
+                f"Antigravity hiba (exit {proc.returncode}): {tail}",
+                quota=quota_signal(proc.stderr)) from None
 
 
 # A közös CLI-adapter felület (lásd subtr.providers docstring).
