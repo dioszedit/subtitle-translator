@@ -1,5 +1,9 @@
 # Alap-szótárak (műfaj × kultúra) — terv
 
+> **Státusz: MEGVALÓSULT (2026-10)** — archiválva 2026-11-én. Azóta elkészült a
+> `zh-wuxia` és a `ph-common` alap is. A nyitott tételek (`ja-common`, `ko-sageuk`,
+> `"keep": true` jelző): [../deep_review_otletek_v3.md](../deep_review_otletek_v3.md) #4.
+
 Állapot: **mind az öt fázis kész** (2026-10) — mechanizmus, `tmdb-init`-javaslat,
 hat alap (v1.0), a futó sorozatok átállítása és a `subtr.py bases` parancs
 (`list` / `check` / `promote`). Később felvéve: `zh-myth` (mitológiai és vallási alakok, Csongor *Nyugati utazás* alapján). Nyitott: `ja-common`, `ko-sageuk` (nincs még forrásanyag).

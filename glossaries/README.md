@@ -56,4 +56,4 @@ műfaji utána. Új alapfájl felvételekor az indexbe is be kell írni.
 - A `context` általános: mire vonatkozik, és ha van, a forrás
   („hu.wikipedia: Kínai császár”), illetve hogy sorozatban felülírható.
 
-A tervezés háttere: `proposals/alap_szotarak.md`.
+A tervezés háttere: `proposals/archive/alap_szotarak.md`.

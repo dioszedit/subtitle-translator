@@ -12,10 +12,7 @@ research jegyzetek, alternatív megoldások, tervezési dokumentumok.
 
 | Fájl | Téma | Státusz |
 |------|------|---------|
-| [deep_review_otletek_v2.md](deep_review_otletek_v2.md) | A még nyitott fejlesztési ötletek (review resume, glossary-check, `subtr run` orchestrator, költség-log, GUI-újratervezés) a subtr-es világra igazítva | Fontolgatott opciók, javasolt sorrenddel |
-| [translategemma_local.md](translategemma_local.md) | Lokális fordító (ollama + `translategemma:12b`) — alternatíva a felhős providerek mellett | Research jegyzet. Ha megvalósul, a természetes alakja egy `subtr/providers/ollama.py` adapter |
-| [stilisztika_chat_prompt.md](stilisztika_chat_prompt.md) | Stilisztikai + CPS review prompt chat-AI-ba (ChatGPT, Claude.ai) — alternatíva a `subtr.py review` parancshoz | Használatra kész prompt |
-| [alap_szotarak.md](alap_szotarak.md) | Műfaj × kultúra alap-szótárak (`glossaries/`), futáskori összefésülés a sorozat-glossaryval; magyar forráskutatás | Megvalósult (2026-10); nyitott: `ja-common`, `ko-sageuk` |
+| [deep_review_otletek_v3.md](deep_review_otletek_v3.md) | A még nyitott fejlesztési ötletek: review folytatása megszakadás után, szójegyzék-ellenőrzés a `verify`-ban, költség-kimutatás, hiányzó alap-szótárak (`ja-common`, `ko-sageuk`), GUI-újratervezés | Fontolgatott opciók, javasolt sorrenddel |
 
 ## Archívum
 
@@ -26,6 +23,8 @@ történeti dokumentumok, nem frissülnek:
 |------|------|
 | [archive/deep_review_otletek_v1.md](archive/deep_review_otletek_v1.md) | A #1 (közös modul) megvalósult a `subtr/` csomag-refaktorral, a #4 (egyparancsos pipeline) részben a `subtr.py` CLI-vel; a nyitott tételek a v2-ben élnek tovább |
 | [archive/desktop_gui_v1.md](archive/desktop_gui_v1.md) | A törölt gyökér-scriptek subprocess-hívására épült; egy jövőbeli GUI-nak a `subtr.tasks` API az alapja (lásd v2 #5) |
+| [archive/deep_review_otletek_v2.md](archive/deep_review_otletek_v2.md) | A nyitott tételek a v3-ban élnek tovább; a `subtr run` végigvivő parancs kikerült (az `epizod` skill váltotta ki) |
+| [archive/alap_szotarak.md](archive/alap_szotarak.md) | Megvalósult (2026-10): `glossaries/`, futáskori összefésülés, `subtr.py bases`; a terv és a magyar forráskutatás. A nyitott alapok (`ja-common`, `ko-sageuk`) a v3-ban |
 | [archive/antigravity_provider.md](archive/antigravity_provider.md) | Megvalósult: `--provider antigravity` (`subtr/providers/antigravity_cli.py`); a terv és a felderítés eredményei |
 
 ## Konvenciók
@@ -38,5 +37,5 @@ történeti dokumentumok, nem frissülnek:
   mappába kerül — ott marad történeti dokumentumként, nem frissül.
 - Ha egy proposal aktív fejlesztésbe megy át, **kikerül innen** és a fő
   `README.md`-ben kap helyet (változó: tervezésből → dokumentáció).
-- A fájlnév mondjon valamit a tartalomról (pl. `translategemma_local`, nem
+- A fájlnév mondjon valamit a tartalomról (pl. `antigravity_provider`, nem
   csak `megoldas`); a verzió csak ott kell, ahol több kör is várható.

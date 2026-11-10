@@ -1,6 +1,9 @@
 # Deep review ötletek — nyitott tételek (v2)
 
-> Előzmény: [archive/deep_review_otletek_v1.md](archive/deep_review_otletek_v1.md)
+> **Archiválva (2026-11):** a nyitott tételek a
+> [../deep_review_otletek_v3.md](../deep_review_otletek_v3.md) fájlban élnek tovább.
+>
+> Előzmény: [deep_review_otletek_v1.md](deep_review_otletek_v1.md)
 > (a 2026-07-13-i deep review ötletei). A v1-ből azóta megvalósult:
 > **#1 közös modul** → a teljes `subtr/` csomag-refaktor (2026-08-19,
 > messze túl is ment az eredeti ötleten), és részben a **#4 egyparancsos
@@ -47,7 +50,7 @@ token/költség-dimenzió hiányzik. A gyűjtés természetes helye a
 
 ## 5. Desktop GUI — újratervezendő alapokon
 
-A [archive/desktop_gui_v1.md](archive/desktop_gui_v1.md) a régi (törölt)
+A [desktop_gui_v1.md](desktop_gui_v1.md) a régi (törölt)
 gyökér-scriptek subprocess-hívására épült. Ha a GUI-irány újra előkerül,
 az alapja az importálható `subtr.tasks` API és a `subtr.cli` legyen —
 egy v2 tervezési kör kell hozzá, a v1-ből a képernyőtervek és a
