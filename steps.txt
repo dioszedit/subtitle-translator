@@ -52,7 +52,7 @@
 #      MIÉRT SZÁMÍT: az angol `you` nem jelöli a formalitást, a legtöbb más nyelv
 #      igen (német Sie/du, kínai 您/你). Ahol jelöli, ott a tegezés/magázás nem
 #      találgatás, hanem leolvasás — a promptok automatikusan átállnak erre.
-#      Részletek: README.md → Forrásnyelv
+#      Részletek: docs/04-forditas.md → Forrásnyelv
 
 # 0/d. (CSAK HA KELL) MEGLÉVŐ FORDÍTÁS ÁTVÉTELE — ha a sorozat korábbi részei már
 #      le vannak fordítva más forrásból (pl. vtt-ben), és a maradékot a pipeline-nal
@@ -130,7 +130,7 @@ py subtr.py glossary "input\Sorozat - S01E01.eng.srt"
 #         japán az egyik részben a 3., a másikban az 5. stream) — ezért NYELVCÍMKE
 #         szerint válassz, a beégetett -map 0:5 némán rossz nyelvet csomagol ki.
 #         Nyelvenként nem egyforma az erő: koreai a legerősebb, japán erős, kínai
-#         (您/你) gyenge. Részletek: README.md → Forrásnyelv.
+#         (您/你) gyenge. Részletek: docs/04-forditas.md → Forrásnyelv.
 #     KÉT CSAPDA A REGISZTER OLVASÁSAKOR:
 #       - a japán/koreai BELSŐ MONOLÓG alapból plain alakú, akkor is, ha a szereplő
 #         magázza az illetőt — ebből nem következik tegezés;

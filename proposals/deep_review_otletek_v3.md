@@ -7,7 +7,7 @@
 > - **bekerültek** az alap-szótárak nyitva maradt tételei (a megvalósult terv:
 >   [archive/alap_szotarak.md](archive/alap_szotarak.md));
 > - **megvalósult** a review folytatása megszakadás után (részeredmény-fájl, korai
->   leállás kvótánál, hiányos riport) — a leírása a fő README-ben van;
+>   leállás kvótánál, hiányos riport) — a leírása a `docs/05-review.md`-ben van;
 > - a hivatkozások a mai kódhoz igazodnak (öt provider, alap-szótárak,
 >   funkciónkénti provider / modell / effort a `subtr/defaults.env`-ből).
 

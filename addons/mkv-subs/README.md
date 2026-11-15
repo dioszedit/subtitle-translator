@@ -19,7 +19,7 @@ Python oldalról csak stdlib; kell viszont **`ffmpeg` + `ffprobe`** a PATH-on
   sáv (japán, koreai, kínai…) grammatikailag jelöli a formalitást, az angol
   `you` nem. Fordíthatsz angolból úgy, hogy a regisztert az eredeti nyelvű
   sávból olvasod ki: `subtr.py register` a fájlnév `.jpn` tagjából felismeri a
-  nyelvet, és átvált a „leolvasás" ágra. Lásd `README.md` → *Forrásnyelv*.
+  nyelvet, és átvált a „leolvasás" ágra. Lásd [`docs/04-forditas.md` → *Forrásnyelv*](../../docs/04-forditas.md#forrásnyelv).
 - Az eredeti nyelvű **CC**-sáv ráadásul gyakran **beszélőcímkés**
   (`（緑）`, `（伸子）`) — a regiszter-kinyerés ezeket szándékosan bennhagyja,
   mert ez az elsődleges támpont ahhoz, hogy ki beszél kihez.

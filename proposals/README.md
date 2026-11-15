@@ -5,8 +5,8 @@ research jegyzetek, alternatív megoldások, tervezési dokumentumok.
 
 > **Fontos:** ezek **NEM** committed roadmap-elemek vagy aktív TODO-k —
 > csak fontolgatott opciók, amikre később vissza lehet térni.
-> Ha aktív fejlesztésbe megy át valamelyik, kikerül innen és a fő
-> README-ben kap helyet.
+> Ha aktív fejlesztésbe megy át valamelyik, kikerül innen és a
+> dokumentációban (`docs/`) kap helyet.
 
 ## Jelenlegi proposals
 
@@ -35,7 +35,7 @@ történeti dokumentumok, nem frissülnek:
 - Ha új irány jön, új fájl + a fenti táblázathoz is bekerül egy sor.
 - Ha egy proposal megvalósult vagy az alapja elavult, az **archive/**
   mappába kerül — ott marad történeti dokumentumként, nem frissül.
-- Ha egy proposal aktív fejlesztésbe megy át, **kikerül innen** és a fő
-  `README.md`-ben kap helyet (változó: tervezésből → dokumentáció).
+- Ha egy proposal aktív fejlesztésbe megy át, **kikerül innen** és a
+  dokumentációban (`docs/`) kap helyet (változó: tervezésből → dokumentáció).
 - A fájlnév mondjon valamit a tartalomról (pl. `antigravity_provider`, nem
   csak `megoldas`); a verzió csak ott kell, ahol több kör is várható.

@@ -3,7 +3,7 @@
 Determinisztikus, **függőség nélküli** (csak Python 3 stdlib) eszköz, ami a
 fordítás UTÁN egy menetben rendezi a felirat **szegmentálását**: minden sor a
 karakter-plafon alatt marad, mondat-/tagmondat-határon törve, az időzítés
-érintése nélkül. A projekt utómunka-lépése (`README.md` → *Utómunka* / 2. lépés);
+érintése nélkül. A projekt utómunka-lépése (`docs/08-utomunka.md` / 2. lépés);
 kiegészíti a `subtr.py verify`-t (az a CPS-t jelzi, de sorhosszt/tördelést nem).
 
 ## Miért van rá szükség

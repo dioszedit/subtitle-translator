@@ -10,7 +10,7 @@ Mire jó?
       koreai beszédszintek stb. közvetlen bizonyítékok, az angol `you` nem az.
   A kettő nem ugyanaz a fájl, és nem is kell ugyanannak lennie: fordíthatsz
   angolból úgy, hogy a regisztert a japán sávból olvasod ki.
-  Részletek: README.md → Forrásnyelv.
+  Részletek: docs/04-forditas.md → Forrásnyelv.
 
 MIÉRT NYELVCÍMKE SZERINT?
   A sávok SORRENDJE fájlonként változik — ugyanannak a sorozatnak az egyik
