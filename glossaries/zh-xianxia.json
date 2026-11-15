@@ -609,6 +609,61 @@
       "en": "underworld",
       "hu": "alvilág",
       "context": "阴间/地府, a holtak birodalma (mitológiai értelemben; modern drámában a bűnözői „alvilág” vagy a „túlvilág” is lehet — sorozatban felülírható). Forrás: Csongor: Nyugati utazás; egy xianxia sorozat glossaryja."
+    },
+    {
+      "en": "inner disciple",
+      "hu": "belső tanítvány",
+      "context": "内门弟子 — a rend belső köréhez tartozó tanítvány; párja: outer disciple = külső tanítvány"
+    },
+    {
+      "en": "Chief Disciple",
+      "hu": "főtanítvány",
+      "context": "首席弟子 / 大弟子 — a rend vezető tanítványa"
+    },
+    {
+      "en": "immortal sect",
+      "hu": "halhatatlan rend",
+      "context": "仙门 — halhatatlanokat képző rend; Sect = Rend"
+    },
+    {
+      "en": "primal spirit",
+      "hu": "ősszellem",
+      "context": "元神 — a kultivátor lelki magja, a test halálát is túlélheti"
+    },
+    {
+      "en": "demonic core",
+      "hu": "démonmag",
+      "context": "妖丹 — démon/szellemlény belső magja"
+    },
+    {
+      "en": "demonic aura",
+      "hu": "démoni aura",
+      "context": "妖气 / 魔气 — démonból áradó érzékelhető kisugárzás"
+    },
+    {
+      "en": "divine power",
+      "hu": "isteni erő",
+      "context": "神力"
+    },
+    {
+      "en": "forbidden technique",
+      "hu": "tiltott technika",
+      "context": "禁术"
+    },
+    {
+      "en": "fly the sword",
+      "hu": "kardot vezet",
+      "context": "御剑 — kardon repülés; műveltetve: vezettetni a kardot"
+    },
+    {
+      "en": "silencing spell",
+      "hu": "némító varázslat",
+      "context": "禁言术"
+    },
+    {
+      "en": "vital energy",
+      "hu": "életerő",
+      "context": "元气 / 精气 — a test életereje (vérzéssel, kiszívással elvész)"
     }
   ],
   "phrases": [
