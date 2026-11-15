@@ -808,8 +808,10 @@ mentsd — a repóbeli fájl ettől érintetlen marad (nincs ütközés `git pul
 1. Nyisd meg: https://aistudio.google.com/rate-limit (a projekt, amelyikhez a
    `GEMINI_API_KEY` tartozik)
 2. Kapcsold **be** az „All models” kapcsolót
-3. Ctrl+A, Ctrl+C
-4. `python subtr.py models refresh --local`
+3. Jelöld ki és másold az egész oldalt: Ctrl+A, Ctrl+C (Macen Cmd+A, Cmd+C) —
+   a szöveg a vágólapra kerül, **sehova nem kell beilleszteni**
+4. Terminálban: `python subtr.py models refresh --local` — a script maga
+   olvassa ki a vágólapról
 
 A mentett limitek a `~/.gemini_quota/models.json`-ba kerülnek, **az API-kulcsod
 ujjlenyomatához kötve**: csak ezzel a kulccsal érvényesek, és felülírják a repó
@@ -828,15 +830,18 @@ Karbantartóknak, Free tieres projektből:
 
 1. Nyisd meg: https://aistudio.google.com/rate-limit
 2. Kapcsold **be** az „All models” kapcsolót
-3. Ctrl+A, Ctrl+C
-4. `python subtr.py models refresh`
+3. Jelöld ki és másold az egész oldalt: Ctrl+A, Ctrl+C (Macen Cmd+A, Cmd+C) —
+   a szöveg a vágólapra kerül, **sehova nem kell beilleszteni**
+4. Terminálban: `python subtr.py models refresh` — a script maga olvassa ki
+   a vágólapról
 
 ```powershell
 python subtr.py models                    # szöveges modellek: RPM / TPM / RPD, mai fogyás
 python subtr.py models --all              # minden kategória
 python subtr.py models refresh            # frissítés a vágólapról
 python subtr.py models refresh --open     # előbb megnyitja a rate-limit oldalt
-python subtr.py models refresh --file oldal.txt --dry-run
+python subtr.py models refresh --file oldal.txt --dry-run   # ha a vágólap helyett
+                                          # fájlba illesztetted a szöveget
 python subtr.py models refresh --no-limits   # csak modellek / kivezetések
 python subtr.py models refresh --force       # kevés modell-sorral is írjon
 python subtr.py models refresh --local       # saját (fizetős) tier: csak a gépedre

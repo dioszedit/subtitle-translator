@@ -921,8 +921,10 @@ def save(data: dict, path=None) -> None:
 def _copy_instructions() -> str:
     return (f"  1. Nyisd meg: {RATE_LIMIT_URL}  (a projekt, amelyikhez a GEMINI_API_KEY tartozik)\n"
             f"  2. Kapcsold BE az „All models” kapcsolót (különben csak 2-3 modell látszik)\n"
-            f"  3. Ctrl+A, Ctrl+C (Macen Cmd+A, Cmd+C)\n"
-            f"  4. Futtasd újra: py subtr.py models refresh")
+            f"  3. Ctrl+A, Ctrl+C (Macen Cmd+A, Cmd+C) — a szöveg a vágólapra kerül,\n"
+            f"     sehova nem kell beilleszteni\n"
+            f"  4. Futtasd újra: py subtr.py models refresh (a vágólapról olvas; fájlból:\n"
+            f"     --file oldal.txt)")
 
 
 def _learned_limits() -> dict:
