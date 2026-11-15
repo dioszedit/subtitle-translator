@@ -65,10 +65,11 @@ A fejezetek sorban olvasva végigvezetnek a telepítéstől az utómunkáig; min
       - [Opcionális: a kész felirat az MKV-ba](08-utomunka.md#opcionális-a-kész-felirat-az-mkv-ba)
 9. **[Tippek](09-tippek.md)** — gyakorlati tanácsok
    - [Tippek](09-tippek.md#tippek)
-10. **[Fejlesztés és háttér](10-fejlesztes.md)** — fejlesztőknek: tesztek, commit előtti szűrő; mindenkinek: hogyan készült
+10. **[Fejlesztés és háttér](10-fejlesztes.md)** — fejlesztőknek: tesztek, commit előtti szűrő, a dokumentáció karbantartása; mindenkinek: hogyan készült
    - [Fejlesztés](10-fejlesztes.md#fejlesztés)
       - [Fejlesztői beállítás egy új clone-ban](10-fejlesztes.md#fejlesztői-beállítás-egy-új-clone-ban)
       - [Commit előtti szűrő — jogvédett tartalom és titok](10-fejlesztes.md#commit-előtti-szűrő--jogvédett-tartalom-és-titok)
+      - [A dokumentáció karbantartása (docs/)](10-fejlesztes.md#a-dokumentáció-karbantartása-docs)
    - [Hogyan készült — AI-asszisztált fejlesztés](10-fejlesztes.md#hogyan-készült--ai-asszisztált-fejlesztés)
 
 ## Hivatkozott dokumentumok

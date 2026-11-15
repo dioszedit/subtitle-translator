@@ -54,3 +54,14 @@ def test_internal_links_resolve(doc):
         elif fragment and dest.suffix == ".md" and fragment not in anchors(dest):
             broken.append(f"nincs ilyen horgony: {target}")
     assert not broken, "\n".join(broken)
+
+
+def test_docs_navigation_is_up_to_date():
+    """A fejezetcímek, lapozósorok és tartalomjegyzékek a scripts/docs_nav.py
+    kimenetével egyeznek — alcím-változás után a navigációt is frissíteni kell."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("docs_nav", ROOT / "scripts" / "docs_nav.py")
+    nav = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(nav)
+    old = [str(p.relative_to(ROOT)) for p in nav.stale(ROOT)]
+    assert not old, f"elavult navigáció: {old} — futtasd: python3 scripts/docs_nav.py"

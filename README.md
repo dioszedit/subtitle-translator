@@ -74,7 +74,7 @@ A teljes leírás a [`docs/`](docs/README.md) mappában van, fejezetekre bontva:
 7. [Gemini: modellek, limitek, kvóta](docs/07-gemini-kvota.md) — modellválasztás, Free tier és saját limitek, napi kvóta, modellváltás
 8. [Utómunka](docs/08-utomunka.md) — review-hibák, sorhossz-szegmentálás, Subtitle Edit, kézi lektorálás, MKV
 9. [Tippek](docs/09-tippek.md) — gyakorlati tanácsok
-10. [Fejlesztés és háttér](docs/10-fejlesztes.md) — fejlesztőknek: tesztek, commit előtti szűrő; mindenkinek: hogyan készült
+10. [Fejlesztés és háttér](docs/10-fejlesztes.md) — fejlesztőknek: tesztek, commit előtti szűrő, a dokumentáció karbantartása; mindenkinek: hogyan készült
 
 ## Licenc
 

@@ -205,7 +205,8 @@ subtitle-translator/
 │   — csak fejlesztéshez (lásd: docs/10-fejlesztes.md) —
 ├── tests/                       ← pytest-tesztek, modulonként egy fájl; hálózat és API-kulcs nélkül futnak
 ├── scripts/
-│   └── check_copyright.py       ← commit előtti szűrő: jogvédett tartalom és titok
+│   ├── check_copyright.py       ← commit előtti szűrő: jogvédett tartalom és titok
+│   └── docs_nav.py              ← a docs/ navigációjának generálása (fejezetcímek, lapozósor, tartalomjegyzékek)
 ├── .githooks/
 │   └── pre-commit               ← a szűrőt hívja (bekapcsolás: git config core.hooksPath .githooks)
 └── .copyright-blocklist.example ← sablon a helyi, gitignore-olt terminus-listához

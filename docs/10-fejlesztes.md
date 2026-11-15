@@ -52,6 +52,53 @@ Amit **nem** tud: a felirat mondatait mint mondatokat nem ismeri fel. Ha egy
 valódi feliratsort másolsz egy tesztbe cím és szereplőnév nélkül, azt csak te
 veszed észre — ezért a fixture-ök kitalált szövegek.
 
+### A dokumentáció karbantartása (`docs/`)
+
+A felhasználói dokumentáció a `docs/` mappában van, fejezetenként egy fájlban
+(`01-telepites.md` … `10-fejlesztes.md`); a `docs/README.md` a tartalomjegyzék,
+a gyökér `README.md` csak rövid kezdőlap. A fejezetek **szövegét** kézzel
+szerkeszted, a **navigációt** viszont a `scripts/docs_nav.py` generálja:
+
+- minden fejezet első sora (`# N. Cím`) és alján a lapozósor
+  (← előző · Tartalomjegyzék · következő →, az utolsó `---` sor után);
+- a `docs/README.md` fejezetlistája a `##` és `###` alcímekkel, horgony-linkkel
+  (a „Hivatkozott dokumentumok” rész kézi, azt nem bántja);
+- a gyökér `README.md` „Dokumentáció” listája.
+
+```bash
+python3 scripts/docs_nav.py           # navigáció frissítése
+python3 scripts/docs_nav.py --check   # csak ellenőrzés (1-es kilépési kód, ha elavult)
+```
+
+Mikor kell futtatni: ha egy fejezetben **alcímet** (`##`, `###`) írsz át, veszel
+fel vagy törölsz (a tartalomjegyzék ezekből épül), ha fejezetet adsz hozzá,
+átnevezel vagy átsorolsz, vagy ha egy fejezet egysoros leírása változik. A
+fejezetek sorrendje, címe és leírása a script elején lévő `CHAPTERS` listában
+van — ez az egyetlen hely. Új fejezetnél a fájl a többi mintáját kövesse: első
+sor `# …` cím, alatta a „Kezdőlap · Tartalomjegyzék” sor, a végén `---` és egy
+(bármilyen) lapozósor — a script ezt felülírja.
+
+Két teszt őrzi a dokumentációt:
+
+- `tests/test_docs_links.py` — minden belső link célfájlja és horgonya létezik
+  (`README.md`, `docs/`, az add-onok és a `glossaries/` README-je). Egy
+  átnevezett alcím, amire máshonnan link mutat, itt bukik el.
+- ugyanitt: a `docs_nav.py --check` tiszta-e — ha alcímet változtattál, de a
+  navigációt nem frissítetted, a teszt jelez.
+
+Fejezetek közti utalásnál linket írj (`[*Forrásnyelv*](04-forditas.md#forrásnyelv)`),
+ne „lásd fent / lent” formát: a fejezetek külön fájlok, a „fent” csak a saját
+fájlon belül érvényes. A horgony a GitHub szabálya szerint képződik: kisbetű,
+írásjelek ki (a kötőjel marad), szóköz → kötőjel, az ékezet marad — pl.
+`## Review — opciók` → `#review--opciók`.
+
+Ha a dokumentáció egy fájlja a kódból is hivatkozott (skillek, `steps.txt`,
+add-onok súgója), fejezet-átnevezéskor ott is javítsd a hivatkozást
+(`grep -rn "docs/" .claude .agents .grok .codex steps.txt subtr addons`).
+A `TRANSLATION.md`-hez dokumentációs okból ne nyúlj: a szövege a review-futások
+ujjlenyomatának része, a módosítása a sorozat-mappákban félbehagyott review-t
+elölről indíttatná.
+
 ## Hogyan készült — AI-asszisztált fejlesztés
 
 **Ez a projekt kódjának túlnyomó része AI-asszisztensekkel készült**, emberi
