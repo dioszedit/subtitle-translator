@@ -204,3 +204,34 @@ def test_declined_model_is_not_called_again(switching):
     again = _ModelClient()                                 # nincs válasz: nem is hívhat
     assert gemini.call_json(again, "x", "p", schema={}) == (None, err)
     assert again.calls == 0 and gemini.daily_quota_exhausted(err)
+
+
+# --- a váltás folyamatok között: a kvótanapló „exhausted” jelzése --------------
+
+@pytest.fixture
+def ledger_says_exhausted(monkeypatch, switching):
+    """A napló szerint az „m” ma már kimerült (egy korábbi folyamat 429-et kapott)."""
+    monkeypatch.setattr(gemini._gq, "status",
+                        staticmethod(lambda model: {"exhausted": model == "m"}),
+                        raising=False)
+    return switching
+
+
+def test_ledger_exhaustion_switches_before_first_request(ledger_says_exhausted, quota_log):
+    """Új folyamat (pl. a következő rész): nem küld kérést a kimerült modellre."""
+    client = _ModelClient(_Resp(text='{"ok": 1}'))
+    meta = {}
+    assert gemini.call_json(client, "m", "p", schema={}, meta=meta) == ({"ok": 1}, None)
+    assert client.models_used == ["m2"] and meta == {"model": "m2"}
+    assert ledger_says_exhausted == ["m"] and gemini.switches() == {"m": "m2"}
+
+
+def test_ledger_exhaustion_without_fallback_still_tries_model(ledger_says_exhausted, monkeypatch):
+    """Nincs tartalék → a modellt megpróbálja (a napló jelzése nem végleges ítélet)."""
+    from subtr import gemini_models
+    monkeypatch.setattr(gemini_models, "choose_fallback", lambda model, tried=(): None)
+    client = _ModelClient(_Resp(text="{}"))
+    assert gemini.call_json(client, "m", "p", schema={}) == ({}, None)
+    assert client.models_used == ["m"]
+    # a napló csak egyszer kerül elő: a második hívás nem kérdez újra
+    assert gemini.call_json(_ModelClient(_Resp(text="{}")), "m", "p", schema={}) == ({}, None)

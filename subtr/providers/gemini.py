@@ -60,6 +60,9 @@ _SWITCHED = {}
 # nem kérte) → a hibaüzenet. A további hívások ezzel KÉRÉS NÉLKÜL térnek vissza:
 # aznap úgysem mennének, és mindegyik 429 egy-egy napló-írás lenne.
 _DECLINED = {}
+# Modellek, amelyeknél a napló mai „exhausted” jelzését már megnéztük ebben a
+# folyamatban (hívásonként nem olvassuk újra a naplót).
+_LEDGER_CHECKED = set()
 
 
 def effective_model(model: str) -> str:
@@ -96,10 +99,27 @@ def reset_switches() -> None:
     with _SWITCH_LOCK:
         _SWITCHED.clear()
         _DECLINED.clear()
+        _LEDGER_CHECKED.clear()
 
 
-def _switch_after_exhaustion(model: str):
-    """A napi limitbe futott modell helyettesítője, vagy None (nincs váltás)."""
+def _exhausted_in_ledger(model: str) -> bool:
+    """A gépszintű napló szerint ez a modell ma már belefutott a napi limitbe
+    (egy korábbi folyamat — pl. az előző rész, vagy egy másik projekt — 429-et
+    kapott). Folyamatonként modellenként egyszer nézzük meg."""
+    if not _gq or model in _LEDGER_CHECKED:
+        return False
+    _LEDGER_CHECKED.add(model)
+    try:
+        return bool(_gq.status(model)["exhausted"])
+    except Exception:
+        return False
+
+
+def _switch_after_exhaustion(model: str, preemptive: bool = False):
+    """A napi limitbe futott modell helyettesítője, vagy None (nincs váltás).
+    preemptive=True: a napló jelzése alapján, kérés előtt váltunk — ha nincs
+    tartalék, NEM jelöljük elutasítottnak: a hívás megpróbálja a modellt (a
+    naplót egy tier-váltás vagy kézi javítás után már ne higgyük vakon)."""
     with _SWITCH_LOCK:
         if model in _SWITCHED:            # egy másik agent már döntött
             return effective_model(model)
@@ -113,9 +133,12 @@ def _switch_after_exhaustion(model: str):
             new = None
         if new and new != model:
             _SWITCHED[model] = new
-            print(f"  >>> MODELLVÁLTÁS: {model} → {new} — a futás hátralévő "
+            why = " (a kvótanapló szerint ma már kimerült)" if preemptive else ""
+            print(f"  >>> MODELLVÁLTÁS: {model} → {new}{why} — a futás hátralévő "
                   f"hívásai ezzel mennek.")
             return new
+        if preemptive:
+            return None
         _DECLINED.setdefault(model, f"[API hiba: a {model} napi kerete elfogyott "
                                     f"(429 RESOURCE_EXHAUSTED, quotaId: PerDay)]")
         return None
@@ -177,6 +200,12 @@ def call_json(client, model: str, prompt: str, *, schema,
     )
 
     model = effective_model(model)
+    # Egy korábbi folyamat (az előző rész, másik projekt) ma már 429-et kapott
+    # ezzel a modellel → egyből a tartalékkal indulunk, nem égetünk el egy
+    # kérést (és várakozást) arra, hogy a váltás ebben a folyamatban is
+    # megtörténjen.
+    if model not in _DECLINED and _exhausted_in_ledger(model):
+        model = _switch_after_exhaustion(model, preemptive=True) or model
     if meta is not None:
         meta["model"] = model
     if model in _DECLINED:
