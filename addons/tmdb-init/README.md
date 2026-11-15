@@ -72,8 +72,8 @@ sorozat) mellett a javaslat csak tájékoztat — ott alapot csak `--base` áll�
 A `--out` és a `--glossary` alapértelmezése **a munkakönyvtárhoz** képest
 értendő (ugyanaz a konvenció, mint a `subtr` parancsoknál) — a scriptet mindig
 a sorozat projektmappájából futtasd. Ez azért fontos, mert minden sorozatnak
-saját másolata van a repóból: ha az egyik mappából a másik példány scriptjét
-hívod, a kimenet akkor is a **munkakönyvtárba** kerül, nem a script repójába.
+saját másolata van a programból: ha az egyik mappából a másik példány scriptjét
+hívod, a kimenet akkor is a **munkakönyvtárba** kerül, nem a script mappájába.
 
 ### Már futó sorozat utólagos kiegészítése
 

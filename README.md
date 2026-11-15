@@ -47,7 +47,7 @@ subtitle-translator/
 ├── glossary.json                ← Fordítási szójegyzék (kézzel validált)
 ├── glossaries/                  ← Alap-szótárak műfaj × kultúra szerint (a glossary.json `meta.bases` választ)
 ├── .env.example                 ← .env sablon: API-kulcsok, funkciónkénti provider / modell / effort
-├── .gitignore                   ← Mit ne commit-oljunk
+├── .gitignore                   ← (git-hez) mi nem része a programnak: .env, munkafájlok
 ├── LICENSE                      ← MIT licenc
 ├── pyproject.toml               ← Csomagolás (pip install -e .) és pytest-konfiguráció
 │
@@ -116,14 +116,15 @@ subtitle-translator/
 └── .copyright-blocklist.example ← sablon a helyi, gitignore-olt terminus-listához
 ```
 
-A **`subtr.py`** a repo gyökeréből fut, és minden alparancsa a `subtr/` csomag
+A **`subtr.py`** a program mappájából (ahol maga a `subtr.py` van) fut, és minden alparancsa a `subtr/` csomag
 logikáját használja. Ez egy tudatos refaktor-döntés: korábban a glossary-betöltő
 logika 6 különálló scriptben élt egyszerre, és a másolatok szétcsúsztak. Most a
 valódi logika egyetlen helyen van (`subtr/`), az alparancsok csak vékony
 kapcsolódási pontok, és az update-ek mindegyikre azonnal érvényesek.
 
-Az `input/`, `output/`, `blocks/` mappák tartalma nem kerül a git repóba —
-projektenként / epizódonként más, és gyakran szerzői jogi védettség alá esik.
+Az `input/`, `output/`, `blocks/` mappák a te munkafájljaid, nem részei a
+programnak (a letölthető programban üresek) — projektenként / epizódonként
+mások, és gyakran szerzői jogi védettség alá esnek.
 
 ## Előfeltételek
 
@@ -133,14 +134,17 @@ projektenként / epizódonként más, és gyakran szerzői jogi védettség alá
 - **Codex CLI** (`codex` parancs, opcionális) — a Codex providerhez. Bejelentkezett CLI-t használ; külön Python-csomag nem kell.
 - **Grok CLI** (`grok` parancs, opcionális) — a Grok providerhez. Bejelentkezett CLI (`grok login`) vagy `XAI_API_KEY`; külön Python-csomag nem kell.
 - **Antigravity CLI** (`agy` parancs, opcionális) — az Antigravity providerhez: Gemini-modellek előfizetésből, API-kulcs és napi API-kvóta nélkül. Bejelentkezett CLI; külön Python-csomag nem kell. Az elérhető modelleket az `agy models` listázza.
-- **Git** (opcionális) — verziókezeléshez
+- **Git** (opcionális) — csak ha a programot git-tel töltöd le / frissíted, vagy fejleszted; sima használathoz nem kell
 
 ## Telepítés
 
-### Új gépen — clone GitHub-ról
+### Új gépen — letöltés GitHub-ról
+
+Git nélkül: a https://github.com/dioszedit/subtitle-translator oldalon
+**Code → Download ZIP**, majd csomagold ki. Ha használsz git-et, ugyanez:
+`git clone https://github.com/dioszedit/subtitle-translator.git`.
 
 ```powershell
-git clone https://github.com/dioszedit/subtitle-translator.git
 cd subtitle-translator
 
 # Gemini-provideres parancsok függőségei (translate --provider gemini és/vagy review --provider gemini)
@@ -176,8 +180,10 @@ copy .env.example .env
 
 ### Új projekt indítása
 
-1. A clone-olt mappát használhatod közvetlenül, vagy másolhatod egy új mappába
-   sorozatonként (ha külön repóként akarsz több sorozatot vezetni).
+1. A letöltött mappát használhatod közvetlenül, vagy sorozatonként egy-egy
+   új mappába másolhatod a programot (így minden sorozat munkafájljai —
+   `TRANSLATION.local.md`, `glossary.json`, `input/`, `output/` — külön
+   maradnak). A program frissítéséről lásd lent: *Frissítés új verzióra*.
 2. Hozd létre a gitignore-os `TRANSLATION.local.md` fájlt. Ha a sorozat fent
    van a [TMDB](https://www.themoviedb.org/)-n, ezt megcsinálja helyetted a
    `tmdb-init` add-on a hivatalos API-val — egy ingyenes `TMDB_API_KEY` kell
@@ -222,6 +228,30 @@ három lépésben vihető át — részletek:
    [regiszter-kinyerés](#megszólítási-regiszter-kinyerése-subtrpy-register--opcionális)
    a kész magyar szövegből dolgozik: a tegezés/magázás ott nem következtetés,
    hanem a magyar igealak leolvasása.
+
+### Frissítés új verzióra
+
+Ha a programból új verzió jön, töltsd le ugyanúgy (**Code → Download ZIP**,
+vagy git-tel `git pull`), és másold át a **program fájljait** minden fordítási
+mappádba, felülírva a régieket:
+
+- `subtr.py`, `subtr/`, `addons/`, `glossaries/`
+- `.claude/`, `.codex/`, `.grok/`, `.agents/` (a munkafolyamat-skillek)
+- `README.md`, `TRANSLATION.md`, `resegment_srt.md`, `AGENTS.md`, `CLAUDE.md`,
+  `.env.example`, `pyproject.toml`, `LICENSE`
+
+**Ne írd felül** a sorozat saját fájljait: `TRANSLATION.local.md`,
+`glossary.json`, `.env`, és az `input/`, `output/`, `blocks/`,
+`Season 01/` mappákat — ezek a te munkád. Ha a `steps.txt`-t a sorozatodra
+szabtad, azt se írd felül vakon: nézd meg, mi változott benne. Ha a
+`glossaries/` alap-szótáraiba magad is vettél fel szavakat, azokat másolás előtt
+mentsd el.
+
+Ha a Gemini-limiteket saját magad állítottad be (`models refresh --local`), a
+frissítés azokat nem írja felül; az új verzió beépített adataira a
+`python subtr.py models reset-local` vált át (lásd: *Gemini-modellek, limitek,
+kivezetések*). Hogy egy mappában mi az érvényes beállítás, a
+`python subtr.py config` mutatja.
 
 ## Használat (PowerShell)
 
@@ -776,91 +806,86 @@ utódot hívja; bejelentett, de még el nem jött leállásnál csak figyelmezte
 
 ### Gemini-modellek, limitek, kivezetések (`subtr.py models`)
 
-A modellek kínálata és a limitek néhány hetente változnak. Ezeket **egyetlen
-generált fájl** tartja: `subtr/gemini_models.json` — ebből dolgozik a
-kvóta-előrejelzés, a kivezetett modellek cseréje és a napi limitnél a
-modellváltás. Csak nyilvános adat van benne (limitek, név → kód, státusz,
-kivezetések); ami a saját kulcsodtól függ (mely modelleket kínálja neked az
-API, a saját előfizetésed limitjei), az gépszinten, a kvótanapló mellett él:
-`~/.gemini_quota/models.json`. Kézzel egyiket se szerkeszd.
+A Gemini-modellek kínálata és a limitjeik néhány hetente változnak. A program
+ezeket egy beépített adatfájlból ismeri (`subtr/gemini_models.json`): ebből
+számolja a kvóta-előrejelzést, ebből tudja, melyik modellt vezette ki a Google,
+és ebből választ, ha napi limitnél modellt kell váltani. Kézzel ne szerkeszd.
 
-#### Free tier — a repó alapértelmezése
+```powershell
+python subtr.py models          # szöveges modellek: RPM / TPM / RPD, mai fogyás
+python subtr.py models --all    # minden kategória
+```
 
-A repo nyilvános, ezért a `subtr/gemini_models.json` **a Gemini API ingyenes
-(Free tier) limitjeit** tartalmazza: ez az, ami minden felhasználónak, minden
-új Google AI Studio projektnek elérhető, előfizetés nélkül. Ha te is Free
-tierrel dolgozol, nincs teendőd — a kvóta-előrejelzés és a modellváltás ezekkel
-a limitekkel számol.
+#### A program a Free tier limitjeivel érkezik
+
+A beépített adatfájl **a Gemini API ingyenes (Free tier) limitjeit**
+tartalmazza: ez az, ami mindenkinek, minden új Google AI Studio projektnek
+elérhető, előfizetés nélkül. Ha Free tierrel dolgozol, **nincs teendőd** — a
+program új verziója a friss adatokat is hozza.
 
 A limit **tierenként más**: fizetős tieren (Tier 1, 2, 3 — ha a projekthez
 számlázás tartozik) a napi és percenkénti keret jóval nagyobb, és olyan
 modellek is használhatók, amelyeknek Free tieren 0 a limitje (pl. a Pro
 modellek). Hogy a te projekted melyik tieren van, az AI Studio rate-limit
-oldalának fejlécében látszik (pl. „Free tier” vagy „Tier 1”). A repóbeli fájlba
-csak Free tier adat kerülhet: a `models refresh` más tier oldalát nem írja bele.
+oldalának fejlécében látszik (pl. „Free tier” vagy „Tier 1”).
 
-#### Saját előfizetés (fizetős tier) limitjei
+#### Saját limitek beállítása
 
-Ha a projektednek fizetős tierje van, a saját limitjeidet a **saját gépedre**
-mentsd — a repóbeli fájl ettől érintetlen marad (nincs ütközés `git pull`-nál,
-és nem kerül vissza véletlenül a nyilvános repóba):
+Két esetben érdemes a saját limitjeidet beállítani: ha **fizetős tiered** van,
+vagy ha a Google közben módosította a Free tier limitjeit, és nem akarsz a
+program következő verziójára várni. Mindkettő ugyanígy megy:
 
 1. Nyisd meg: https://aistudio.google.com/rate-limit (a projekt, amelyikhez a
    `GEMINI_API_KEY` tartozik)
 2. Kapcsold **be** az „All models” kapcsolót
 3. Jelöld ki és másold az egész oldalt: Ctrl+A, Ctrl+C (Macen Cmd+A, Cmd+C) —
    a szöveg a vágólapra kerül, **sehova nem kell beilleszteni**
-4. Terminálban: `python subtr.py models refresh --local` — a script maga
-   olvassa ki a vágólapról
+4. Bármelyik fordítási mappádban, terminálban:
+   `python subtr.py models refresh --local` — a program maga olvassa ki a
+   vágólapról
 
-A mentett limitek a `~/.gemini_quota/models.json`-ba kerülnek, **az API-kulcsod
-ujjlenyomatához kötve**: csak ezzel a kulccsal érvényesek, és felülírják a repó
-Free tier adatait (más kulccsal, vagy ha a modell nem szerepel a mentésben, a
-Free tier adat marad). A `python subtr.py models` fejléce mutatja, hogy saját
-limitekkel dolgozol. Ha a tiered változik, futtasd újra; a Free tier adataira a
-`python subtr.py models reset-local` állít vissza.
+A limitek **a gépedre** mentődnek (`~/.gemini_quota/models.json`, a
+kvótanapló mellé), nem a program mappájába: így **minden fordítási mappádra
+érvényesek**, és a program frissítése sem írja felül őket. Az API-kulcsodhoz
+kötődnek: más kulccsal (vagy ha egy modell nincs a mentésben) a beépített adat
+marad érvényben. A `python subtr.py models` fejléce mutatja, ha saját
+limitekkel dolgozol. Ha a tiered változik, futtasd újra; a beépített adatokra
+— például a program frissítése után — a `python subtr.py models reset-local`
+állít vissza.
 
-Ezen felül, ha egy modell a kulcsodon belefut a napi limitbe, a pipeline a
+```powershell
+python subtr.py models refresh --local       # saját limitek a vágólapról
+python subtr.py models refresh --local --open   # előbb megnyitja a rate-limit oldalt
+python subtr.py models refresh --local --file oldal.txt   # ha a vágólap helyett
+                                             # fájlba illesztetted a szöveget
+python subtr.py models refresh --local --dry-run   # csak kiírja, mi változna
+python subtr.py models reset-local           # vissza a beépített adatokra
+```
+
+Ha a kimásolt szövegben kevesebb mint 10 modell van (jellemzően mert az
+„All models” nincs bekapcsolva), a program nem menti el — különben a többi
+modell adata elveszne (`--force`: mégis).
+
+A limiteket API-kulccsal nem lehet lekérni, ezért kell a kimásolt oldal. A
+többit a program magától tölti le: a modellek pontos azonosítóját és
+státuszát (https://aistudio.google.com/docs/models), a kivezetéseket
+(https://aistudio.google.com/docs/deprecations), és hogy az API ténylegesen
+mely modelleket kínálja a kulcsodnak. Kiírja, mi változott, mire figyelj a
+beállításaidban (pl. 0-s limit, közelgő leállás), és összeveti az AI Studio
+használati adatát a saját naplójával.
+
+Ezen felül, ha egy modell a kulcsodon belefut a napi limitbe, a program a
 hibából kiolvassa a valódi limitet, és onnantól azt használja erre a kulcsra
 (`subtr.py quota` — lásd lent) — ez tiertől függetlenül mindig a te kereted.
 
-#### A repóbeli (Free tier) adat frissítése
+#### Ha a programot fejleszted: a beépített adat frissítése
 
-Karbantartóknak, Free tieres projektből:
-
-1. Nyisd meg: https://aistudio.google.com/rate-limit
-2. Kapcsold **be** az „All models” kapcsolót
-3. Jelöld ki és másold az egész oldalt: Ctrl+A, Ctrl+C (Macen Cmd+A, Cmd+C) —
-   a szöveg a vágólapra kerül, **sehova nem kell beilleszteni**
-4. Terminálban: `python subtr.py models refresh` — a script maga olvassa ki
-   a vágólapról
-
-```powershell
-python subtr.py models                    # szöveges modellek: RPM / TPM / RPD, mai fogyás
-python subtr.py models --all              # minden kategória
-python subtr.py models refresh            # frissítés a vágólapról
-python subtr.py models refresh --open     # előbb megnyitja a rate-limit oldalt
-python subtr.py models refresh --file oldal.txt --dry-run   # ha a vágólap helyett
-                                          # fájlba illesztetted a szöveget
-python subtr.py models refresh --no-limits   # csak modellek / kivezetések
-python subtr.py models refresh --force       # kevés modell-sorral is írjon
-python subtr.py models refresh --local       # saját (fizetős) tier: csak a gépedre
-python subtr.py models reset-local           # vissza a repó Free tier adataira
-```
-
-Ha a beillesztett szövegben kevesebb mint 10 modell van (jellemzően mert az
-„All models” nincs bekapcsolva), a frissítés nem írja felül a fájlt —
-különben a többi modell adata elveszne.
-
-A limiteket API-kulccsal nem lehet lekérni, ezért kell a kimásolt oldal. A
-többi forrást a frissítés magától tölti le: a név → modellkód párosítást és a
-státuszt (https://aistudio.google.com/docs/models), a kivezetéseket
-(https://aistudio.google.com/docs/deprecations), és hogy az API ténylegesen
-mely modelleket kínálja a kulcsodnak (`models.list`). A frissítés kiírja a
-változásokat, a beállított modellek problémáit (pl. RPD 0, közelgő leállás), és
-összeveti az AI Studio használati adatát a helyi naplóval. Frissítés után a
-repóbeli fájlt commitold, és szinkronizáld a sorozat-mappákba (a `--local`
-mentés gépszintű, azt nem kell).
+A beépített `subtr/gemini_models.json` a `--local` nélküli
+`python subtr.py models refresh`-sel frissül, Free tieres projekt oldaláról
+(más tier oldalát nem fogadja el — a beépített adat mindenkinek a Free tier).
+Ez csak annak a mappának a programpéldányát írja át, ahol futtatod — ezért a
+fejlesztői példányban (git) futtasd, és a fájlt commitold. A `--no-limits`
+csak a modell-azonosítókat és a kivezetéseket frissíti, a limiteket nem.
 
 **Napi limitnél modellváltás.** Ha a Gemini API-n egy modell napi kerete
 elfogy, a futás nem áll meg feltétlenül:
@@ -944,7 +969,7 @@ be, és a nap hátralévő részére hamisan „kimerült"-nek jelölné a model
 
 A napi limit forrása, erősségi sorrendben: (1) a kulcsodra 429-ből tanult érték
 (az a te tieredre mért szám); (2) a `models refresh --local`-lal mentett saját
-limitek; (3) a repóbeli `subtr/gemini_models.json` Free tier adata (a korlátlan
+limitek; (3) a programba épített `subtr/gemini_models.json` Free tier adata (a korlátlan
 limit is ezekből jön); (4) becslés. Ha a tanult és a mentett érték eltér, a
 `subtr.py models` szól. A megtanult
 limitek **tartósak** (nem évülnek a napi számlálókkal), ezért a
@@ -1064,7 +1089,7 @@ A `subtr.py bases` parancs kezeli őket:
 ```powershell
 python subtr.py bases list                                  # alapok + a sorozat választása
 python subtr.py bases check                                 # alap ↔ sorozat ↔ kész fordítások ütközései
-# terminus a sorozatból az alapba — a REPO gyökeréből, hogy a repo glossaries/-ába írjon:
+# terminus a sorozatból az alapba — abból a mappából, amelyik glossaries/-ába írjon:
 python subtr.py bases promote "Grand Tutor" --to zh-historical --from "..\Sorozat\glossary.json" --context "太傅; a trónörökös nevelője"
 ```
 
@@ -1072,7 +1097,8 @@ A `check` a már lefordított részeket is összeveti a forrással: ha egy futó
 sorozathoz utólag kapcsolsz alapot, megmutatja, hol írna az alap mást, mint a
 kész részek (ott a sorozat glossaryjába felülírás kell). A `promote`
 alapból kiveszi a bejegyzést a sorozatból (`--keep`: marad), a `context`-et
-`--context`-tel általánosra cserélheted — a repo nyilvános.
+`--context`-tel általánosra cserélheted — ha az alapot megosztod (vagy a
+nyilvános programba javasolod), ne maradjon benne sorozatspecifikus részlet.
 
 Részletek és szabályok: `glossaries/README.md`.
 
@@ -1164,8 +1190,8 @@ a változás a következő futáskor automatikusan érvényesül — a translate
 
 ## Workflow-skillek
 
-A repó három projekt-szintű skillt tartalmaz (`.claude/skills/`) — ezek Claude
-Code-ban `/névvel` hívható, kódolt munkafolyamatok. Clone után azonnal működnek,
+A program három projekt-szintű skillt tartalmaz (`.claude/skills/`) — ezek Claude
+Code-ban `/névvel` hívható, kódolt munkafolyamatok. Letöltés után azonnal működnek,
 külön telepítés nélkül:
 
 | Skill | Mit csinál |

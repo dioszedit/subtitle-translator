@@ -923,8 +923,8 @@ def _copy_instructions() -> str:
             f"  2. Kapcsold BE az „All models” kapcsolót (különben csak 2-3 modell látszik)\n"
             f"  3. Ctrl+A, Ctrl+C (Macen Cmd+A, Cmd+C) — a szöveg a vágólapra kerül,\n"
             f"     sehova nem kell beilleszteni\n"
-            f"  4. Futtasd újra: py subtr.py models refresh (a vágólapról olvas; fájlból:\n"
-            f"     --file oldal.txt)")
+            f"  4. Futtasd újra: py subtr.py models refresh --local (a vágólapról olvas;\n"
+            f"     fájlból: --file oldal.txt)")
 
 
 def _learned_limits() -> dict:
@@ -971,14 +971,11 @@ def cmd_refresh(args) -> int:
         print(f"Rate-limit oldal: {len(page['rows'])} modell, tier: {page['tier'] or '?'}")
         tier = page["tier"] or ""
         if not args.local and tier and tier.lower() != REPO_TIER.lower():
-            print(f"HIBA: ez a(z) „{tier}” limitje. A repóbeli fájl a mindenkinek elérhető "
-                  f"{REPO_TIER} limitjeit tartja (a repo nyilvános).\n"
-                  f"  A saját előfizetésed limitjeit a gépedre mentsd: "
-                  f"py subtr.py models refresh --local")
+            print(f"HIBA: ez a(z) „{tier}” limitje. A programba épített adat a mindenkinek "
+                  f"elérhető {REPO_TIER} limitjeit tartja.\n"
+                  f"  A saját előfizetésed limitjeit a gépedre mentsd (minden fordítási "
+                  f"mappádra érvényes): py subtr.py models refresh --local")
             return 1
-        if args.local and tier.lower() == REPO_TIER.lower():
-            print(f"MEGJEGYZÉS: ez a {REPO_TIER} — a repó alapértelmezése is ez; a "
-                  f"--local most csak a gépedre ír, a repó fájlját nem frissíti.")
 
     docs = deprecations = api_list = None
     if not args.no_docs:
@@ -1024,8 +1021,8 @@ def cmd_refresh(args) -> int:
         # a figyelmeztetésekhez: a repó adatai a saját limitekkel felülírva
         effective = {**new, "models": {**load()["models"], **new["models"]}}
         own_diff = diff_lines({"models": load()["models"]}, {"models": new["models"]})
-        print("\nSaját limitek a repó (Free tier) adataihoz képest:" if own_diff
-              else "\nA saját limitek megegyeznek a repó adataival.")
+        print(f"\nSaját limitek a beépített ({REPO_TIER}) adatokhoz képest:" if own_diff
+              else "\nA saját limitek megegyeznek a beépített adatokkal.")
         for line in own_diff:
             print("  " + line)
     warns = config_warnings(effective,
@@ -1041,9 +1038,8 @@ def cmd_refresh(args) -> int:
         return 0
     if args.local:
         path = save_local_limits(new["models"], page["tier"])
-        print(f"\nÍrva (gépszintű, csak a te kulcsodra): {path}")
-        print(f"A repóbeli {DATA_PATH.name} érintetlen. Visszaállás a {REPO_TIER} "
-              f"adataira: py subtr.py models reset-local")
+        print(f"\nMentve a gépedre (minden fordítási mappádra, ehhez a kulcshoz): {path}")
+        print(f"Vissza a beépített ({REPO_TIER}) adatokra: py subtr.py models reset-local")
         if api_list is not None:
             save_local_api(api_list)
         return 0
@@ -1052,7 +1048,9 @@ def cmd_refresh(args) -> int:
     if api_list is not None:
         print(f"Írva (gépszintű, kulcsfüggő): {save_local_api(api_list)}")
         clear_cache()
-    print("A repóbeli fájlt commitold, és szinkronizáld a sorozat-mappákba is.")
+    print("Ez csak ennek a mappának a programpéldányát frissítette. Ha a limiteket "
+          "minden fordítási\nmappádra érvényesen akarod beállítani: py subtr.py "
+          "models refresh --local\n(Ha a programot fejleszted: a fájlt commitold.)")
     return 0
 
 
@@ -1095,10 +1093,17 @@ def cmd_show(args) -> int:
           + (f" ({age} napos)" if age is not None else ""))
     if own:
         print(f"  Saját limitek a kulcsodra: {own.get('tier') or '?'} ({own.get('updated')}) "
-              f"— ezek érvényesek a repó {REPO_TIER} adatai helyett "
+              f"— ezek érvényesek a beépített {REPO_TIER} adatok helyett "
               f"(visszaállás: py subtr.py models reset-local)")
-    if age is None or age > STALE_DAYS:
-        print("  [!] Régi adat — frissítsd: py subtr.py models refresh")
+    own_age = None
+    if own and _parse_iso(own.get("updated")):
+        own_age = (date.today() - _parse_iso(own["updated"])).days
+    if own_age is not None and own_age > STALE_DAYS:
+        print(f"  [!] A saját limitek {own_age} naposak — frissítsd: "
+              f"py subtr.py models refresh --local")
+    elif not own and (age is None or age > STALE_DAYS):
+        print("  [!] Régi adat — a program új verziója frisset hoz; addig is: "
+              "py subtr.py models refresh --local")
     api = api_models_or_none()
     if api is None:
         print("  (A kulcsod modell-listája még nincs letöltve: py subtr.py models refresh)")
@@ -1150,8 +1155,8 @@ def main() -> None:
                     "kimásolt szövegéből + a nyilvános docs-oldalakból + az API-ból.")
     ap.add_argument("action", nargs="?", default="show",
                     choices=("show", "refresh", "reset-local"),
-                    help="show (alapértelmezett): táblázat; refresh: adatfájl frissítése; "
-                         "reset-local: a saját (--local) limitek törlése")
+                    help="show (alapértelmezett): táblázat; refresh: limitek frissítése "
+                         "(--local: a gépedre); reset-local: a saját limitek törlése")
     ap.add_argument("--all", action="store_true",
                     help="show: minden kategória (nem csak a szöveges modellek)")
     ap.add_argument("--file", metavar="FÁJL",
@@ -1166,8 +1171,9 @@ def main() -> None:
     ap.add_argument("--no-api", action="store_true",
                     help="refresh: az API modell-listája nélkül (nem kell kulcs)")
     ap.add_argument("--local", action="store_true",
-                    help="refresh: a saját előfizetésed (nem Free tier) limitjeit csak a "
-                         "gépedre menti, a kulcsodra — a repóbeli fájl érintetlen marad")
+                    help="refresh: a limiteket a gépedre menti (minden fordítási mappádra, "
+                         "ehhez az API-kulcshoz) — saját tierhez vagy a beépített adat "
+                         "frissítéséhez; a program fájljai érintetlenek")
     ap.add_argument("--force", action="store_true",
                     help=f"refresh: kevesebb mint {MIN_EXPECTED_ROWS} modell-sorral is írjon")
     ap.add_argument("--dry-run", action="store_true",
@@ -1175,8 +1181,8 @@ def main() -> None:
     args = ap.parse_args()
     if args.action == "reset-local":
         if reset_local_limits():
-            print(f"A saját limitek törölve — a kulcsodra újra a repó {REPO_TIER} "
-                  f"adatai érvényesek.")
+            print(f"A saját limitek törölve — a kulcsodra újra a programba épített "
+                  f"{REPO_TIER} adatok érvényesek.")
         else:
             print("Ehhez a kulcshoz nincsenek saját limitek.")
         sys.exit(0)
