@@ -373,6 +373,8 @@ def run_gemini(prompt: str, model: str) -> list[dict]:
     if err:
         print(f"HIBA: Gemini API hiba: {err}")
         return []
+    if gemini_provider.switch_summary():
+        print(f"Modellváltás (napi limit): {gemini_provider.switch_summary()}")
     return _validate(parsed.get("relations"))
 
 

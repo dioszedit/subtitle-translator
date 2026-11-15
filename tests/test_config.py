@@ -6,6 +6,7 @@ függetlenek: nem nyúlnak a GEMINI_API_KEY-hez, csak a SUBTR_* kulcsokat
 állítják/takarítják monkeypatch-csel.
 """
 
+import json
 import os
 
 import pytest
@@ -389,21 +390,63 @@ def _model(task, provider, model):
     return config.resolve_settings(task, provider, model).model
 
 
-def test_kivezetett_gemini_modell_utodra_valt(defaults, capsys):
+@pytest.fixture
+def deprecations(tmp_path, monkeypatch):
+    """A Gemini-kivezetések a generált gemini_models.json-ból jönnek — a teszt
+    saját, rögzített adatfájllal fut, nem az éppen generálttal."""
+    from subtr import gemini_models
+    data = {"models": {}, "deprecations": {
+        "gemini-3.7-flash": {"replacement": "gemini-3.8-flash", "shutdown": None,
+                             "routes": True, "routes_from": None},
+        # lánc: 3.5 → 3.6 (átirányít), 3.6 → 3.8 (leállt)
+        "gemini-3.5-flash": {"replacement": "gemini-3.6-flash", "shutdown": None,
+                             "routes": True},
+        "gemini-3.6-flash": {"replacement": "gemini-3.8-flash", "shutdown": "2026-01-01",
+                             "routes": False},
+        # bejelentett, de még el nem jött leállás: nem cseréljük, csak szólunk
+        "gemini-2.5-flash": {"replacement": "gemini-3.5-flash-lite",
+                             "shutdown": "2999-12-01", "routes": False},
+        # utód van, leállás nincs: nem cseréljük
+        "gemini-3-flash-preview": {"replacement": "gemini-3.6-flash", "shutdown": None,
+                                   "routes": False},
+    }}
+    path = tmp_path / "gemini_models.json"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    monkeypatch.setattr(gemini_models, "DATA_PATH", path)
+    gemini_models.clear_cache()
+    yield
+    gemini_models.clear_cache()
+
+
+def test_kivezetett_gemini_modell_utodra_valt(defaults, deprecations, capsys):
     assert _model("translate", "gemini", "gemini-3.7-flash") == "gemini-3.8-flash"
     assert _model("review", "gemini", "gemini-3.5-flash") == "gemini-3.8-flash"
     assert _model("review", "gemini", "gemini-3.6-flash") == "gemini-3.8-flash"
-    assert "kivezette" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "irányítja át" in err and "leállt" in err
+    assert "helyette ezt használjuk: gemini-3.8-flash" in err
     # a lite és a nem érintett modellek változatlanok
     assert _model("review", "gemini", "gemini-3.5-flash-lite") == "gemini-3.5-flash-lite"
     assert _model("review", "gemini", "gemini-3.8-flash") == "gemini-3.8-flash"
+    assert _model("review", "gemini", "gemini-3-flash-preview") == "gemini-3-flash-preview"
     # más provider nevét nem bántjuk
     assert _model("review", "antigravity", "claude-opus-5-5-high") == "claude-opus-5-5-high"
 
 
-def test_kivezetett_modell_env_bol_is(defaults):
+def test_bejelentett_leallas_csak_figyelmeztet(defaults, deprecations, capsys):
+    assert _model("review", "gemini", "gemini-2.5-flash") == "gemini-2.5-flash"
+    assert "2999-12-01" in capsys.readouterr().err
+
+
+def test_kivezetett_modell_env_bol_is(defaults, deprecations):
     defaults.setenv("SUBTR_GEMINI_MODEL", "gemini-3.7-flash")
     assert _model("translate", "gemini", None) == "gemini-3.8-flash"
+
+
+def test_setting_env_erosebb_a_defaultsnal(defaults):
+    defaults.setenv("SUBTR_GEMINI_ON_QUOTA", "auto")
+    assert config.setting("SUBTR_GEMINI_ON_QUOTA") == "auto"
+    assert config.setting("SUBTR_NINCS_ILYEN", "x") == "x"
 
 
 @pytest.mark.parametrize("old,new", [

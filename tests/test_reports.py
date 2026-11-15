@@ -82,3 +82,27 @@ def test_write_reports_hibas_chunknal_a_json_jelzi_a_hianyt(tmp_path):
     assert "--- Chunk 1/1 ---\nTimeout" in txt.read_text(encoding="utf-8")
     data = json.loads(js.read_text(encoding="utf-8"))
     assert data["missing_chunks"] == [1] and data["findings"] == []
+
+
+def test_partial_records_switched_model(tmp_path):
+    from subtr import reports
+    path = tmp_path / "x.partial"
+    reports.start_partial(path, {"model": "m"})
+    reports.append_partial(path, 1, "h1", [])
+    reports.append_partial(path, 2, "h2", [], model="m2")
+    state = reports.load_partial(path, {"model": "m"}, {1: "h1", 2: "h2"})
+    assert set(state.done) == {1, 2} and state.models == {2: "m2"}
+
+
+def test_write_reports_keeps_model_field_clean(tmp_path):
+    import json as _json
+    from subtr import reports
+    srt = tmp_path / "e.srt"
+    rep, js = tmp_path / "r.txt", tmp_path / "r.json"
+    reports.write_reports(srt, rep, js, reviewer="gemini", model_label="m",
+                          finding_blocks=["--- Chunk 1/3 ---\nx"],
+                          json_findings=[{"sorszam": 1, "chunk": 1}],
+                          total_chunks=3, chunk_models={2: "m2", 3: "m2"})
+    data = _json.loads(js.read_text(encoding="utf-8"))
+    assert data["model"] == "m" and data["chunk_models"] == {"2": "m2", "3": "m2"}
+    assert "Más modellel lektorálva (napi limit): m2: 2–3. chunk" in rep.read_text(encoding="utf-8")

@@ -65,19 +65,31 @@ def write_reports(srt_path: Path, report_path: Path, json_path: Path, *,
                   finding_blocks: list[str], json_findings: list[dict],
                   errors: dict[int, str] | None = None,
                   total_chunks: int | None = None,
-                  chunk_range: tuple[int, int] | None = None):
+                  chunk_range: tuple[int, int] | None = None,
+                  chunk_models: dict[int, str] | None = None):
     """A .txt és .json riport mentése a bevált szerkezetben.
 
     `errors`: {chunk sorszáma: hibaüzenet} a nem lektorált chunkokra. Ebből az
     EGY leírásból készül a .txt hibaszakasza és a JSON `missing_chunks` mezője
     is — ha van ilyen chunk, a JSON találat nélkül is elkészül, és jelzi a hiányt.
     `chunk_range`: (első, utolsó), ha a futás csak egy rész-tartományt lektorált.
+    `chunk_models`: {chunk: modell} azokra a chunkokra, amelyeket NEM a
+    `model_label` modell lektorált (napi limit miatti váltás); a JSON-ban külön
+    `chunk_models` mező, hogy a `model` mező modellazonosító maradjon.
 
     A .txt fejlécében a reviewer nagybetűs kezdőbetűvel jelenik meg
     (Claude/Gemini/Codex/Grok/Antigravity), a .json-ban kisbetűvel — ez a meglévő kontraktus.
     """
     errors = errors or {}
+    chunk_models = chunk_models or {}
     missing_chunks = sorted(errors)
+    switched = ""
+    if chunk_models:
+        by_model = {}
+        for i, used in sorted(chunk_models.items()):
+            by_model.setdefault(used, []).append(i)
+        switched = "; ".join(f"{m}: {chunk_ranges(ch)}. chunk" for m, ch in by_model.items())
+        print(f"  Más modellel lektorálva (napi limit): {switched}")
     total_label = total_chunks if total_chunks is not None else "?"
     error_chunks = [f"--- Chunk {i}/{total_label} ---\n{errors[i]}\n"
                     for i in missing_chunks]
@@ -91,7 +103,8 @@ def write_reports(srt_path: Path, report_path: Path, json_path: Path, *,
         report_content = (
             f"Review riport ({reviewer.capitalize()}): {srt_path.name}\n"
             f"Modell: {model_label}\n"
-            f"{'=' * 60}\n\n"
+            + (f"Más modellel lektorálva (napi limit): {switched}\n" if switched else "")
+            + f"{'=' * 60}\n\n"
             + "\n\n".join(sections)
         )
         report_path.write_text(report_content, encoding="utf-8")
@@ -107,6 +120,8 @@ def write_reports(srt_path: Path, report_path: Path, json_path: Path, *,
             "reviewer": reviewer,
             "model": model_label,
         }
+        if chunk_models:
+            data["chunk_models"] = {str(i): m for i, m in sorted(chunk_models.items())}
         if missing_chunks or chunk_range:
             data["total_chunks"] = total_chunks
         if chunk_range:
@@ -188,12 +203,16 @@ class PartialState:
     outdated  [chunk, …]          — volt eredménye, de a chunk szövege megváltozott
     changed   [kulcs, …] | None   — a futás beállításai eltérnek: az EGÉSZ fájl
                                     más futáshoz tartozik (a hívó dönt a félretevésről)
+    models    {chunk: modell}     — a kész chunkok közül azok, amelyeket NEM a
+                                    beállított modell lektorált (napi limit miatti
+                                    modellváltás után)
     """
     done: dict = field(default_factory=dict)
     failed: dict = field(default_factory=dict)
     attempts: dict = field(default_factory=dict)
     outdated: list = field(default_factory=list)
     changed: list | None = None
+    models: dict = field(default_factory=dict)
 
 
 def load_partial(path: Path, fingerprint: dict, chunk_hashes: dict) -> PartialState:
@@ -202,6 +221,7 @@ def load_partial(path: Path, fingerprint: dict, chunk_hashes: dict) -> PartialSt
     if not path.exists():
         return PartialState()
     done, failed, attempts, outdated, header = {}, {}, {}, set(), None
+    models = {}
     # errors="replace": egy több bájtos karakter közepén megszakadt írás ne
     # dobjon UnicodeDecodeError-t — az a sor úgyis érvénytelen JSON lesz.
     with open(path, encoding="utf-8", errors="replace") as fh:
@@ -218,7 +238,7 @@ def load_partial(path: Path, fingerprint: dict, chunk_hashes: dict) -> PartialSt
             chunk = row["chunk"]
             if row.get("hash") != chunk_hashes.get(chunk):
                 outdated.add(chunk)
-                for store in (done, failed, attempts):
+                for store in (done, failed, attempts, models):
                     store.pop(chunk, None)
                 continue
             outdated.discard(chunk)
@@ -226,6 +246,10 @@ def load_partial(path: Path, fingerprint: dict, chunk_hashes: dict) -> PartialSt
                 done[chunk] = row["findings"]
                 failed.pop(chunk, None)
                 attempts.pop(chunk, None)
+                if row.get("model"):
+                    models[chunk] = str(row["model"])
+                else:
+                    models.pop(chunk, None)
             elif "error" in row:
                 attempts[chunk] = attempts.get(chunk, 0) + 1
                 history = failed.setdefault(chunk, [])
@@ -238,7 +262,7 @@ def load_partial(path: Path, fingerprint: dict, chunk_hashes: dict) -> PartialSt
     if changed:
         return PartialState(changed=changed)
     return PartialState(done, failed, attempts,
-                        sorted(outdated - set(done) - set(failed)))
+                        sorted(outdated - set(done) - set(failed)), models=models)
 
 
 def start_partial(path: Path, fingerprint: dict) -> None:
@@ -266,8 +290,13 @@ def _append_row(path: Path, row: dict) -> None:
 
 
 def append_partial(path: Path, chunk: int, chunk_hash: str,
-                   findings: list[dict]) -> None:
-    _append_row(path, {"chunk": chunk, "hash": chunk_hash, "findings": findings})
+                   findings: list[dict], model: str | None = None) -> None:
+    """Kész chunk. A `model` csak akkor kerül bele, ha a chunkot NEM a beállított
+    modell lektorálta (napi limit miatti váltás) — folytatáskor így is látszik."""
+    row = {"chunk": chunk, "hash": chunk_hash, "findings": findings}
+    if model:
+        row["model"] = model
+    _append_row(path, row)
 
 
 def append_partial_error(path: Path, chunk: int, chunk_hash: str,

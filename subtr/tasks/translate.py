@@ -382,10 +382,15 @@ def _make_gemini_translator(client, model, system_instruction, max_retries,
             return result
 
         in_count = len(sections)
+        meta = {}
         parsed, err_msg = gemini_provider.call_json(
             client, model, build_block_prompt(sections, src_lang),
             schema=TranslationOutput, system=system_instruction,
-            temperature=TEMPERATURE, max_retries=max_retries)
+            temperature=TEMPERATURE, max_retries=max_retries, meta=meta)
+        if meta.get("model") and meta["model"] != model:
+            # Napi limit miatti modellváltás: blokkonként látszódjon, mit
+            # fordított más modell (szelektíven újrafordítható).
+            result["model"] = meta["model"]
         if err_msg:
             result["status"] = "fail"
             result["message"] = err_msg
@@ -868,7 +873,8 @@ def main(argv=None):
                                           args.timeout, args.max_retries)
 
     results = []
-    with ThreadPoolExecutor(max_workers=args.agents) as executor:
+    executor = ThreadPoolExecutor(max_workers=args.agents)
+    try:
         futures = {executor.submit(translator, block): block for block in pending}
         for future in as_completed(futures):
             try:
@@ -878,9 +884,17 @@ def main(argv=None):
                           "status": "fail", "message": f"Thread hiba: {e}"}
             results.append(result)
             status_icon = {"ok": "✓", "warning": "⚠", "fail": "✗"}.get(result["status"], "?")
-            print(f"  [{status_icon}] {result['block']} — {result['message']}")
-            log(f"[{result['status'].upper()}] {result['block']} — {result['message']}",
+            via = f" [modell: {result['model']}]" if result.get("model") else ""
+            print(f"  [{status_icon}] {result['block']} — {result['message']}{via}")
+            log(f"[{result['status'].upper()}] {result['block']} — {result['message']}{via}",
                 detail=result.get("detail", ""))
+    except KeyboardInterrupt:
+        # Egy worker-szálon várhat a modellváltás kérdése (napi limit) — az ne
+        # tartsa vissza a leállást; a még el nem indult blokkok ne induljanak el.
+        gemini_provider.cancel_prompts()
+        executor.shutdown(wait=False, cancel_futures=True)
+        raise
+    executor.shutdown(wait=True)
 
     ok_count = sum(1 for r in results if r["status"] == "ok")
     warn_count = sum(1 for r in results if r["status"] == "warning")
@@ -891,6 +905,14 @@ def main(argv=None):
     print("  Végeredmény")
     print("=" * 50)
     print(f"  Sikeres:    {ok_count}")
+    by_model = {}
+    for r in results:
+        if r.get("model") and r["status"] == "ok":
+            by_model.setdefault(r["model"], []).append(r["block"])
+    for used, blocks in sorted(by_model.items()):
+        line = f"{used}: {', '.join(sorted(blocks))}"
+        print(f"  Más modellel fordítva (napi limit): {line}")
+        log(f"MODEL SWITCH (napi limit) — {line}")
     if warn_count:
         print(f"  Figyelem:   {warn_count} (szekció-eltérés — output törölve)")
     if fail_count:

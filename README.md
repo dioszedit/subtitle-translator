@@ -58,7 +58,7 @@ subtitle-translator/
 │
 ├── subtr.py                     ← Egyparancsos CLI — minden lépés ezen keresztül fut
 │                                  (split, glossary, register, translate, merge,
-│                                  verify, review, apply, apply-auto, resegment, quota, config)
+│                                  verify, review, apply, apply-auto, resegment, quota, models, config)
 │
 ├── subtr/                       ← A tényleges fordítás- és review-logika
 │   ├── cli.py                   ← az alparancsok elosztója (subtr.py és python -m subtr)
@@ -70,6 +70,8 @@ subtitle-translator/
 │   ├── glossary.py              ← glossary.json kezelés
 │   ├── reports.py               ← Review riportok szerializálása
 │   ├── quota.py                 ← Gemini kvóta-számlálás
+│   ├── gemini_models.py         ← Gemini-modellek, limitek, kivezetések; modellváltás napi limitnél
+│   ├── gemini_models.json       ← GENERÁLT (`subtr.py models refresh`) — a limitek és kivezetések egyetlen helye
 │   ├── providers/               ← Provider adapterek
 │   │   ├── base.py              ← a CLI-providerek közös felülete
 │   │   ├── gemini.py            ← Gemini API + retry + kvótakezelés
@@ -497,13 +499,14 @@ python subtr.py translate "blocks\eng" --provider antigravity --model claude-opu
 > `gemini-3.8-flash-high` és a `gemini-3.1-pro-high` 16-16-ot talált (részben eltérőket); téves riasztás
 > 1 / 1 / 0. Ezért a fordítás defaultja a `gemini-3.8-flash-high`, a review-é a
 > `gemini-3.1-pro-high`; a glossary és a register a `gemini-3.8-flash-high`-et használja.
-> **2026-10-13 óta** a 3.1 Pro (és a 3.6 / 3.7 Flash) a hivatalos modell-lista
+> **2026-10-13 óta** az Antigravityben a 3.1 Pro (és a 3.6 / 3.7 Flash) a hivatalos modell-lista
 > ([antigravity.google/docs/models](https://antigravity.google/docs/models/)) szerint
 > csak Enterprise-előfizetésben érhető el — azóta a review defaultja is a
 > `gemini-3.8-flash-high` (a mérésen ugyanannyi valódi hibát talált, mint a Pro).
 > Ha a `--model` vagy a `.env` ilyen nevet ad, a pipeline az `agy models` listájából
 > ellenőrzi: ha nálad elérhető (Enterprise), azt használja; ha nem, figyelmeztet, és a
-> `gemini-3.8-flash` azonos effortú változatát hívja.
+> `gemini-3.8-flash` azonos effortú változatát hívja. (Ez csak az Antigravity-ágra
+> vonatkozik: a Gemini API-n a 3.6 Flash elérhető, lásd `python subtr.py models`.)
 > Az effort az Antigravity-ágon a modellnév utótagja (`-low` / `-medium` / `-high`): a
 > pipeline a `SUBTR_…_MODEL` és a `SUBTR_…_EFFORT` sorból fűzi össze, de a modellnévbe
 > írt utótag is érvényes.
@@ -761,37 +764,123 @@ A forrásnyelvi SRT párosítása itt is működik (lásd fent a Claude review-n
 
 | Modell | Mire jó |
 |---|---|
-| `gemini-3.8-flash` | A `defaults.env` Gemini-modellje (API-n és Antigravityn is); a legújabb Flash (a kivezetett 3.5/3.6/3.7 utódja). Az Antigravity-ágon mért review-n a 3.6-nál jóval több valódi hibát talált (lásd az Antigravity-szakaszt). |
+| `gemini-3.8-flash` | A `defaults.env` Gemini-modellje (API-n és Antigravityn is); a legújabb Flash. Az Antigravity-ágon mért review-n a 3.6-nál jóval több valódi hibát talált (lásd az Antigravity-szakaszt). |
+| `gemini-3.6-flash` | Az előző Flash: az API-n elérhető (Stable, saját napi kerettel), 2026 októberében csak átmenetileg nem volt hívható. A napi limitnél használt tartaléklista első eleme. Az Antigravityben csak Enterprise-előfizetéssel érhető el (lásd fent). |
 | `gemini-3.5-flash-lite`, `gemini-3.1-flash-lite` | Olcsó, gyors, **bő napi kvóta** free tier-en. Nagy tömegű fordításra, illetve ha a nem-lite napi limit elfogyott. |
 | `gemini-flash-latest`, `gemini-flash-lite-latest`, `gemini-pro-latest` | Alias-ok, mindig az adott sáv legújabb kiadására mutatnak. Kényelmes, de nem determinisztikus (kiadásváltáskor csendben más modellt kapsz). |
 
-**Kivezetett (deprecated) modellek** — a Google megszüntette őket (2026-10-10, a 3.6-ot 2026-10-19-én)
-önálló modellként, a hívásokat automatikusan az utódra irányítja:
+Az aktuális modellek, free tier limitjeik és a kivezetések: `python subtr.py models`
+(lásd lent). Ha `--model`-lel vagy a `.env` modell-soraiban olyan nevet adsz meg,
+amelyet a Google már átirányít vagy leállított, a pipeline figyelmeztet, és az
+utódot hívja; bejelentett, de még el nem jött leállásnál csak figyelmeztet.
 
-| Kivezetett | Utód |
-|---|---|
-| `gemini-3.5-flash` | `gemini-3.8-flash` |
-| `gemini-3.6-flash` | `gemini-3.8-flash` (2026-10-19) |
-| `gemini-3.7-flash` | `gemini-3.8-flash` |
+### Gemini-modellek, limitek, kivezetések (`subtr.py models`)
 
-Ha `--model`-lel vagy a `.env` modell-soraiban még a régi nevet adod
-meg, a pipeline figyelmeztet, és az utódot hívja.
+A modellek kínálata és a limitek néhány hetente változnak. Ezeket **egyetlen
+generált fájl** tartja: `subtr/gemini_models.json` — ebből dolgozik a
+kvóta-előrejelzés, a kivezetett modellek cseréje és a napi limitnél a
+modellváltás. Csak nyilvános adat van benne (limitek, név → kód, státusz,
+kivezetések); ami a saját kulcsodtól függ (mely modelleket kínálja neked az
+API, a saját előfizetésed limitjei), az gépszinten, a kvótanapló mellett él:
+`~/.gemini_quota/models.json`. Kézzel egyiket se szerkeszd.
 
-A pontos, aktuális listát a saját kulcsoddal is le tudod kérni:
+#### Free tier — a repó alapértelmezése
+
+A repo nyilvános, ezért a `subtr/gemini_models.json` **a Gemini API ingyenes
+(Free tier) limitjeit** tartalmazza: ez az, ami minden felhasználónak, minden
+új Google AI Studio projektnek elérhető, előfizetés nélkül. Ha te is Free
+tierrel dolgozol, nincs teendőd — a kvóta-előrejelzés és a modellváltás ezekkel
+a limitekkel számol.
+
+A limit **tierenként más**: fizetős tieren (Tier 1, 2, 3 — ha a projekthez
+számlázás tartozik) a napi és percenkénti keret jóval nagyobb, és olyan
+modellek is használhatók, amelyeknek Free tieren 0 a limitje (pl. a Pro
+modellek). Hogy a te projekted melyik tieren van, az AI Studio rate-limit
+oldalának fejlécében látszik (pl. „Free tier” vagy „Tier 1”). A repóbeli fájlba
+csak Free tier adat kerülhet: a `models refresh` más tier oldalát nem írja bele.
+
+#### Saját előfizetés (fizetős tier) limitjei
+
+Ha a projektednek fizetős tierje van, a saját limitjeidet a **saját gépedre**
+mentsd — a repóbeli fájl ettől érintetlen marad (nincs ütközés `git pull`-nál,
+és nem kerül vissza véletlenül a nyilvános repóba):
+
+1. Nyisd meg: https://aistudio.google.com/rate-limit (a projekt, amelyikhez a
+   `GEMINI_API_KEY` tartozik)
+2. Kapcsold **be** az „All models” kapcsolót
+3. Ctrl+A, Ctrl+C
+4. `python subtr.py models refresh --local`
+
+A mentett limitek a `~/.gemini_quota/models.json`-ba kerülnek, **az API-kulcsod
+ujjlenyomatához kötve**: csak ezzel a kulccsal érvényesek, és felülírják a repó
+Free tier adatait (más kulccsal, vagy ha a modell nem szerepel a mentésben, a
+Free tier adat marad). A `python subtr.py models` fejléce mutatja, hogy saját
+limitekkel dolgozol. Ha a tiered változik, futtasd újra; a Free tier adataira a
+`python subtr.py models reset-local` állít vissza.
+
+Ezen felül, ha egy modell a kulcsodon belefut a napi limitbe, a pipeline a
+hibából kiolvassa a valódi limitet, és onnantól azt használja erre a kulcsra
+(`subtr.py quota` — lásd lent) — ez tiertől függetlenül mindig a te kereted.
+
+#### A repóbeli (Free tier) adat frissítése
+
+Karbantartóknak, Free tieres projektből:
+
+1. Nyisd meg: https://aistudio.google.com/rate-limit
+2. Kapcsold **be** az „All models” kapcsolót
+3. Ctrl+A, Ctrl+C
+4. `python subtr.py models refresh`
 
 ```powershell
-curl "https://generativelanguage.googleapis.com/v1beta/models?key=%GEMINI_API_KEY%"
+python subtr.py models                    # szöveges modellek: RPM / TPM / RPD, mai fogyás
+python subtr.py models --all              # minden kategória
+python subtr.py models refresh            # frissítés a vágólapról
+python subtr.py models refresh --open     # előbb megnyitja a rate-limit oldalt
+python subtr.py models refresh --file oldal.txt --dry-run
+python subtr.py models refresh --no-limits   # csak modellek / kivezetések
+python subtr.py models refresh --force       # kevés modell-sorral is írjon
+python subtr.py models refresh --local       # saját (fizetős) tier: csak a gépedre
+python subtr.py models reset-local           # vissza a repó Free tier adataira
 ```
 
-> ⚠️ **A Gemini modellek listája időről időre változik.** Új modellek jelennek
-> meg, preview verziók stabilizálódnak (és a `-preview` suffix lekerül), régi
-> verziók nyugdíjba mennek. A README-ben szereplő modell-példák ezért
-> elavulhatnak. Mielőtt egy konkrét `--model <név>` argumentumot használsz,
-> ellenőrizd az aktuálisan elérhető modelleket:
-> **https://ai.google.dev/gemini-api/docs/models**
->
-> Ha egy nem létező modell-azonosítót adsz át, a parancs API hibával fog
-> visszatérni — ilyenkor a fenti oldalon nézd meg a helyes nevet.
+Ha a beillesztett szövegben kevesebb mint 10 modell van (jellemzően mert az
+„All models” nincs bekapcsolva), a frissítés nem írja felül a fájlt —
+különben a többi modell adata elveszne.
+
+A limiteket API-kulccsal nem lehet lekérni, ezért kell a kimásolt oldal. A
+többi forrást a frissítés magától tölti le: a név → modellkód párosítást és a
+státuszt (https://aistudio.google.com/docs/models), a kivezetéseket
+(https://aistudio.google.com/docs/deprecations), és hogy az API ténylegesen
+mely modelleket kínálja a kulcsodnak (`models.list`). A frissítés kiírja a
+változásokat, a beállított modellek problémáit (pl. RPD 0, közelgő leállás), és
+összeveti az AI Studio használati adatát a helyi naplóval. Frissítés után a
+repóbeli fájlt commitold, és szinkronizáld a sorozat-mappákba (a `--local`
+mentés gépszintű, azt nem kell).
+
+**Napi limitnél modellváltás.** Ha a Gemini API-n egy modell napi kerete
+elfogy, a futás nem áll meg feltétlenül:
+
+| `SUBTR_GEMINI_ON_QUOTA` | Viselkedés |
+|---|---|
+| `ask` (alapérték) | terminálban felkínálja a tartaléklistáról a még használható modelleket (maradék kerettel), és megkérdezi, melyikre váltson; nem interaktív futásnál (pl. ha Claude Code futtatja) kérdés nélkül vált, mint az `auto` |
+| `auto` | kérdés nélkül a lista első még használható modelljére vált, és kiírja |
+| `off` | nem vált — a futás a napi limitnél megáll |
+
+A tartaléklista sorrendje a preferencia: `SUBTR_GEMINI_FALLBACK_MODELS`
+(`defaults.env`, felülírható a `.env`-ben). Csak olyan modellre vált, amelyik a
+`gemini_models.json`-ban szöveges modellként szerepel — egy elírt név így nem
+viheti a futást egy nem létező modellre. Kimarad, ami ma már kimerült, amit a
+Google ugyanarra a modellre irányít át, a kulcsodra érvényes napi limitje 0,
+vagy amit a kulcsod API-ja nem kínál. Csak a strukturált (`quotaId`-s) napi 429
+vált modellt. A váltás folyamatszintű: a futás hátralévő hívásai már az új
+modellel mennek. Hogy mit végzett más modell, az pontosan látszik: a fordítás
+blokkonként (`[modell: …]` a kimenetben és a `translate.log`-ban, az
+összegzésben blokklistával — szelektíven újrafordítható), a review
+chunkonként (a .txt riport fejlécében, a JSON-ban külön `chunk_models`
+mezőben; a `model` mező a beállított modell marad), megszakított review
+folytatásakor a korábbi futás chunkjaira is. Napi limitnél ugyanazt a modellt
+nem próbálja újra, és ha nem vált, a futás további hívásai kérés nélkül
+ugyanazt a hibát kapják — aznap úgysem mennének.
 
 ### Gemini kvóta — mennyi hívás van még ma? (`subtr.py quota`)
 
@@ -848,10 +937,15 @@ Ez a megkülönböztetés lényeges: magas `--agents` értéknél a percenkénti
 rutinszerű, és ha azt napi limitnek vennénk, egy múló hiba rossz értéket égetne
 be, és a nap hátralévő részére hamisan „kimerült"-nek jelölné a modellt.
 
-A megtanult limitek **tartósak** (nem évülnek a napi számlálókkal), ezért a
+A napi limit forrása, erősségi sorrendben: (1) a kulcsodra 429-ből tanult érték
+(az a te tieredre mért szám); (2) a `models refresh --local`-lal mentett saját
+limitek; (3) a repóbeli `subtr/gemini_models.json` Free tier adata (a korlátlan
+limit is ezekből jön); (4) becslés. Ha a tanult és a mentett érték eltér, a
+`subtr.py models` szól. A megtanult
+limitek **tartósak** (nem évülnek a napi számlálókkal), ezért a
 `python subtr.py quota` kiírja őket — ha valamelyik hibásnak tűnik, a
-`--forget-limit <modell>` törli, és a következő valódi napi 429-nél újratanul.
-Amíg nincs mért adat, becslést használ, és ezt `(becs)` jelöléssel jelzi.
+`--forget-limit <modell>` törli. Ha sehonnan nincs adat, becslést használ, és
+ezt `(becsült)` jelöléssel jelzi.
 
 > **A számláló alsó becslés, a maradék ezért felső korlát.** A naplóba csak
 > azok a hívások kerülnek, amelyek a `subtr.py` Gemini-ágán mentek ki

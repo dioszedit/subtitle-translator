@@ -1,0 +1,782 @@
+{
+  "_comment": "GENERÁLT FÁJL — `py subtr.py models refresh` írja, kézzel ne szerkeszd. Csak nyilvános adat; leírás: subtr/gemini_models.py",
+  "deprecations": {
+    "antigravity-preview-05-2026": {
+      "note": "`antigravity-preview-09-2026`",
+      "replacement": "antigravity-preview-09-2026",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2026-10-05"
+    },
+    "deep-research-pro-preview-12-2025": {
+      "note": "`deep-research-preview-04-2026`",
+      "replacement": "deep-research-preview-04-2026",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2026-10-23"
+    },
+    "embedding-001": {
+      "note": "`gemini-embedding-2`",
+      "replacement": "gemini-embedding-2",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2025-10-30"
+    },
+    "embedding-gecko-001": {
+      "note": "`gemini-embedding-2`",
+      "replacement": "gemini-embedding-2",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2025-10-30"
+    },
+    "gemini-2.0-flash": {
+      "note": "`gemini-3.6-flash`",
+      "replacement": "gemini-3.6-flash",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2026-06-01"
+    },
+    "gemini-2.0-flash-001": {
+      "note": "`gemini-3.6-flash`",
+      "replacement": "gemini-3.6-flash",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2026-06-01"
+    },
+    "gemini-2.0-flash-lite": {
+      "note": "`gemini-3.1-flash-lite`",
+      "replacement": "gemini-3.1-flash-lite",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2026-06-01"
+    },
+    "gemini-2.0-flash-lite-001": {
+      "note": "`gemini-3.1-flash-lite`",
+      "replacement": "gemini-3.1-flash-lite",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2026-06-01"
+    },
+    "gemini-2.0-flash-lite-preview": {
+      "note": "`gemini-3.1-flash-lite`",
+      "replacement": "gemini-3.1-flash-lite",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2025-12-09"
+    },
+    "gemini-2.0-flash-lite-preview-02-05": {
+      "note": "`gemini-3.1-flash-lite`",
+      "replacement": "gemini-3.1-flash-lite",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2025-12-09"
+    },
+    "gemini-2.0-flash-live-001": {
+      "note": "`gemini-3.8-live`",
+      "replacement": "gemini-3.8-live",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2025-12-09"
+    },
+    "gemini-2.0-flash-preview-image-generation": {
+      "note": "`gemini-nano-banana-2.1`",
+      "replacement": "gemini-nano-banana-2.1",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2025-11-14"
+    },
+    "gemini-2.5-computer-use-preview-10-2025": {
+      "note": "`gemini-3.8-flash`",
+      "replacement": "gemini-3.8-flash",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2026-07-28"
+    },
+    "gemini-2.5-flash": {
+      "note": "`gemini-3.5-flash-lite` (`gemini-2.5-flash` is no longer available in Google AI Studio; effective December 1, 2026, API requests to `gemini-2.5-flash` will automatically route to `gemini-3.5-flash-lite`)",
+      "replacement": "gemini-3.5-flash-lite",
+      "routes": true,
+      "routes_from": "2026-12-01",
+      "shutdown": "2026-12-01"
+    },
+    "gemini-2.5-flash-image": {
+      "note": "`gemini-3.1-flash-lite-image`",
+      "replacement": "gemini-3.1-flash-lite-image",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2027-03-15"
+    },
+    "gemini-2.5-flash-image-preview": {
+      "note": "`gemini-nano-banana-2.1`",
+      "replacement": "gemini-nano-banana-2.1",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2026-01-15"
+    },
+    "gemini-2.5-flash-lite-preview-09-2025": {
+      "note": "`gemini-3.1-flash-lite`",
+      "replacement": "gemini-3.1-flash-lite",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2026-03-31"
+    },
+    "gemini-2.5-flash-native-audio-preview-12-2025": {
+      "note": "`gemini-3.8-live`",
+      "replacement": "gemini-3.8-live",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2027-03-31"
+    },
+    "gemini-2.5-flash-preview-05-20": {
+      "note": "`gemini-3.6-flash`",
+      "replacement": "gemini-3.6-flash",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2025-11-18"
+    },
+    "gemini-2.5-flash-preview-09-2025": {
+      "note": "`gemini-3.6-flash`",
+      "replacement": "gemini-3.6-flash",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2026-02-17"
+    },
+    "gemini-2.5-flash-preview-tts": {
+      "note": "`gemini-3.8-flash-tts` or `gemini-3.8-flash-lite-tts`",
+      "replacement": "gemini-3.8-flash-tts",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2026-12-18"
+    },
+    "gemini-2.5-pro": {
+      "note": "`gemini-3.8-flash` (`gemini-2.5-pro` is no longer available in Google AI Studio; effective December 1, 2026, API requests to `gemini-2.5-pro` will automatically route to `gemini-3.8-flash`)",
+      "replacement": "gemini-3.8-flash",
+      "routes": true,
+      "routes_from": "2026-12-01",
+      "shutdown": "2026-12-01"
+    },
+    "gemini-2.5-pro-preview-03-25": {
+      "note": "`gemini-3.8-flash`",
+      "replacement": "gemini-3.8-flash",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2025-12-02"
+    },
+    "gemini-2.5-pro-preview-05-06": {
+      "note": "`gemini-3.8-flash`",
+      "replacement": "gemini-3.8-flash",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2025-12-02"
+    },
+    "gemini-2.5-pro-preview-06-05": {
+      "note": "`gemini-3.8-flash`",
+      "replacement": "gemini-3.8-flash",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2025-12-02"
+    },
+    "gemini-2.5-pro-preview-tts": {
+      "note": "`gemini-3.8-flash-tts` or `gemini-3.8-flash-lite-tts`",
+      "replacement": "gemini-3.8-flash-tts",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2026-12-18"
+    },
+    "gemini-3-flash-preview": {
+      "note": "`gemini-3.6-flash`",
+      "replacement": "gemini-3.6-flash",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": null
+    },
+    "gemini-3-pro-image-preview": {
+      "note": "`gemini-3-pro-image`",
+      "replacement": "gemini-3-pro-image",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2026-06-25"
+    },
+    "gemini-3-pro-preview": {
+      "note": "`gemini-3.1-pro-preview`",
+      "replacement": "gemini-3.1-pro-preview",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2026-03-09"
+    },
+    "gemini-3.1-flash-image": {
+      "note": "`gemini-nano-banana-2.1`",
+      "replacement": "gemini-nano-banana-2.1",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": null
+    },
+    "gemini-3.1-flash-image-preview": {
+      "note": "`gemini-nano-banana-2.1`",
+      "replacement": "gemini-nano-banana-2.1",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2026-06-25"
+    },
+    "gemini-3.1-flash-lite": {
+      "note": "`gemini-3.5-flash-lite`",
+      "replacement": "gemini-3.5-flash-lite",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2027-05-07"
+    },
+    "gemini-3.1-flash-lite-preview": {
+      "note": "`gemini-3.1-flash-lite`",
+      "replacement": "gemini-3.1-flash-lite",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2026-05-25"
+    },
+    "gemini-3.1-flash-live-preview": {
+      "note": "`gemini-3.8-live`",
+      "replacement": "gemini-3.8-live",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": null
+    },
+    "gemini-3.1-flash-tts-preview": {
+      "note": "`gemini-3.8-flash-tts` or `gemini-3.8-flash-lite-tts`",
+      "replacement": "gemini-3.8-flash-tts",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2026-12-18"
+    },
+    "gemini-3.5-flash": {
+      "note": "`gemini-3.6-flash` (`gemini-3.5-flash` is no longer available in Google AI Studio; the endpoint is not shutting down and automatically routes API requests to `gemini-3.6-flash`)",
+      "replacement": "gemini-3.6-flash",
+      "routes": true,
+      "routes_from": null,
+      "shutdown": null
+    },
+    "gemini-3.7-flash": {
+      "note": "`gemini-3.8-flash` (`gemini-3.7-flash` is no longer available in Google AI Studio; the endpoint is not shutting down and automatically routes API requests to `gemini-3.8-flash`)",
+      "replacement": "gemini-3.8-flash",
+      "routes": true,
+      "routes_from": null,
+      "shutdown": null
+    },
+    "gemini-embedding-001": {
+      "note": "`gemini-embedding-2`",
+      "replacement": "gemini-embedding-2",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2028-05-14"
+    },
+    "gemini-embedding-2-preview": {
+      "note": "`gemini-embedding-2` (effective November 6, 2026, API requests to `gemini-embedding-2-preview` route to `gemini-embedding-2`)",
+      "replacement": "gemini-embedding-2",
+      "routes": false,
+      "routes_from": "2026-11-06",
+      "shutdown": "2026-11-06"
+    },
+    "gemini-embedding-exp": {
+      "note": "`gemini-embedding-2`",
+      "replacement": "gemini-embedding-2",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2025-10-30"
+    },
+    "gemini-embedding-exp-03-07": {
+      "note": "`gemini-embedding-2`",
+      "replacement": "gemini-embedding-2",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2025-10-30"
+    },
+    "gemini-live-2.5-flash-preview": {
+      "note": "`gemini-3.8-live`",
+      "replacement": "gemini-3.8-live",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2025-12-09"
+    },
+    "gemini-omni-1.1-flash": {
+      "note": "`gemini-omni-1.2-flash` (Effective December 3, 2026, the endpoint is automatically routing API requests to `gemini-omni-1.2-flash`)",
+      "replacement": "gemini-omni-1.2-flash",
+      "routes": false,
+      "routes_from": "2026-12-03",
+      "shutdown": "2026-12-03"
+    },
+    "gemini-omni-flash-preview": {
+      "note": "`gemini-omni-1.2-flash`",
+      "replacement": "gemini-omni-1.2-flash",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2026-10-22"
+    },
+    "gemini-robotics-er-1.5-preview": {
+      "note": "`gemini-robotics-er-2-preview`",
+      "replacement": "gemini-robotics-er-2-preview",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2026-04-30"
+    },
+    "gemini-robotics-er-1.6-preview": {
+      "note": "`gemini-robotics-er-2-preview`",
+      "replacement": "gemini-robotics-er-2-preview",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2026-08-31"
+    },
+    "imagen-3.0-generate-002": {
+      "note": "`gemini-nano-banana-2.1`",
+      "replacement": "gemini-nano-banana-2.1",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2025-11-10"
+    },
+    "imagen-4.0-fast-generate-001": {
+      "note": "`gemini-nano-banana-2.1`",
+      "replacement": "gemini-nano-banana-2.1",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2026-08-17"
+    },
+    "imagen-4.0-generate-001": {
+      "note": "`gemini-nano-banana-2.1`",
+      "replacement": "gemini-nano-banana-2.1",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2026-08-17"
+    },
+    "imagen-4.0-generate-preview-06-06": {
+      "note": "`gemini-nano-banana-2.1`",
+      "replacement": "gemini-nano-banana-2.1",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2026-02-17"
+    },
+    "imagen-4.0-ultra-generate-001": {
+      "note": "`gemini-nano-banana-2.1`",
+      "replacement": "gemini-nano-banana-2.1",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2026-08-17"
+    },
+    "imagen-4.0-ultra-generate-preview-06-06": {
+      "note": "`gemini-nano-banana-2.1`",
+      "replacement": "gemini-nano-banana-2.1",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2026-02-17"
+    },
+    "lyria-3-pro-preview": {
+      "note": "`lyria-3.5`",
+      "replacement": "lyria-3.5",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": null
+    },
+    "text-embedding-004": {
+      "note": "`gemini-embedding-2`",
+      "replacement": "gemini-embedding-2",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2026-01-14"
+    },
+    "veo-2.0-generate-001": {
+      "note": "`gemini-omni-1.2-flash` or the GA models on the [Gemini Enterprise Agent Platform](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/veo/3-1-generate)",
+      "replacement": "gemini-omni-1.2-flash",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2026-06-30"
+    },
+    "veo-3.0-fast-generate-001": {
+      "note": "`gemini-omni-1.2-flash` or the GA models on the [Gemini Enterprise Agent Platform](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/veo/3-1-generate)",
+      "replacement": "gemini-omni-1.2-flash",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2026-06-30"
+    },
+    "veo-3.0-fast-generate-preview": {
+      "note": "`gemini-omni-1.2-flash`",
+      "replacement": "gemini-omni-1.2-flash",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2025-11-12"
+    },
+    "veo-3.0-generate-001": {
+      "note": "`gemini-omni-1.2-flash` or the GA models on the [Gemini Enterprise Agent Platform](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/veo/3-1-generate)",
+      "replacement": "gemini-omni-1.2-flash",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2026-06-30"
+    },
+    "veo-3.0-generate-preview": {
+      "note": "`gemini-omni-1.2-flash`",
+      "replacement": "gemini-omni-1.2-flash",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2025-11-12"
+    },
+    "veo-3.1-fast-generate-preview": {
+      "note": "`gemini-omni-1.2-flash`",
+      "replacement": "gemini-omni-1.2-flash",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2026-10-22"
+    },
+    "veo-3.1-generate-preview": {
+      "note": "`gemini-omni-1.2-flash`",
+      "replacement": "gemini-omni-1.2-flash",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2026-10-22"
+    },
+    "veo-3.1-lite-generate-preview": {
+      "note": "`gemini-omni-1.2-flash`",
+      "replacement": "gemini-omni-1.2-flash",
+      "routes": false,
+      "routes_from": null,
+      "shutdown": "2026-10-22"
+    }
+  },
+  "models": {
+    "deep-research-pro-preview-12-2025": {
+      "category": "Agents",
+      "label": "Deep Research Pro Preview",
+      "rpd": 0,
+      "rpm": 0,
+      "shut_down": false,
+      "status": null,
+      "tpm": 0
+    },
+    "gemini-2.5-flash": {
+      "category": "Text-out models",
+      "label": "Gemini 2.5 Flash",
+      "rpd": 20,
+      "rpm": 5,
+      "shut_down": false,
+      "status": null,
+      "tpm": 250000
+    },
+    "gemini-2.5-flash-image": {
+      "category": "Multi-modal generative models",
+      "label": "Nano Banana (Gemini 2.5 Flash Preview Image)",
+      "rpd": 0,
+      "rpm": 0,
+      "shut_down": false,
+      "status": null,
+      "tpm": 0
+    },
+    "gemini-2.5-flash-lite": {
+      "category": "Text-out models",
+      "label": "Gemini 2.5 Flash Lite",
+      "rpd": 20,
+      "rpm": 10,
+      "shut_down": false,
+      "status": null,
+      "tpm": 250000
+    },
+    "gemini-2.5-flash-preview-tts": {
+      "category": "Multi-modal generative models",
+      "label": "Gemini 2.5 Flash TTS",
+      "rpd": 10,
+      "rpm": 3,
+      "shut_down": false,
+      "status": null,
+      "tpm": 10000
+    },
+    "gemini-2.5-pro": {
+      "category": "Text-out models",
+      "label": "Gemini 2.5 Pro",
+      "rpd": 0,
+      "rpm": 0,
+      "shut_down": false,
+      "status": null,
+      "tpm": 0
+    },
+    "gemini-2.5-pro-preview-tts": {
+      "category": "Multi-modal generative models",
+      "label": "Gemini 2.5 Pro TTS",
+      "rpd": 0,
+      "rpm": 0,
+      "shut_down": false,
+      "status": null,
+      "tpm": 0
+    },
+    "gemini-3-flash-preview": {
+      "category": "Text-out models",
+      "label": "Gemini 3 Flash",
+      "rpd": 20,
+      "rpm": 5,
+      "shut_down": false,
+      "status": "Preview",
+      "tpm": 250000
+    },
+    "gemini-3-pro-image": {
+      "category": "Multi-modal generative models",
+      "label": "Nano Banana Pro (Gemini 3 Pro Image)",
+      "rpd": 0,
+      "rpm": 0,
+      "shut_down": false,
+      "status": "Stable",
+      "tpm": 0
+    },
+    "gemini-3.1-flash-image": {
+      "category": "Multi-modal generative models",
+      "label": "Nano Banana 2 (Gemini 3.1 Flash Image)",
+      "rpd": 0,
+      "rpm": 0,
+      "shut_down": false,
+      "status": "Stable",
+      "tpm": 0
+    },
+    "gemini-3.1-flash-lite": {
+      "category": "Text-out models",
+      "label": "Gemini 3.1 Flash Lite",
+      "rpd": 500,
+      "rpm": 15,
+      "shut_down": false,
+      "status": "Stable",
+      "tpm": 250000
+    },
+    "gemini-3.1-flash-lite-image": {
+      "category": "Multi-modal generative models",
+      "label": "Nano Banana 2 Lite (Gemini 3.1 Flash Lite Image)",
+      "rpd": 0,
+      "rpm": 0,
+      "shut_down": false,
+      "status": "Stable",
+      "tpm": 0
+    },
+    "gemini-3.1-flash-tts-preview": {
+      "category": "Multi-modal generative models",
+      "label": "Gemini 3.1 Flash TTS",
+      "rpd": 10,
+      "rpm": 3,
+      "shut_down": false,
+      "status": "Preview",
+      "tpm": 10000
+    },
+    "gemini-3.1-pro-preview": {
+      "category": "Text-out models",
+      "label": "Gemini 3.1 Pro",
+      "rpd": 0,
+      "rpm": 0,
+      "shut_down": false,
+      "status": null,
+      "tpm": 0
+    },
+    "gemini-3.5-flash-lite": {
+      "category": "Text-out models",
+      "label": "Gemini 3.5 Flash Lite",
+      "rpd": 500,
+      "rpm": 15,
+      "shut_down": false,
+      "status": "Stable",
+      "tpm": 250000
+    },
+    "gemini-3.5-live-translate-preview": {
+      "category": "Live API",
+      "label": "Gemini 3.5 Live Translate",
+      "rpd": null,
+      "rpm": null,
+      "shut_down": false,
+      "status": "Preview",
+      "tpm": 20000
+    },
+    "gemini-3.5-transcribe-live": {
+      "category": "Live API",
+      "label": "Gemini 3.5 Transcribe",
+      "rpd": 25,
+      "rpm": 3,
+      "shut_down": false,
+      "status": null,
+      "tpm": 10000
+    },
+    "gemini-3.6-flash": {
+      "category": "Text-out models",
+      "label": "Gemini 3.6 Flash",
+      "rpd": 20,
+      "rpm": 5,
+      "shut_down": false,
+      "status": "Stable",
+      "tpm": 250000
+    },
+    "gemini-3.8-flash": {
+      "category": "Text-out models",
+      "label": "Gemini 3.8 Flash",
+      "rpd": 20,
+      "rpm": 5,
+      "shut_down": false,
+      "status": "Stable",
+      "tpm": 250000
+    },
+    "gemini-3.8-flash-lite-tts": {
+      "category": "Multi-modal generative models",
+      "label": "Gemini 3.8 Flash Lite TTS",
+      "rpd": 10,
+      "rpm": 3,
+      "shut_down": false,
+      "status": "New",
+      "tpm": 10000
+    },
+    "gemini-3.8-flash-tts": {
+      "category": "Multi-modal generative models",
+      "label": "Gemini 3.8 Flash TTS",
+      "rpd": 10,
+      "rpm": 3,
+      "shut_down": false,
+      "status": "New",
+      "tpm": 10000
+    },
+    "gemini-3.8-live": {
+      "category": "Live API",
+      "label": "Gemini 3.8 Live",
+      "rpd": null,
+      "rpm": null,
+      "shut_down": false,
+      "status": "New",
+      "tpm": 65000
+    },
+    "gemini-3.8-live-extended-thinking": {
+      "category": "Live API",
+      "label": "Gemini 3.8 Live Extended Thinking",
+      "rpd": null,
+      "rpm": null,
+      "shut_down": false,
+      "status": "New",
+      "tpm": 65000
+    },
+    "gemini-4-argon": {
+      "category": "Text-out models",
+      "label": "Gemini 4 Argon",
+      "rpd": 0,
+      "rpm": 0,
+      "shut_down": false,
+      "status": null,
+      "tpm": 0
+    },
+    "gemini-4-carbon": {
+      "category": "Text-out models",
+      "label": "Gemini 4 Carbon",
+      "rpd": 0,
+      "rpm": 0,
+      "shut_down": false,
+      "status": null,
+      "tpm": 0
+    },
+    "gemini-4-hydrogen": {
+      "category": "Text-out models",
+      "label": "Gemini 4 Hydrogen",
+      "rpd": 20,
+      "rpm": 5,
+      "shut_down": false,
+      "status": null,
+      "tpm": 250000
+    },
+    "gemini-decision-1": {
+      "category": "Decisions API",
+      "label": "Gemini Decision 1",
+      "rpd": 10000,
+      "rpm": 200,
+      "shut_down": false,
+      "status": null,
+      "tpm": 50000
+    },
+    "gemini-embedding-2": {
+      "category": "Other models",
+      "label": "Gemini Embedding 2",
+      "rpd": 1000,
+      "rpm": 100,
+      "shut_down": false,
+      "status": null,
+      "tpm": 30000
+    },
+    "gemini-nano-banana-2.1": {
+      "category": "Multi-modal generative models",
+      "label": "Gemini Nano Banana 2.1",
+      "rpd": 0,
+      "rpm": 0,
+      "shut_down": false,
+      "status": "New",
+      "tpm": 0
+    },
+    "gemini-omni-1.1-flash": {
+      "category": "Multi-modal generative models",
+      "label": "Gemini Omni 1.1 Flash",
+      "rpd": 0,
+      "rpm": 0,
+      "shut_down": false,
+      "status": null,
+      "tpm": 0
+    },
+    "gemini-omni-1.2-flash": {
+      "category": "Multi-modal generative models",
+      "label": "Gemini Omni 1.2 Flash",
+      "rpd": 0,
+      "rpm": 0,
+      "shut_down": false,
+      "status": null,
+      "tpm": 0
+    },
+    "gemini-robotics-er-2-preview": {
+      "category": "Other models",
+      "label": "Gemini Robotics ER 2 Preview",
+      "rpd": 20,
+      "rpm": 5,
+      "shut_down": false,
+      "status": null,
+      "tpm": 250000
+    },
+    "gemma-4-26b-a4b-it": {
+      "category": "Other models",
+      "label": "Gemma 4 26B",
+      "rpd": 14400,
+      "rpm": 30,
+      "shut_down": false,
+      "status": null,
+      "tpm": 16000
+    },
+    "gemma-4-31b-it": {
+      "category": "Other models",
+      "label": "Gemma 4 31B",
+      "rpd": 14400,
+      "rpm": 30,
+      "shut_down": false,
+      "status": null,
+      "tpm": 16000
+    },
+    "lyria-3-clip-preview": {
+      "category": "Multi-modal generative models",
+      "label": "Lyria 3 Clip",
+      "rpd": 0,
+      "rpm": 0,
+      "shut_down": false,
+      "status": null,
+      "tpm": 0
+    },
+    "lyria-3-pro-preview": {
+      "category": "Multi-modal generative models",
+      "label": "Lyria 3 Pro",
+      "rpd": 0,
+      "rpm": 0,
+      "shut_down": false,
+      "status": null,
+      "tpm": 0
+    }
+  },
+  "sources": {
+    "deprecations": "https://aistudio.google.com/docs/deprecations (2026-11-15)",
+    "limits": "https://aistudio.google.com/rate-limit (2026-11-15)",
+    "names": "https://aistudio.google.com/docs/models (2026-11-15)"
+  },
+  "tier": "Free tier",
+  "unmatched_labels": [
+    "Antigravity",
+    "Gemini 2 Flash",
+    "Gemini 2 Flash Lite",
+    "Computer Use Preview",
+    "Gemini Embedding 1",
+    "Gemini 2.5 Flash Native Audio Dialog",
+    "Gemini 3 Flash Live",
+    "Gemini 3.5 Transcribe Live"
+  ],
+  "updated": "2026-11-15"
+}

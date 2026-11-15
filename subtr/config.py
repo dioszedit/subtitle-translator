@@ -45,14 +45,11 @@ def api_key(name: str = "GEMINI_API_KEY") -> str:
     return os.environ.get(name, "") or ""
 
 
-# A Google által kivezetett Gemini API-modellek → amire a Google átirányítja őket.
-# A hívás így is működne (a Google átirányít), de a kvóta-nyilvántartás a
-# modellnévhez kötött, és a régi név bármikor megszűnhet — ezért cseréljük.
-DEPRECATED_GEMINI_MODELS = {
-    "gemini-3.5-flash": ("gemini-3.8-flash", "2026-10-10"),
-    "gemini-3.6-flash": ("gemini-3.8-flash", "2026-10-19"),
-    "gemini-3.7-flash": ("gemini-3.8-flash", "2026-10-10"),
-}
+# A Google által kivezetett / átirányított Gemini API-modellek NINCSENEK itt
+# beégetve: a subtr/gemini_models.json tartja őket (a docs/deprecations oldalból
+# generálva, `py subtr.py models refresh`). A cserét a replace_deprecated végzi:
+# a hívás a régi névvel is működne (a Google átirányít), de a kvóta-nyilvántartás
+# a modellnévhez kötött, és a régi név bármikor megszűnhet.
 
 
 # Az Antigravity CLI (`agy models`) kínálatából 2026-10-13-án kikerült Gemini-modellek → utód.
@@ -96,13 +93,20 @@ def replace_deprecated(provider: str, model):
     """Kivezetett modellnél figyelmeztet, és az utódját adja vissza."""
     if not model:
         return model
-    if provider == "gemini" and model in DEPRECATED_GEMINI_MODELS:
-        successor, since = DEPRECATED_GEMINI_MODELS[model]
-        print(f"FIGYELEM: a {model} modellt a Google {since}-én kivezette (deprecated), "
-              f"a hívásokat a {successor} modellre irányítja át — ezt használjuk. "
-              f"Frissítsd a --model kapcsolót / a .env modell-sorait.",
-              file=sys.stderr)
-        return successor
+    if provider == "gemini":
+        from subtr import gemini_models
+        replacement = gemini_models.active_replacement(model)
+        if replacement:
+            successor, reason = replacement
+            print(f"FIGYELEM: {reason} — helyette ezt használjuk: {successor}. "
+                  f"Frissítsd a --model kapcsolót / a .env modell-sorait.",
+                  file=sys.stderr)
+            return successor
+        upcoming = gemini_models.upcoming_shutdown(model)
+        if upcoming:
+            print(f"FIGYELEM: a {model} modell {upcoming[0]}-én leáll / átirányítódik "
+                  f"(utód: {upcoming[1] or '?'}) — válts időben.", file=sys.stderr)
+        return model
     if provider == "antigravity":
         base, _, effort = model.rpartition("-")
         if effort not in ("high", "medium", "low"):
@@ -177,6 +181,15 @@ _DEFAULTS = read_env_file(DEFAULTS_PATH)
 def _layers():
     """A beállítás-rétegek erősségi sorrendben: (név, kulcs→érték)."""
     return ((SRC_ENV, os.environ), (SRC_DEFAULTS, _DEFAULTS))
+
+
+def setting(key: str, default: str = "") -> str:
+    """Egy nem funkciónkénti beállítás (pl. SUBTR_GEMINI_ON_QUOTA): .env /
+    környezet > defaults.env > default. Az üres érték is beállítás."""
+    for _, layer in _layers():
+        if key in layer:
+            return (layer[key] or "").strip()
+    return default
 
 
 def _validate(provider: str, task: str) -> None:

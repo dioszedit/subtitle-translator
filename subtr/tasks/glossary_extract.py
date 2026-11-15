@@ -523,6 +523,8 @@ def _run_gemini(prompt: str, existing_terms: set, model: str | None,
     if err:
         print(f"HIBA: Gemini API hiba: {err}")
         return []
+    if gemini_provider.switch_summary():
+        print(f"Modellváltás (napi limit): {gemini_provider.switch_summary()}")
     return validate_suggestions(parsed.get("suggestions", []), existing_terms,
                                 source_text)
 

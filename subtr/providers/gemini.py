@@ -7,7 +7,11 @@ ugyanazon a `call_json()`-on megy át, és egységesen kapja:
   - a 429-ből a napi limit megtanulását (gemini_quota),
   - a sikeres hívás kvóta-könyvelését (a parse ELŐTT — a blokkolt válasz is
     fogyaszt kvótát),
-  - üres/blokkolt válaszra retry-t.
+  - üres/blokkolt válaszra retry-t,
+  - napi limitnél modellváltást (SUBTR_GEMINI_ON_QUOTA = off | ask | auto,
+    tartaléklista: SUBTR_GEMINI_FALLBACK_MODELS — lásd subtr/gemini_models.py).
+    A váltás folyamatszintű: a futás hátralévő hívásai már az új modellel mennek.
+    Napi limitnél ugyanazt a modellt nem próbáljuk újra — aznap úgysem menne.
 
 A séma kétféle lehet:
   - pydantic BaseModel osztály → a válasz `response.parsed` (a hívó típusos
@@ -18,6 +22,7 @@ A séma kétféle lehet:
 """
 
 import json
+import threading
 import time
 
 from subtr import config
@@ -44,6 +49,76 @@ except ImportError as _e:
 
 RETRY_BASE_DELAY = 5   # másodperc — exponential backoff alapja
 MAX_RETRIES_DEFAULT = 4
+MAX_SWITCHES = 5       # egy hívás legfeljebb ennyiszer válthat modellt
+
+# Napi limit miatti modellváltások (folyamatszintű): kimerült → helyettesítő.
+# A párhuzamos agentek közül csak egy kérdez / dönt; a többi a lock után már a
+# kész döntést látja.
+_SWITCH_LOCK = threading.Lock()
+_SWITCHED = {}
+# Kimerült modellek, amelyekre nem váltottunk (nincs tartalék / a felhasználó
+# nem kérte) → a hibaüzenet. A további hívások ezzel KÉRÉS NÉLKÜL térnek vissza:
+# aznap úgysem mennének, és mindegyik 429 egy-egy napló-írás lenne.
+_DECLINED = {}
+
+
+def effective_model(model: str) -> str:
+    """A modell, amellyel a hívás ténylegesen megy (a váltások láncát követve)."""
+    seen = set()
+    while model in _SWITCHED and model not in seen:
+        seen.add(model)
+        model = _SWITCHED[model]
+    return model
+
+
+def switches() -> dict:
+    """Az eddigi váltások (kimerült → helyettesítő)."""
+    return dict(_SWITCHED)
+
+
+def switch_summary() -> str:
+    """A futás közbeni váltások egy sorban ('a → b, b → c'), vagy ''. Minden
+    task ezzel jelzi az összegzésében, hogy a munka egy részét más modell végezte."""
+    return ", ".join(f"{a} → {b}" for a, b in _SWITCHED.items())
+
+
+def cancel_prompts() -> None:
+    """Ctrl+C a fő szálon: a worker-szálon váró modellváltás-kérdés szakadjon meg
+    (különben a ThreadPoolExecutor leállása a felhasználó válaszára várna)."""
+    try:
+        from subtr import gemini_models
+        gemini_models.CANCEL.set()
+    except Exception:
+        pass
+
+
+def reset_switches() -> None:
+    with _SWITCH_LOCK:
+        _SWITCHED.clear()
+        _DECLINED.clear()
+
+
+def _switch_after_exhaustion(model: str):
+    """A napi limitbe futott modell helyettesítője, vagy None (nincs váltás)."""
+    with _SWITCH_LOCK:
+        if model in _SWITCHED:            # egy másik agent már döntött
+            return effective_model(model)
+        if model in _DECLINED:
+            return None
+        try:
+            from subtr import gemini_models
+            new = gemini_models.choose_fallback(model, tried=set(_SWITCHED))
+        except Exception as e:
+            print(f"  [!] Modellváltás sikertelen ({e}) — nem váltok.")
+            new = None
+        if new and new != model:
+            _SWITCHED[model] = new
+            print(f"  >>> MODELLVÁLTÁS: {model} → {new} — a futás hátralévő "
+                  f"hívásai ezzel mennek.")
+            return new
+        _DECLINED.setdefault(model, f"[API hiba: a {model} napi kerete elfogyott "
+                                    f"(429 RESOURCE_EXHAUSTED, quotaId: PerDay)]")
+        return None
 
 
 def make_client(api_key: str | None = None):
@@ -71,24 +146,27 @@ def preflight(model: str, needed: int = 0) -> None:
             pass
 
 
-def daily_quota_exhausted(api_error) -> bool:
+def daily_quota_exhausted(api_error, strict: bool = False) -> bool:
     """A hiba (kivétel vagy a call_json hibaszövege) a NAPI keret kimerülését
-    jelzi-e. A percenkénti / token-alapú 429 nem az — lásd subtr/quota.py."""
+    jelzi-e. A percenkénti / token-alapú 429 nem az — lásd subtr/quota.py.
+    strict=True: csak a strukturált quotaId alapján (modellváltáshoz)."""
     if not _gq:
         return False
     try:
-        return _gq.is_daily_exhaustion(api_error)
+        return _gq.is_daily_exhaustion(api_error, strict=strict)
     except Exception:
         return False
 
 
 def call_json(client, model: str, prompt: str, *, schema,
               system: str | None = None, temperature: float = 0.2,
-              max_retries: int = MAX_RETRIES_DEFAULT):
+              max_retries: int = MAX_RETRIES_DEFAULT, meta: dict | None = None):
     """Egy Gemini API hívás retry-logikával.
 
     Visszaad: (parsed | None, err_msg | None). A parsed pydantic objektum
     (ha a schema BaseModel osztály) vagy dict (ha a schema JSON-séma dict).
+    `meta` (opcionális dict): a hívás után meta["model"] az a modell, amellyel
+    a hívás ténylegesen ment (napi limit miatti váltás után más, mint a kért).
     """
     dict_schema = isinstance(schema, dict)
     cfg = types.GenerateContentConfig(
@@ -98,8 +176,15 @@ def call_json(client, model: str, prompt: str, *, schema,
         response_schema=no_additional(schema) if dict_schema else schema,
     )
 
+    model = effective_model(model)
+    if meta is not None:
+        meta["model"] = model
+    if model in _DECLINED:
+        return None, _DECLINED[model]
     last_err = None
-    for attempt in range(1, max_retries + 1):
+    attempt = switched = 0
+    while attempt < max_retries:
+        attempt += 1
         try:
             response = client.models.generate_content(
                 model=model, contents=prompt, config=cfg,
@@ -140,6 +225,21 @@ def call_json(client, model: str, prompt: str, *, schema,
                     _gq.note_limit_from_error(model, e)
                 except Exception:
                     pass
+            # Csak a strukturált (quotaId-s) napi limit vált modellt / hagyja el
+            # az újrapróbálást: egy félreolvasott percenkénti 429 az egész
+            # futást más modellre tenné.
+            if status == 429 and daily_quota_exhausted(e, strict=True):
+                new = (_switch_after_exhaustion(model)
+                       if switched < MAX_SWITCHES else None)
+                if new:
+                    model, switched, attempt = new, switched + 1, 0
+                    if meta is not None:
+                        meta["model"] = model
+                    continue
+                # Aznap ezzel a modellel úgysem menne — nincs értelme várni; a
+                # további hívások kérés nélkül ugyanezt kapják.
+                _DECLINED[model] = f"[API hiba: {e}]"
+                return None, _DECLINED[model]
             if status in (429, 500, 502, 503, 504) and attempt < max_retries:
                 delay = RETRY_BASE_DELAY * (2 ** (attempt - 1))
                 print(f"  API hiba ({status}), újrapróbálás {delay}s múlva... ({attempt}/{max_retries})")

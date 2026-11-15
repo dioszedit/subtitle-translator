@@ -27,6 +27,7 @@ COMMANDS = {
     "apply-auto": ("subtr.tasks.apply_review_auto", "5c. Átvezetés döntés-fájlból, kérdés nélkül"),
     "resegment":  ("subtr.tasks.resegment",         "7.  Sorhossz-riport / újratördelés"),
     "quota":      ("subtr.quota",                   "    Gemini napi kvóta állása"),
+    "models":     ("subtr.gemini_models",           "    Gemini-modellek, limitek, kivezetések (refresh: frissítés)"),
     "config":     ("subtr.tasks.show_config",       "    Érvényes provider / modell / effort funkciónként"),
 }
 

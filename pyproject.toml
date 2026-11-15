@@ -45,4 +45,4 @@ build-backend = "setuptools.build_meta"
 packages = ["subtr"]
 
 [tool.setuptools.package-data]
-subtr = ["defaults.env"]   # az alapértékek (provider / modell / effort)
+subtr = ["defaults.env", "gemini_models.json"]   # alapértékek; Gemini-modellek és limitek (generált)

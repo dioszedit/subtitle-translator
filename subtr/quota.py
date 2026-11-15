@@ -42,11 +42,17 @@ nullázódik, nem magyar idő szerint. A modul ezért PT-dátum szerint könyvel
 (Ha a tzdata csomag nincs telepítve, fix UTC-8-ra esik vissza — ilyenkor a DST
 miatt legfeljebb 1 óra csúszás lehet a napváltás körül.)
 
-A LIMITEK ÖNTANULÓK — DE CSAK A NAPI LIMIT:
-A napi limitet nem tippeljük: a 429-es hiba tartalmazza a `quotaValue`-t, és
-amikor egy modell először belefut, a modul kiolvassa és elmenti. Innentől arra
-a modellre pontos limitet ismer. Amíg nincs mért adat, a KNOWN_LIMITS /
-DEFAULT_LIMIT becslést használja, és ezt jelzi is.
+A NAPI LIMIT FORRÁSA (erősségi sorrendben):
+  1. a 429-ből megtanult érték — KULCSONKÉNT: a hiba tartalmazza a
+     `quotaValue`-t, és amikor egy modell belefut, a modul kiolvassa és elmenti.
+     Ez a te kulcsodra (tieredre) mért szám, ezért ez az erősebb.
+  2. a saját (fizetős) tier limitjei, ha a kulcsodhoz mentve vannak
+     (`py subtr.py models refresh --local`, ~/.gemini_quota/models.json);
+  3. subtr/gemini_models.json — a Free tier limitjei (a repó alapértelmezése,
+     `py subtr.py models refresh`). A „korlátlan” (Unlimited) limit is innen jön.
+  4. DEFAULT_LIMIT becslés — ezt jelzi is.
+Ha a megtanult és a fájlbeli érték eltér, a `subtr.py models` szól
+(az elavult megtanult értéket a --forget-limit törli).
 
 FONTOS: a Gemini TÖBBFÉLE 429-et ad, és csak az egyik jelenti azt, hogy mára
 elfogyott a keret:
@@ -96,15 +102,41 @@ KEEP_DAYS = 14
 LOCK_TIMEOUT = 10.0     # másodperc — ennyit várunk a lock-ra
 LOCK_STALE = 60.0       # ennél régebbi lock-ot elhagyottnak tekintünk
 
-# Becsült ingyenes napi kérésszám (RPD), amíg 429-ből nem tanultunk pontosat.
-# A "-lite" modellek jellemzően bőkezűbbek, de ez CSAK becslés.
-KNOWN_LIMITS = {
-    "gemini-3.1-flash-lite": 1000,
-    "gemini-3.5-flash-lite": 1000,
-    "gemini-2.5-flash-lite": 1000,
-    "gemini-flash-lite-latest": 1000,
-}
+# Becsült napi kérésszám (RPD) arra a modellre, amelyik sem a
+# gemini_models.json-ban, sem a 429-ből megtanult limitek között nem szerepel.
 DEFAULT_LIMIT = 20
+# Korlátlan napi limit (az AI Studio „Unlimited”) — számként, hogy a
+# maradék-számítás egységes maradjon; kiírásban ∞ (fmt_limit).
+UNLIMITED_LIMIT = 10 ** 9
+
+
+def fmt_limit(n) -> str:
+    return "∞" if n is not None and n >= UNLIMITED_LIMIT else str(n)
+
+
+def _file_limit(model: str):
+    """(napi limit, forrás-címke) a gemini_models.json-ból, vagy (None, '')."""
+    try:
+        from subtr import gemini_models
+        limit = gemini_models.file_limit(model)
+        src = gemini_models.limits_source(model)
+        if limit == gemini_models.UNLIMITED:
+            return UNLIMITED_LIMIT, src + ", korlátlan"
+        if limit is not None:
+            return limit, src
+    except Exception:
+        pass
+    return None, ""
+
+
+def limit_for(model: str, learned: dict):
+    """(napi limit, forrás-címke): a kulcsodra 429-ből megtanult > adatfájl > becslés."""
+    if model in learned:
+        return int(learned[model]), "mért (429)"
+    limit, src = _file_limit(model)
+    if limit is not None:
+        return limit, src
+    return DEFAULT_LIMIT, "becsült"
 
 
 # --------------------------------------------------------------------------
@@ -270,6 +302,12 @@ def _save(data: dict) -> None:
         pass
 
 
+def load_ledger() -> dict:
+    """A teljes napló egyszeri beolvasása — a status(..., ledger=) hívásokhoz,
+    hogy egy több modellt végigjáró hívó ne olvassa újra modellenként."""
+    return _load()
+
+
 def _bucket(data: dict) -> dict:
     """A jelenlegi API kulcshoz tartozó rész a naplóban."""
     b = data.setdefault("keys", {}).setdefault(key_fingerprint(), {})
@@ -380,14 +418,17 @@ def _parse_quota_value(exc) -> "int | None":
     return None
 
 
-def _is_daily_exhaustion(exc) -> bool:
-    """Tényleg a napi keret fogyott el, vagy csak percenkénti rate limit?"""
+def _is_daily_exhaustion(exc, strict: bool = False) -> bool:
+    """Tényleg a napi keret fogyott el, vagy csak percenkénti rate limit?
+    strict=True: csak a strukturált quotaId számít (a nyers szöveg nem)."""
     s = str(exc)
     if not _is_429(s):
         return False
     quota_ids = _QUOTA_ID_RE.findall(s)
     if quota_ids:
         return any(_is_daily_request_quota(q) for q in quota_ids)
+    if strict:
+        return False
     # Nincs strukturált violation a hibában — a nyers szövegre esünk vissza.
     # Ha az sem árulkodik, NEM tekintjük napi kimerülésnek: a téves riasztás
     # (a nap hátralévő részére letiltjuk a modellt) rosszabb, mint ha egy
@@ -395,10 +436,14 @@ def _is_daily_exhaustion(exc) -> bool:
     return bool(re.search(r"per\s*day|daily|napi", s, re.IGNORECASE))
 
 
-def is_daily_exhaustion(exc) -> bool:
+def is_daily_exhaustion(exc, strict: bool = False) -> bool:
     """Nyilvános belépő a napi keret kimerülésének eldöntéséhez (kivétel vagy
-    a hibaszövege) — a review ezzel dönt a futás leállításáról."""
-    return _is_daily_exhaustion(exc)
+    a hibaszövege) — a review ezzel dönt a futás leállításáról.
+
+    strict=True: csak a strukturált `quotaId` számít (a szövegben előforduló
+    „daily” nem) — a modellváltás és az újrapróbálás elhagyása ezt használja,
+    mert egy félreolvasott percenkénti 429 ott az egész futást érintené."""
+    return _is_daily_exhaustion(exc, strict)
 
 
 def note_limit_from_error(model: str, exc) -> "int | None":
@@ -410,41 +455,57 @@ def note_limit_from_error(model: str, exc) -> "int | None":
     jelentik azt, hogy a napi keret elfogyott.
     """
     try:
-        if not _is_daily_exhaustion(exc):
+        # Csak a strukturált (quotaId-s) napi 429 jelöli a napot kimerültnek: a
+        # call_json a szöveg alapján gyanús 429-et újrapróbálja, és ha az
+        # sikerül, egy téves jelölés egész napra kizárná a modellt.
+        if not _is_daily_exhaustion(exc, strict=True):
             return None
         note_exhausted(model)
         limit = _parse_quota_value(exc)
         if limit:
             note_limit(model, limit)
+            known, _ = _file_limit(model)
+            if known is not None and known != limit:
+                print(f"  [!] A {model} napi limitje a kulcsodra (429) {limit}, a "
+                      f"gemini_models.json szerint {fmt_limit(known)} — a kulcsodra "
+                      f"mért érték érvényes; ha a fájl elavult: py subtr.py models refresh")
         return limit
     except Exception:
         return None
 
 
-def status(model: str) -> dict:
-    """Mai állapot egy modellre (a jelenlegi API kulcs szerint).
+def status(model: str, ledger: "dict | None" = None) -> dict:
+    """Mai állapot egy modellre (a jelenlegi API kulcs szerint). A `ledger`
+    egy előre betöltött napló (load_ledger) — sok modellnél ne olvassuk újra.
 
     A `used` ALSÓ becslés, a `remaining` ezért FELSŐ korlát — lásd a modul
     docstringjében, mi marad ki a könyvelésből.
     """
-    fallback = KNOWN_LIMITS.get(model, DEFAULT_LIMIT)
     try:
-        data = _load()
+        data = ledger if ledger is not None else _load()
         b = data.get("keys", {}).get(key_fingerprint(), {})
         rec = b.get("days", {}).get(today_key(), {}).get(model, {})
         used = int(rec.get("calls", 0))
         exhausted = bool(rec.get("exhausted", False))
-        measured = model in b.get("limits", {})
-        limit = int(b["limits"][model]) if measured else fallback
+        limit, source = limit_for(model, b.get("limits", {}))
+        measured = source != "becsült"
         # Ha ma már volt napi 429, a maradék nulla — függetlenül attól, mit
         # mutat a számláló. (A számláló alulszámolhat, ezért fordulhatna elő
         # a "maradék 5, de belefutott a limitbe" önellentmondás.)
-        remaining = 0 if exhausted else max(0, limit - used)
+        if exhausted:
+            remaining = 0
+        elif limit >= UNLIMITED_LIMIT:
+            remaining = UNLIMITED_LIMIT       # korlátlan: a fogyás nem csökkenti
+        else:
+            remaining = max(0, limit - used)
         return {"used": used, "limit": limit, "limit_measured": measured,
+                "limit_source": source,
                 "exhausted": exhausted, "remaining": remaining,
                 "by_project": dict(rec.get("by_project", {}))}
     except Exception:
-        return {"used": 0, "limit": fallback, "limit_measured": False,
+        fallback, fallback_src = limit_for(model, {})
+        return {"used": 0, "limit": fallback, "limit_measured": fallback_src != "becsült",
+                "limit_source": fallback_src,
                 "exhausted": False, "remaining": fallback, "by_project": {}}
 
 
@@ -457,13 +518,21 @@ def preflight(model: str, needed: int = 0, quiet: bool = False) -> bool:
     """
     try:
         st = status(model)
-        src = "mért" if st["limit_measured"] else "becsült"
-        line = (f"Kvóta ({model}): ma legalább {st['used']}/{st['limit']} "
-                f"elhasználva ({src} limit), maradék legfeljebb {st['remaining']}")
+        if st["limit"] == 0:
+            if not quiet:
+                print(f"Kvóta ({model}): ezen a tieren NEM használható (napi limit 0, "
+                      f"{st['limit_source']}). Válts modellt — lásd: py subtr.py models")
+            return False
+        line = (f"Kvóta ({model}): ma legalább {st['used']}/{fmt_limit(st['limit'])} "
+                f"elhasználva (limit: {st['limit_source']}), maradék legfeljebb "
+                f"{fmt_limit(st['remaining'])}")
         if needed:
             line += f", ez a futás {needed} kérés"
         if not quiet:
             print(line)
+            if st["limit_source"] == "becsült" and model.endswith("-latest"):
+                print("  (alias: a célmodellje — így a limitje is — nem ismert; a "
+                      "pontos előrejelzéshez adj meg konkrét modellnevet)")
             others = {p: n for p, n in st["by_project"].items() if p != _project_name()}
             if others:
                 detail = ", ".join(f"{p}: {n}" for p, n in sorted(others.items()))
@@ -507,10 +576,16 @@ def _print_table(days: int, show_projects: bool) -> None:
     if other_keys:
         print(f"Megjegyzés: a naplóban {len(other_keys)} másik kulcs is szerepel "
               f"(azoknak külön kvótájuk van).")
+    try:
+        from subtr import gemini_models
+        print(f"Limitek forrása: {gemini_models.limits_source()} "
+              f"(részletek: py subtr.py models)")
+    except Exception:
+        pass
     if limits:
         # A megtanult limitek tartósak, ezért látszódjanak: így derül ki, ha
         # egy rossz érték ragadt be (--forget-limit <modell> törli).
-        print("Megtanult napi limitek: "
+        print("429-ből megtanult napi limitek: "
               + ", ".join(f"{m}={limits[m]}" for m in sorted(limits)))
     print()
 
@@ -529,14 +604,13 @@ def _print_table(days: int, show_projects: bool) -> None:
         for model in sorted(entries):
             rec = entries[model]
             used = int(rec.get("calls", 0))
-            measured = model in limits
-            limit = int(limits[model]) if measured else KNOWN_LIMITS.get(model, DEFAULT_LIMIT)
-            src = "mért" if measured else "becs"
+            limit, src = limit_for(model, limits)
             exhausted = bool(rec.get("exhausted"))
             flag = "  <-- belefutott a limitbe (429)" if exhausted else ""
-            remaining = 0 if exhausted else max(0, limit - used)
-            print(f"   {model:26s} {used:4d}/{limit:<5d} ({src}) "
-                  f"maradék max {remaining:<5d}{flag}")
+            remaining = (0 if exhausted else UNLIMITED_LIMIT if limit >= UNLIMITED_LIMIT
+                         else max(0, limit - used))
+            print(f"   {model:26s} {used:4d}/{fmt_limit(limit):<5s} ({src:18s}) "
+                  f"maradék max {fmt_limit(remaining):<5s}{flag}")
             if show_projects:
                 for p, n in sorted(rec.get("by_project", {}).items(),
                                    key=lambda kv: -kv[1]):
@@ -598,9 +672,8 @@ def main() -> None:
 
     if args.model:
         st = status(args.model)
-        src = "mért" if st["limit_measured"] else "becsült"
-        print(f"{args.model}: ma {st['used']}/{st['limit']} ({src} limit), "
-              f"maradék ~{st['remaining']}"
+        print(f"{args.model}: ma {st['used']}/{fmt_limit(st['limit'])} (limit: {st['limit_source']}), "
+              f"maradék ~{fmt_limit(st['remaining'])}"
               + ("  [ma belefutott a limitbe]" if st["exhausted"] else ""))
         return
 

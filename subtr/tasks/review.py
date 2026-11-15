@@ -319,10 +319,13 @@ SRT BLOKK ({chunk_num}/{total_chunks}):
 
 def _make_gemini_executor(client, model, instruction, max_retries=MAX_RETRIES):
     def executor(chunk_text, i, total):
+        meta = {}
         parsed, err = gemini_provider.call_json(
             client, model, build_prompt(chunk_text, i, total),
             schema=ErrorReport, system=instruction,
-            temperature=TEMPERATURE, max_retries=max_retries)
+            temperature=TEMPERATURE, max_retries=max_retries, meta=meta)
+        # Napi limit miatti modellváltás után: melyik modell lektorálta a chunkot.
+        executor.models[i] = meta.get("model") or model
         if err:
             # Csak a NAPI limit állítja meg a futást; a percenkénti 429, ami
             # túlélte az adapter újrapróbálkozásait, egyetlen hibás chunk.
@@ -331,6 +334,7 @@ def _make_gemini_executor(client, model, instruction, max_retries=MAX_RETRIES):
         return [{"sorszam": e.sorszam, "eredeti": e.eredeti,
                  "hiba": e.hiba, "javaslat": e.javaslat}
                 for e in parsed.errors], None
+    executor.models = {}
     return executor
 
 
@@ -745,6 +749,9 @@ def main(argv=None):
         state, partial_usable = reports.PartialState(), False
     done, failed, outdated, changed = (state.done, state.failed, state.outdated,
                                        state.changed)
+    # A kész chunkok közül azok, amelyeket napi limit miatti modellváltás után
+    # más modell lektorált (korábbi futásokból is) — a riport ezt is kiírja.
+    other_models = dict(state.models)
     resuming = (partial_usable and partial_path.exists() and not changed
                 and not args.no_resume)
 
@@ -853,11 +860,21 @@ def main(argv=None):
                 print(f"  FIGYELEM: a részeredmény nem írható ({e}) — a review "
                       "megy tovább, de ez a futás megszakadás után nem folytatható.")
 
+        def _switched_model(i):
+            """A chunkot lektoráló modell, ha napi limit miatt nem a beállított volt."""
+            used = getattr(executor, "models", {}).get(i)
+            if used and used != model:
+                other_models[i] = used
+                return used
+            other_models.pop(i, None)
+            return None
+
         if not partial_path.exists():
             save(reports.start_partial, fingerprint)
         new, errors, interrupted = run_chunks(
             chunks, todo, total_chunks, executor,
-            on_done=lambda i, f: save(reports.append_partial, i, chunk_hashes[i], f),
+            on_done=lambda i, f: save(reports.append_partial, i, chunk_hashes[i], f,
+                                      _switched_model(i)),
             on_error=lambda i, e: save(reports.append_partial_error, i,
                                        chunk_hashes[i], e),
             retry=failed)
@@ -890,9 +907,14 @@ def main(argv=None):
         for err in findings:
             json_findings.append({**err, "chunk": i})
 
+    # Napi limit miatti modellváltás (ebben vagy egy korábbi, folytatott
+    # futásban): a riportból is látszódjon, mely chunkokat lektorálta más modell.
+    chunk_models = {i: used for i, used in sorted(other_models.items())
+                    if i in in_range and i not in errors}
     reports.write_reports(srt_path, report_path, json_path,
                           reviewer=provider,
                           model_label=model or "default",
+                          chunk_models=chunk_models,
                           finding_blocks=finding_blocks,
                           json_findings=json_findings,
                           errors=errors,
