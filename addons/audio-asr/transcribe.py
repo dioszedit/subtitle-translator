@@ -19,13 +19,19 @@ Kimenet:
 
 Használat:
   # 1) milyen hangsávok vannak? (nem ír semmit)
-  python addons/audio-asr/transcribe.py "Season 01/Sorozat - S01E01.mkv"
+  python addons/audio-asr/transcribe.py "Season 01/Sorozat - S01E01.mkv" --list
 
   # 2) átirat — egy hangsávnál a nyelv a sáv címkéjéből jön
   python addons/audio-asr/transcribe.py "Season 01"/*.mkv
 
   # 3) több hangsávnál (pl. eredeti + szinkron) a nyelvet meg kell adni
   python addons/audio-asr/transcribe.py "Season 01"/*.mkv --lang kor
+
+  # 4) rossz nyelvcímkés sávnál (pl. a koreai hang „eng” címkét kapott)
+  python addons/audio-asr/transcribe.py "Season 01"/*.mkv --track 1 --lang kor
+
+A `*.mkv` mintát a script maga is kibontja, így Windowson (cmd, PowerShell)
+is működik.
 
 Függőség: `ffmpeg` + `ffprobe` a PATH-on, és a `faster-whisper` csomag
 (`pip install faster-whisper`). A large-v3 modell (~3 GB) első futáskor
@@ -36,6 +42,7 @@ Kilépési kód: 0 siker (a már kész részek kihagyása is az), 1 hiba.
 """
 
 import argparse
+import glob
 import json
 import os
 import re
@@ -98,8 +105,8 @@ HALLUCINATIONS = {
         "subtitlesbytheamaraorgcommunity",
     ],
 }
-# Egy szegmens, ami ennyiszer ismétlődik egymás után, beragadás (loop) — csak
-# az elsőt tartjuk meg.
+# Ha egy szegmens egymás után ennél többször jön, az beragadás (loop): az első
+# MAX_REPEAT darabot megtartjuk, a többit eldobjuk.
 MAX_REPEAT = 2
 
 
@@ -168,12 +175,20 @@ def describe(tracks):
         print(f"  stream {t['index']:>2}  {lang:<4} {t['codec']:<8} {ch:<4}{title}{extra}")
 
 
-def pick_track(tracks, lang, title_filter):
+def pick_track(tracks, lang, title_filter, index=None):
     """A használandó hangsáv. (sáv, None) siker, (None, hibaüzenet) ha nem dönthető el.
 
     Nem tippel: ha több sáv közül nem egyértelmű, melyik kell, hibát ad, mert
     egy rossz nyelvű sáv átirata csendben használhatatlan.
+
+    index: a stream sorszáma (`--track`) — a nyelvcímkét figyelmen kívül
+    hagyja, ezzel választható ki a rosszul címkézett sáv is.
     """
+    if index is not None:
+        hits = [t for t in tracks if t["index"] == index]
+        if not hits:
+            return None, f"nincs {index}. sorszámú hangsáv"
+        return hits[0], None
     hits = tracks
     if lang:
         hits = [t for t in hits if t["lang"] == lang]
@@ -240,7 +255,10 @@ class SegmentFilter:
         """A megtartandó (normalizált szóközű) szöveg, vagy None, ha eldobjuk."""
         text = " ".join(text.split())
         if is_hallucination(text, self.lang):
+            # Az eldobott sor (zene alatti hallucináció) megszakítja a sorozatot:
+            # az előtte és utána álló azonos sor nem egy beragadás.
             self.dropped += 1
+            self._last_key, self._run = None, 0
             return None
         key = _norm(text)
         self._run = self._run + 1 if key == self._last_key else 1
@@ -251,10 +269,21 @@ class SegmentFilter:
         return text
 
 
-def clean_segments(segments, lang):
-    """(start, end, text) hármasok szűrése. Visszaad: (megtartottak, eldobottak száma)."""
+def filter_segments(segments, keep, convert=None):
+    """(start, end, text) hármasok: írásjegy-váltás (ha van), majd szűrés.
+
+    Ez az egyetlen út — a valódi futás és a tesztek is ezen mennek át.
+    """
+    for start, end, text in segments:
+        text = keep(convert(text) if convert else text)
+        if text:
+            yield start, end, text
+
+
+def clean_segments(segments, lang, convert=None):
+    """A teljes lista szűrése. Visszaad: (megtartottak, eldobottak száma)."""
     keep = SegmentFilter(lang)
-    kept = [(s, e, t) for s, e, t in ((s, e, keep(t)) for s, e, t in segments) if t]
+    kept = list(filter_segments(segments, keep, convert))
     return kept, keep.dropped
 
 
@@ -278,10 +307,12 @@ def chinese_converter(lang):
         import opencc
     except ImportError:
         return None
-    try:
-        return opencc.OpenCC("t2s").convert
-    except Exception:
-        return opencc.OpenCC("t2s.json").convert
+    for config_name in ("t2s", "t2s.json"):   # a két opencc-csomag más nevet vár
+        try:
+            return opencc.OpenCC(config_name).convert
+        except Exception:  # noqa: BLE001 — hibás telepítésnél átalakítás nélkül megyünk tovább
+            continue
+    return None
 
 
 # ── Whisper ────────────────────────────────────────────────────────────────
@@ -336,7 +367,7 @@ def load_model(name, device, threads):
                 kwargs["cpu_threads"] = threads
             model = WhisperModel(name, **kwargs)
             print(f"Modell: {name}, eszköz: {dev} ({ctype})", flush=True)
-            return model
+            return model, dev
         except Exception as exc:  # noqa: BLE001 — a következő eszközre váltunk
             last = exc
             print(f"  {dev} nem elérhető ({str(exc).splitlines()[0][:120]}), próbálom a következőt",
@@ -352,23 +383,22 @@ def transcribe(model, video, track, lang, dest, beam):
         condition_on_previous_text=False)
     convert = chinese_converter(lang)
     if lang == "chi" and convert is None:
-        print("  (opencc nincs telepítve — a kínai írásjegyek változatlanok)", flush=True)
+        print("  (opencc nincs telepítve vagy nem indul — a kínai írásjegyek változatlanok)",
+              flush=True)
 
     dest.parent.mkdir(parents=True, exist_ok=True)
     tmp = dest.with_name(dest.name + ".part")
     began = time.time()
     keep = SegmentFilter(lang)
     n = 0
+    triples = ((seg.start, seg.end, seg.text) for seg in segments)
     with tmp.open("w", encoding="utf-8", newline="\n") as fh:
-        for seg in segments:
-            text = keep(convert(seg.text) if convert else seg.text)
-            if not text:
-                continue
+        for start, end, text in filter_segments(triples, keep, convert):
             n += 1
-            fh.write(srt_block(n, seg.start, seg.end, text))
+            fh.write(srt_block(n, start, end, text))
             fh.flush()
             if n % 100 == 0:
-                print(f"  {n} felirat, {seg.end / 60:.1f}/{duration / 60:.1f} perc, "
+                print(f"  {n} felirat, {end / 60:.1f}/{duration / 60:.1f} perc, "
                       f"{(time.time() - began) / 60:.1f} perc telt el", flush=True)
     os.replace(tmp, dest)
     mins = (time.time() - began) / 60
@@ -376,6 +406,20 @@ def transcribe(model, video, track, lang, dest, beam):
 
 
 # ── main ───────────────────────────────────────────────────────────────────
+
+def expand_patterns(args):
+    """A `*.mkv`-féle minták kibontása.
+
+    A Windows parancssora (cmd, PowerShell) nem bontja ki őket, a script
+    tehát a mintát szó szerint kapná meg. Ami nem minta, vagy amire semmi nem
+    illik, változatlanul marad — így a „nincs ilyen fájl” hiba megnevezi.
+    """
+    out = []
+    for arg in args:
+        hits = sorted(glob.glob(arg)) if glob.has_magic(arg) else []
+        out.extend(hits or [arg])
+    return out
+
 
 def main():
     for stream in (sys.stdout, sys.stderr):   # Windows-konzolon se haljon el a koreain
@@ -391,6 +435,9 @@ def main():
     ap.add_argument("--lang", help="a hang nyelve (kor, jpn, chi… vagy ko/ja/zh); "
                                    "több hangsávnál ez választ")
     ap.add_argument("--title", help="több azonos nyelvű hangsávnál a cím szűrője")
+    ap.add_argument("--track", type=int,
+                    help="a hangsáv stream-sorszáma (a --list mutatja); a nyelvcímkét "
+                         "figyelmen kívül hagyja — rossz címkés sávhoz, a --lang-gal együtt")
     ap.add_argument("--list", action="store_true",
                     help="csak a hangsávok listázása, átirat nélkül")
     ap.add_argument("--out-dir", default=DEFAULT_OUT_DIR,
@@ -413,7 +460,7 @@ def main():
 
     # 1) minden videónál sávválasztás — a modellt csak akkor töltjük be, ha van mit átírni
     jobs, errors = [], 0
-    for video in args.videos:
+    for video in expand_patterns(args.videos):
         if not Path(video).is_file():
             sys.stderr.write(f"HIBA: nincs ilyen fájl: {video}\n")
             errors += 1
@@ -430,7 +477,7 @@ def main():
         if args.list:
             describe(tracks)
             continue
-        track, err = pick_track(tracks, lang_arg, args.title)
+        track, err = pick_track(tracks, lang_arg, args.title, args.track)
         if err:
             describe(tracks)
             sys.stderr.write(f"  HIBA: {err}\n")
@@ -452,17 +499,33 @@ def main():
 
     # 2) átirat
     if jobs:
-        model = load_model(args.model, args.device, args.threads)
+        model, device = load_model(args.model, args.device, args.threads)
         for video, track, lang, dest in jobs:
             print(f"\n{video}", flush=True)
             try:
-                transcribe(model, video, track, lang, dest, args.beam)
+                try:
+                    transcribe(model, video, track, lang, dest, args.beam)
+                except (subprocess.CalledProcessError, KeyboardInterrupt):
+                    raise
+                except Exception as exc:  # noqa: BLE001
+                    if device == "cpu":
+                        raise
+                    # A videókártya hibája (hiányzó CUDA-fájl, kevés memória) sokszor
+                    # csak az átirat közben jön elő, nem a betöltéskor: a hátralévő
+                    # részek processzoron mennek tovább, ez a rész elölről.
+                    sys.stderr.write(f"  {device} hiba futás közben "
+                                     f"({str(exc).splitlines()[0][:120]}) — processzorra váltok\n")
+                    model, device = load_model(args.model, "cpu", args.threads)
+                    transcribe(model, video, track, lang, dest, args.beam)
             except subprocess.CalledProcessError as exc:
                 sys.stderr.write(f"  ffmpeg hiba: {exc.stderr.decode('utf-8', 'replace').strip()}\n")
                 errors += 1
             except KeyboardInterrupt:
                 sys.stderr.write("\nMegszakítva — a félkész átirat a .part fájlban maradt.\n")
                 return 1
+            except Exception as exc:  # noqa: BLE001 — egy rész hibája ne állítsa le az évadot
+                sys.stderr.write(f"  HIBA: {exc}\n")
+                errors += 1
 
     return 1 if errors else 0
 

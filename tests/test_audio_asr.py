@@ -154,3 +154,96 @@ def test_device_candidates_always_end_on_cpu():
     for dev in ("auto", "cuda", "mps", "cpu"):
         assert asr.device_candidates(dev)[-1] == ("cpu", "int8")
     assert asr.device_candidates("cpu") == [("cpu", "int8")]
+
+
+# ── review-javítások (2026-11-16) ──────────────────────────────────────────
+
+def test_fallback_aliases_match_pipeline():
+    """Az önálló futáshoz tartott másolat ne csússzon el a subtr-belitől."""
+    assert asr._FALLBACK_ALIASES == config.SOURCE_LANG_ALIASES
+
+
+def test_track_index_overrides_wrong_label():
+    """A koreai hang „eng” címkét kapott: --track választja ki, a --lang nem kell hozzá."""
+    tracks = [track(1, "eng"), track(2, "eng", "Commentary")]
+    t, err = asr.pick_track(tracks, "kor", None, index=1)
+    assert err is None and t["index"] == 1
+    t, err = asr.pick_track(tracks, None, None, index=7)
+    assert t is None and "7" in err
+
+
+def test_dropped_hallucination_breaks_repeat_run():
+    segs = [(0, 1, "어디 가?"), (1, 2, "어디 가?"),
+            (2, 3, "시청해 주셔서 감사합니다."),
+            (3, 4, "어디 가?")]
+    kept, dropped = asr.clean_segments(segs, "kor")
+    assert [t for _, _, t in kept] == ["어디 가?"] * 3
+    assert dropped == 1
+
+
+def test_convert_runs_before_filter():
+    """A kínai átalakítás a szűrés előtt fut — a hallucináció-lista egyszerűsített alakú."""
+    kept, dropped = asr.clean_segments([(0, 1, "謝謝觀看"), (1, 2, "你好")], "chi",
+                                       convert=lambda t: t.replace("謝謝觀看", "谢谢观看"))
+    assert [t for _, _, t in kept] == ["你好"] and dropped == 1
+
+
+def test_chinese_converter_survives_broken_opencc(monkeypatch):
+    class Broken:
+        def OpenCC(self, name):
+            raise RuntimeError(f"no config {name}")
+    monkeypatch.setitem(sys.modules, "opencc", Broken())
+    assert asr.chinese_converter("chi") is None
+    assert asr.chinese_converter("kor") is None
+
+
+def test_expand_patterns(tmp_path):
+    for name in ("b - S01E02.mkv", "a - S01E01.mkv", "x.srt"):
+        (tmp_path / name).write_text("")
+    pat = str(tmp_path / "*.mkv")
+    assert asr.expand_patterns([pat]) == [str(tmp_path / "a - S01E01.mkv"),
+                                          str(tmp_path / "b - S01E02.mkv")]
+    # nem minta → változatlan; üres találatú minta → változatlan (a hiba megnevezi)
+    assert asr.expand_patterns(["plain.mkv"]) == ["plain.mkv"]
+    nomatch = str(tmp_path / "*.avi")
+    assert asr.expand_patterns([nomatch]) == [nomatch]
+
+
+def _fake_run(monkeypatch, tmp_path, fail_on):
+    """main() ffmpeg és Whisper nélkül: a transcribe() az adott eszközön hibát dob."""
+    video = tmp_path / "S - S01E01.mkv"
+    video.write_text("")
+    loads, runs = [], []
+    monkeypatch.setattr(asr, "require_tools", lambda: None)
+    monkeypatch.setattr(asr, "probe_audio", lambda v: [track(1, "kor")])
+
+    def load(name, device, threads):
+        dev = "cuda" if device == "auto" else device
+        loads.append(dev)
+        return dev, dev
+
+    def run(model, video, trk, lang, dest, beam):
+        runs.append(model)
+        if model in fail_on:
+            raise RuntimeError("cublas64_12.dll not found")
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text("ok")
+
+    monkeypatch.setattr(asr, "load_model", load)
+    monkeypatch.setattr(asr, "transcribe", run)
+    monkeypatch.setattr(sys, "argv", ["transcribe.py", str(video),
+                                      "--out-dir", str(tmp_path / "asr")])
+    return loads, runs
+
+
+def test_gpu_error_during_run_falls_back_to_cpu(monkeypatch, tmp_path):
+    loads, runs = _fake_run(monkeypatch, tmp_path, fail_on={"cuda"})
+    assert asr.main() == 0
+    assert loads == ["cuda", "cpu"] and runs == ["cuda", "cpu"]
+    assert (tmp_path / "asr" / "S - S01E01.kor.asr.srt").read_text() == "ok"
+
+
+def test_cpu_error_is_reported_not_crashing(monkeypatch, tmp_path):
+    loads, runs = _fake_run(monkeypatch, tmp_path, fail_on={"cuda", "cpu"})
+    assert asr.main() == 1
+    assert runs == ["cuda", "cpu"]
