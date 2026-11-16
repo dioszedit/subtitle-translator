@@ -40,7 +40,8 @@ Korlát: csak SZÖVEGES sávot tud (subrip, ass/ssa, mov_text, webvtt). A képi
 feliratok (PGS/`hdmv_pgs_subtitle`, VobSub/`dvd_subtitle`) OCR-t igényelnek,
 azokat a script kihagyja és megnevezi.
 
-Függőség: `ffmpeg` és `ffprobe` a PATH-on. Python oldalról csak stdlib.
+Függőség: `ffmpeg` és `ffprobe` (PATH, vagy `FFMPEG`/`FFPROBE` környezeti
+változó). Python oldalról csak stdlib.
 
 Kilépési kód: 0 siker, 1 hiba (hiányzó ffmpeg, nincs ilyen nyelvű sáv,
 létező cél --force nélkül, képi felirat).
@@ -48,6 +49,7 @@ létező cél --force nélkül, képi felirat).
 
 import argparse
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -78,11 +80,46 @@ def normalize_lang(value):
     return _ALIASES.get(key, key)
 
 
+class Fail(Exception):
+    """Egy fájl feldolgozása nem sikerült; a köteg többi része mehet tovább."""
+
+
+# ── ffmpeg / ffprobe — a mkv-subs, a hardsub-cover és az audio-asr közös kódja ──
+
+def find_tool(name):
+    """Az `ffmpeg` / `ffprobe` útvonala: FFMPEG / FFPROBE környezeti változó,
+    a Homebrew ffmpeg-full, végül a PATH. Ha nincs meg: Fail."""
+    for cand in (os.environ.get(name.upper()), f"/opt/homebrew/opt/ffmpeg-full/bin/{name}",
+                 shutil.which(name)):
+        if cand and Path(cand).exists():
+            return cand
+    raise Fail(f"nem találom: {name} (PATH vagy {name.upper()} környezeti változó)")
+
+
 def require_tools():
-    missing = [t for t in ("ffprobe", "ffmpeg") if not shutil.which(t)]
-    if missing:
-        sys.exit(f"HIBA: nincs a PATH-on: {', '.join(missing)} "
-                 "(macOS: brew install ffmpeg; Windows: winget install ffmpeg)")
+    """Indulás előtti ellenőrzés: ha hiányzik az ffmpeg vagy az ffprobe, megáll."""
+    try:
+        for name in ("ffprobe", "ffmpeg"):
+            find_tool(name)
+    except Fail as exc:
+        sys.exit(f"HIBA: {exc} (macOS: brew install ffmpeg; Windows: winget install ffmpeg)")
+
+
+def ffprobe_json(path, entries, select=None, tool=None):
+    """Az ffprobe JSON-válasza a kért mezőkkel (`-show_entries`). Hibánál Fail.
+
+    select: sávtípus-szűrő (`-select_streams`), pl. "s" felirat, "a" hang.
+    """
+    cmd = [tool or find_tool("ffprobe"), "-v", "error"]
+    if select:
+        cmd += ["-select_streams", select]
+    cmd += ["-show_entries", entries, "-of", "json", str(path)]
+    # encoding: a sávcímek UTF-8-ban jönnek (koreai, kínai) — Windowson a
+    # konzol kódlapjával olvasva elhasalna.
+    r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8")
+    if r.returncode:
+        raise Fail(f"ffprobe hiba: {(r.stderr or '').strip()[-300:]}")
+    return json.loads(r.stdout or "{}")
 
 
 def probe_streams(video, kind):
@@ -92,20 +129,14 @@ def probe_streams(video, kind):
     a `channels` csak hangsávnál van kitöltve. ffprobe-hibánál None.
     Az audio-asr add-on is ezt használja a hangsávokhoz.
     """
-    cmd = ["ffprobe", "-v", "error", "-select_streams", kind,
-           "-show_entries", "stream=index,codec_name,channels:stream_tags=language,title"
-           ":stream_disposition=forced,default",
-           "-of", "json", str(video)]
     try:
-        # encoding: a sávcímek UTF-8-ban jönnek (koreai, kínai) — Windowson a
-        # konzol kódlapjával olvasva elhasalna.
-        raw = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
-                             check=True).stdout
-    except subprocess.CalledProcessError as exc:
-        sys.stderr.write(f"  ffprobe hiba: {exc.stderr.strip()}\n")
+        data = ffprobe_json(video, "stream=index,codec_name,channels:stream_tags=language,title"
+                                   ":stream_disposition=forced,default", select=kind)
+    except Fail as exc:
+        sys.stderr.write(f"  {exc}\n")
         return None
     out = []
-    for st in json.loads(raw or "{}").get("streams", []):
+    for st in data.get("streams", []):
         tags = st.get("tags") or {}
         disp = st.get("disposition") or {}
         out.append({
@@ -177,7 +208,7 @@ def extract(video, track, dest, force):
                          f"({track['codec']}), OCR kellene hozzá\n")
         return False
     dest.parent.mkdir(parents=True, exist_ok=True)
-    cmd = ["ffmpeg", "-v", "error", "-y", "-i", video,
+    cmd = [find_tool("ffmpeg"), "-v", "error", "-y", "-i", video,
            "-map", f"0:{track['index']}", "-c:s", "srt", str(dest)]
     try:
         subprocess.run(cmd, capture_output=True, text=True, check=True)

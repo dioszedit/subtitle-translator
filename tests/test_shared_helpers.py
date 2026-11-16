@@ -62,7 +62,7 @@ def test_extract_subs_uses_the_one_alias_table():
 
 
 @pytest.mark.parametrize("name", ["normalize_lang", "require_tools", "probe_streams",
-                                  "describe", "stem_without_lang"])
+                                  "describe", "stem_without_lang", "find_tool"])
 def test_audio_asr_takes_track_helpers_from_mkv_subs(name):
     """A hang- és a feliratsávokat ugyanaz a kód listázza."""
     fn = getattr(load("audio-asr/transcribe.py"), name)
@@ -71,7 +71,9 @@ def test_audio_asr_takes_track_helpers_from_mkv_subs(name):
 
 @pytest.mark.parametrize("definition", ["def normalize_lang", "def require_tools",
                                         "def probe_streams", "def stem_without_lang",
-                                        "def describe(tracks"])
+                                        "def describe(tracks", "def find_tool",
+                                        "def ffprobe_json", "class Fail", "shutil.which(",
+                                        '"-show_entries"'])
 def test_track_helpers_defined_once(definition):
     owners = [p.parent.name + "/" + p.name for p in ADDONS.glob("*/*.py")
               if definition in p.read_text(encoding="utf-8")]
@@ -110,3 +112,19 @@ def test_vtt2srt_expands_literal_pattern(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(sys, "argv", ["vtt2srt.py", str(tmp_path / "*.hun.vtt")])
     assert mod.main() in (0, None)
     assert (tmp_path / "a.hun.srt").is_file() and (tmp_path / "b.hun.srt").is_file()
+
+
+def test_embed_subs_and_cover_share_tool_lookup_and_fail():
+    """Egy ffmpeg-kereső, egy ffprobe-hívó, egy Fail — a beágyazás és a takarás is ezt kapja."""
+    emb = load("mkv-subs/embed_subs.py")
+    cover = load("hardsub-cover/cover_ass.py")
+    for name in ("find_tool", "ffprobe_json", "Fail"):
+        assert getattr(emb, name).__module__ == "extract_subs", name
+    assert cover.Fail.__module__ == "extract_subs"
+
+
+def test_no_bare_ffmpeg_command_in_addons():
+    """Senki ne hívja névvel az ffmpeg-et: a find_tool ismeri az FFMPEG változót is."""
+    for path in ADDONS.glob("*/*.py"):
+        src = path.read_text(encoding="utf-8")
+        assert not re.search(r'\[\s*"ff(mpeg|probe)"', src), path

@@ -5,6 +5,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 ADDON_DIR = Path(__file__).resolve().parent.parent / "addons" / "mkv-subs"
 _spec = importlib.util.spec_from_file_location("mkv_subs", ADDON_DIR / "extract_subs.py")
 mkv_subs = importlib.util.module_from_spec(_spec)
@@ -92,8 +94,10 @@ def test_probe_parses_streams(monkeypatch):
     ]}
 
     class Done:
+        returncode, stderr = 0, ""
         stdout = json.dumps(payload)
 
+    monkeypatch.setattr(mkv_subs, "find_tool", lambda n: n)
     monkeypatch.setattr(mkv_subs.subprocess, "run", lambda *a, **k: Done())
     tracks = mkv_subs.probe_subtitles("x.mkv")
     assert [t["lang"] for t in tracks] == ["jpn", "eng"]
@@ -115,12 +119,14 @@ def test_probe_streams_audio(monkeypatch):
     seen = {}
 
     class Done:
+        returncode, stderr = 0, ""
         stdout = json.dumps(payload)
 
     def run(cmd, **kwargs):
         seen["cmd"], seen["kwargs"] = cmd, kwargs
         return Done()
 
+    monkeypatch.setattr(mkv_subs, "find_tool", lambda n: n)
     monkeypatch.setattr(mkv_subs.subprocess, "run", run)
     tracks = mkv_subs.probe_streams("x.mkv", "a")
     assert seen["cmd"][seen["cmd"].index("-select_streams") + 1] == "a"
@@ -142,3 +148,39 @@ def test_stem_without_lang():
     assert mkv_subs.stem_without_lang("Season 01/x.eng.mkv") == "x"
     assert mkv_subs.stem_without_lang("Season 01/Sorozat - S01E01.mkv") == "Sorozat - S01E01"
     assert mkv_subs.stem_without_lang("x.clean.mkv") == "x.clean"
+
+
+# ── ffmpeg / ffprobe: egy kereső, egy hívó ──────────────────────────────────
+
+def test_find_tool_prefers_env_then_path(monkeypatch, tmp_path):
+    fake = tmp_path / "my-ffprobe"
+    fake.write_text("")
+    monkeypatch.setenv("FFPROBE", str(fake))
+    assert mkv_subs.find_tool("ffprobe") == str(fake)
+    # nem létező útvonal a változóban: megy tovább a többi helyre
+    monkeypatch.setenv("FFPROBE", str(tmp_path / "nincs"))
+    monkeypatch.setattr(mkv_subs.shutil, "which", lambda n: str(fake))
+    monkeypatch.setattr(mkv_subs.Path, "exists", lambda self: str(self) == str(fake))
+    assert mkv_subs.find_tool("ffprobe") == str(fake)
+
+
+def test_find_tool_missing_is_fail(monkeypatch):
+    monkeypatch.delenv("FFMPEG", raising=False)
+    monkeypatch.setattr(mkv_subs.shutil, "which", lambda n: None)
+    monkeypatch.setattr(mkv_subs.Path, "exists", lambda self: False)
+    with pytest.raises(mkv_subs.Fail, match="ffmpeg"):
+        mkv_subs.find_tool("ffmpeg")
+    with pytest.raises(SystemExit, match="winget"):
+        mkv_subs.require_tools()
+
+
+def test_ffprobe_error_is_fail_and_probe_streams_returns_none(monkeypatch, capsys):
+    class Bad:
+        returncode, stdout, stderr = 1, "", "Invalid data found"
+
+    monkeypatch.setattr(mkv_subs, "find_tool", lambda n: n)
+    monkeypatch.setattr(mkv_subs.subprocess, "run", lambda *a, **k: Bad())
+    with pytest.raises(mkv_subs.Fail, match="Invalid data"):
+        mkv_subs.ffprobe_json("x.mkv", "stream=index")
+    assert mkv_subs.probe_streams("x.mkv", "s") is None
+    assert "Invalid data" in capsys.readouterr().err

@@ -41,16 +41,17 @@ Kilépési kód: 0 siker, 1 hiba.
 """
 
 import argparse
-import json
 import os
 import re
-import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from extract_subs import expand_patterns, normalize_lang  # noqa: E402  (a pipeline nyelvkód-kezelése)
+# A nyelvkód-kezelés, az ffmpeg megkeresése és az ffprobe hívása az extract_subs-ból jön —
+# ugyanaz a kód szolgálja a kicsomagolást, a beágyazást, a hardsub-covert és az audio-asr-t.
+from extract_subs import (  # noqa: E402
+    Fail, expand_patterns, ffprobe_json, find_tool, normalize_lang)
 
 MARKER = "SUBTR"  # rejtett sávcímke: ezzel ismeri fel a saját, korábban betett sávját
 
@@ -64,10 +65,6 @@ LANG_NAMES = {
     "slo": "Slovak", "rum": "Romanian", "gre": "Greek", "heb": "Hebrew", "fin": "Finnish",
     "dan": "Danish", "nor": "Norwegian",
 }
-
-
-class Fail(Exception):
-    """Egy fájl feldolgozása nem sikerült; a köteg többi része mehet tovább."""
 
 
 class Track:
@@ -142,25 +139,14 @@ def env_flag(name):
 
 # ── ffmpeg / ffprobe ────────────────────────────────────────────────────────
 
-def find_tool(name):
-    for cand in (os.environ.get(name.upper()), f"/opt/homebrew/opt/ffmpeg-full/bin/{name}", shutil.which(name)):
-        if cand and Path(cand).exists():
-            return cand
-    raise Fail(f"nem találom: {name} (PATH vagy {name.upper()} környezeti változó)")
-
-
 def tags(s):
     return {k.lower(): v for k, v in (s.get("tags") or {}).items()}
 
 
 def probe(ffprobe, path):
-    r = subprocess.run([ffprobe, "-v", "error", "-show_entries",
-                        "stream=index,codec_type,codec_name:stream_tags:stream_disposition"
-                        ":format=duration", "-of", "json", str(path)],
-                       capture_output=True, text=True)
-    if r.returncode:
-        raise Fail(f"ffprobe hiba: {r.stderr.strip()[-300:]}")
-    return json.loads(r.stdout)
+    """Minden sáv minden címkéje és jelölése + a hossz — a mux ellenőrzéséhez."""
+    return ffprobe_json(path, "stream=index,codec_type,codec_name:stream_tags:stream_disposition"
+                              ":format=duration", tool=ffprobe)
 
 
 def subtitles(info):

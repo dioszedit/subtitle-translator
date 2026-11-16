@@ -55,7 +55,7 @@ from pathlib import Path
 # hangsávokat, másolata nincs.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "mkv-subs"))
 from extract_subs import (  # noqa: E402
-    describe, expand_patterns, normalize_lang, probe_streams, require_tools,
+    describe, expand_patterns, find_tool, normalize_lang, probe_streams, require_tools,
     stem_without_lang)
 
 # Pipeline-kód → Whisper-nyelvkód (ISO 639-1). Ami nincs itt, azt a Whisper
@@ -260,7 +260,7 @@ def decode_audio(video, track_index):
     PyAV-verzióeltérésnél azonnal elhasalt, az ffmpeg viszont úgyis kell.
     """
     import numpy as np
-    cmd = ["ffmpeg", "-nostdin", "-v", "error", "-i", str(video),
+    cmd = [find_tool("ffmpeg"), "-nostdin", "-v", "error", "-i", str(video),
            "-map", f"0:{track_index}", "-ac", "1", "-ar", str(SAMPLE_RATE),
            "-f", "f32le", "-"]
     raw = subprocess.run(cmd, capture_output=True, check=True).stdout

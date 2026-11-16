@@ -10,7 +10,9 @@ Két script:
   *Beágyazás*).
 
 Python oldalról csak stdlib; kell viszont **`ffmpeg` + `ffprobe`** a PATH-on
-(macOS: `brew install ffmpeg`).
+(macOS: `brew install ffmpeg`, Windows: `winget install ffmpeg`). Ha máshol
+vannak, az `FFMPEG` és az `FFPROBE` környezeti változóban megadható az
+útvonaluk. Ugyanígy keresi őket a `hardsub-cover` és az `audio-asr` add-on is.
 
 ## Mikor kell
 
