@@ -53,28 +53,17 @@ import subprocess
 import sys
 from pathlib import Path
 
-# A pipeline nyelvkódjai (ISO 639-2/B) — ugyanaz, amit a subtr/config.py használ.
-# Az addon önállóan is futtatható, ezért van saját másolata; ha a subtr csomag
-# importálható, onnan vesszük, hogy a két lista ne csússzon szét.
-_FALLBACK_ALIASES = {
-    "en": "eng", "de": "ger", "deu": "ger", "fr": "fre", "fra": "fre",
-    "es": "spa", "pt": "por", "it": "ita", "ru": "rus", "pl": "pol",
-    "tr": "tur", "zh": "chi", "zho": "chi", "cmn": "chi", "ja": "jpn",
-    "ko": "kor", "vi": "vie", "id": "ind", "ms": "may", "th": "tha",
-    "hi": "hin", "ar": "ara", "jp": "jpn", "kr": "kor",
-}
-
-_FALLBACK_LANGS = {
-    "ara", "chi", "eng", "fre", "ger", "hin", "ind", "ita", "jpn", "kor",
-    "may", "pol", "por", "rus", "spa", "tha", "tur", "vie",
-}
-
-try:  # repóból futtatva a subtr csomag elérhető
+# A pipeline nyelvkódjai és a fájlminta-kibontás a subtr csomagból jönnek —
+# másolatuk SEHOL nincs, hogy ne csúszhassanak szét. Az add-on a programmal
+# együtt települ; ha valaki mégis a subtr nélkül futtatja, a tartalék nem egy
+# második példány, csak annyi, hogy a script ne omoljon össze: a rövid kódok
+# (`ja`) nem válnak hosszúvá (`jpn`), és a `*.mkv` minta nem bomlik ki.
+try:
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-    from subtr.config import SOURCE_LANG_ALIASES as _ALIASES, SOURCE_LANGS
+    from subtr.config import SOURCE_LANG_ALIASES as _ALIASES, SOURCE_LANGS, expand_patterns
     _LANGS = set(SOURCE_LANGS)
-except Exception:  # önálló másolatként is működnie kell
-    _ALIASES, _LANGS = _FALLBACK_ALIASES, _FALLBACK_LANGS
+except Exception:  # noqa: BLE001 — subtr nélkül: lásd fent
+    _ALIASES, _LANGS, expand_patterns = {}, set(), list
 
 # Amit az ffmpeg SRT-vé tud alakítani. A képi feliratok nincsenek köztük.
 TEXT_CODECS = {"subrip", "srt", "ass", "ssa", "mov_text", "webvtt", "text"}
@@ -199,7 +188,7 @@ def main():
     lang = normalize_lang(args.lang) if args.lang else None
     errors = 0
 
-    for video in args.videos:
+    for video in expand_patterns(args.videos):
         if not Path(video).is_file():
             sys.stderr.write(f"HIBA: nincs ilyen fájl: {video}\n")
             errors += 1

@@ -564,6 +564,7 @@ def main():
                         help="Ne kérdezzen: csak a biztos sorokat veszi át, a többit kihagyja")
     args = parser.parse_args()
 
+    args.srt = config.expand_patterns(args.srt)
     missing = [p for p in args.srt if not os.path.isfile(p)]
     if missing:
         for p in missing:

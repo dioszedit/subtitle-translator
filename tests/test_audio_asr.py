@@ -158,11 +158,6 @@ def test_device_candidates_always_end_on_cpu():
 
 # ── review-javítások (2026-11-16) ──────────────────────────────────────────
 
-def test_fallback_aliases_match_pipeline():
-    """Az önálló futáshoz tartott másolat ne csússzon el a subtr-belitől."""
-    assert asr._FALLBACK_ALIASES == config.SOURCE_LANG_ALIASES
-
-
 def test_track_index_overrides_wrong_label():
     """A koreai hang „eng” címkét kapott: --track választja ki, a --lang nem kell hozzá."""
     tracks = [track(1, "eng"), track(2, "eng", "Commentary")]
@@ -195,18 +190,6 @@ def test_chinese_converter_survives_broken_opencc(monkeypatch):
     monkeypatch.setitem(sys.modules, "opencc", Broken())
     assert asr.chinese_converter("chi") is None
     assert asr.chinese_converter("kor") is None
-
-
-def test_expand_patterns(tmp_path):
-    for name in ("b - S01E02.mkv", "a - S01E01.mkv", "x.srt"):
-        (tmp_path / name).write_text("")
-    pat = str(tmp_path / "*.mkv")
-    assert asr.expand_patterns([pat]) == [str(tmp_path / "a - S01E01.mkv"),
-                                          str(tmp_path / "b - S01E02.mkv")]
-    # nem minta → változatlan; üres találatú minta → változatlan (a hiba megnevezi)
-    assert asr.expand_patterns(["plain.mkv"]) == ["plain.mkv"]
-    nomatch = str(tmp_path / "*.avi")
-    assert asr.expand_patterns([nomatch]) == [nomatch]
 
 
 def _fake_run(monkeypatch, tmp_path, fail_on):

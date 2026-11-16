@@ -303,7 +303,7 @@ def main(argv=None):
 
     rc = 0
     with tempfile.TemporaryDirectory(prefix="hardsub-") as tmpdir:
-        for srt in args.srt:
+        for srt in map(Path, embed_subs.expand_patterns(args.srt)):
             try:
                 if not process(srt, c, args.mux, args.out_dir, Path(tmpdir)):
                     rc = 1

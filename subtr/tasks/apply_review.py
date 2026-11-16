@@ -34,7 +34,7 @@ import shutil
 import sys
 from pathlib import Path
 
-from subtr import reports
+from subtr import config, reports
 from subtr.srt import parse_blocks_with_index as parse_srt_blocks
 
 sys.stdout.reconfigure(encoding='utf-8')
@@ -153,7 +153,7 @@ def main(argv=None):
         print(f"HIBA: Fájl nem található: {srt_path}")
         sys.exit(1)
 
-    report_paths = ([Path(r) for r in args.reports] if args.reports
+    report_paths = ([Path(r) for r in config.expand_patterns(args.reports)] if args.reports
                     else find_reports(srt_path))
     if not report_paths:
         print("Nem találtam review riportot a fájl mellett.")

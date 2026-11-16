@@ -30,8 +30,8 @@ Használat:
   # 4) rossz nyelvcímkés sávnál (pl. a koreai hang „eng” címkét kapott)
   python addons/audio-asr/transcribe.py "Season 01"/*.mkv --track 1 --lang kor
 
-A `*.mkv` mintát a script maga is kibontja, így Windowson (cmd, PowerShell)
-is működik.
+A `*.mkv` mintát a script maga is kibontja (subtr.config.expand_patterns), így
+Windowson (cmd, PowerShell) is működik.
 
 Függőség: `ffmpeg` + `ffprobe` a PATH-on, és a `faster-whisper` csomag
 (`pip install faster-whisper`). A large-v3 modell (~3 GB) első futáskor
@@ -42,7 +42,6 @@ Kilépési kód: 0 siker (a már kész részek kihagyása is az), 1 hiba.
 """
 
 import argparse
-import glob
 import json
 import os
 import re
@@ -52,21 +51,16 @@ import sys
 import time
 from pathlib import Path
 
-# A pipeline nyelvkódjai (ISO 639-2/B). Az addon önállóan is futtatható,
-# ezért van saját másolata; repóból futtatva a subtr csomagból jön.
-_FALLBACK_ALIASES = {
-    "en": "eng", "de": "ger", "deu": "ger", "fr": "fre", "fra": "fre",
-    "es": "spa", "pt": "por", "it": "ita", "ru": "rus", "pl": "pol",
-    "tr": "tur", "zh": "chi", "zho": "chi", "cmn": "chi", "ja": "jpn",
-    "ko": "kor", "vi": "vie", "id": "ind", "ms": "may", "th": "tha",
-    "hi": "hin", "ar": "ara",
-}
-
-try:  # repóból futtatva a subtr csomag elérhető
+# A pipeline nyelvkód-rövidítései és a fájlminta-kibontás a subtr csomagból
+# jönnek — másolatuk SEHOL nincs. Az add-on a programmal együtt települ; ha
+# valaki mégis a subtr nélkül futtatja, a tartalék csak annyi, hogy a script ne
+# omoljon össze: a rövid kódok (`ko`) helyett a hosszú kell (`kor`), és a
+# `*.mkv` minta nem bomlik ki.
+try:
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-    from subtr.config import SOURCE_LANG_ALIASES as _ALIASES
-except Exception:  # önálló másolatként is működnie kell
-    _ALIASES = _FALLBACK_ALIASES
+    from subtr.config import SOURCE_LANG_ALIASES as _ALIASES, expand_patterns
+except Exception:  # noqa: BLE001 — subtr nélkül: lásd fent
+    _ALIASES, expand_patterns = {}, list
 
 # Pipeline-kód → Whisper-nyelvkód (ISO 639-1). Ami nincs itt, azt a Whisper
 # nem kapja meg nyelvként — ilyenkor a --lang kötelező (lásd whisper_lang).
@@ -406,20 +400,6 @@ def transcribe(model, video, track, lang, dest, beam):
 
 
 # ── main ───────────────────────────────────────────────────────────────────
-
-def expand_patterns(args):
-    """A `*.mkv`-féle minták kibontása.
-
-    A Windows parancssora (cmd, PowerShell) nem bontja ki őket, a script
-    tehát a mintát szó szerint kapná meg. Ami nem minta, vagy amire semmi nem
-    illik, változatlanul marad — így a „nincs ilyen fájl” hiba megnevezi.
-    """
-    out = []
-    for arg in args:
-        hits = sorted(glob.glob(arg)) if glob.has_magic(arg) else []
-        out.extend(hits or [arg])
-    return out
-
 
 def main():
     for stream in (sys.stdout, sys.stderr):   # Windows-konzolon se haljon el a koreain

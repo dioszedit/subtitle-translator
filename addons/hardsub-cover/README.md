@@ -58,6 +58,9 @@ python3 addons/hardsub-cover/cover_ass.py "Season 01/Sorozat - S01E02.hun.srt" -
 python3 addons/hardsub-cover/cover_ass.py "Season 01"/*.hun.srt --mux   # minden kész rész
 ```
 
+A `*`-os mintát (pl. `"Season 01\*.hun.srt"`) a script maga bontja ki, így Windowson
+(cmd, PowerShell) is működik, ahol a parancssor ezt nem teszi meg.
+
 ## Beállítások (sorozatonként)
 
 Minden érték állítható a sorozat `.env`-jében (`HARDSUB_*`, magyarázattal a

@@ -6,6 +6,7 @@ ha nincs telepítve, ez a modul akkor is importálható marad, csak a .env
 fájl nem töltődik be (pl. ha a környezeti változók már máshonnan jönnek).
 """
 
+import glob
 import os
 import sys
 from dataclasses import dataclass, field
@@ -552,6 +553,23 @@ def source_lang_help() -> str:
     return (f"A forrásfelirat nyelve (default: a fájlnév `.kód` tagjából, "
             f"különben {DEFAULT_SOURCE_LANG}; env: SUBTR_SOURCE_LANG). "
             f"Lehet: {codes}")
+
+
+def expand_patterns(paths) -> list[str]:
+    """A `*.mkv`-féle minták kibontása a fájl-argumentumokban.
+
+    A Windows parancssora (cmd, PowerShell) nem bontja ki őket, a script tehát
+    a mintát szó szerint kapná meg. Ami nem minta, vagy amire semmi nem illik,
+    változatlanul marad — így a hívó „nincs ilyen fájl” hibája megnevezi.
+
+    Ez az EGYETLEN példány: a subtr parancsai és az add-onok is innen veszik.
+    """
+    out = []
+    for arg in paths:
+        arg = str(arg)
+        hits = sorted(glob.glob(arg)) if glob.has_magic(arg) else []
+        out.extend(hits or [arg])
+    return out
 
 
 def add_source_lang_argument(parser) -> None:

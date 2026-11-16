@@ -63,6 +63,10 @@ Kapcsolók: `--lang` (`jpn`/`ja` egyaránt jó), `--all`, `--title` (több azono
 nyelvű sáv szűkítése a sáv címére), `--out-dir`, `--force` (létező `.srt`
 felülírása).
 
+A `*`-os mintát (pl. `"Season 01\*.mkv"`) a script maga bontja ki, így Windowson
+(cmd, PowerShell) is működik, ahol a parancssor ezt nem teszi meg.
+Ugyanez igaz az `embed_subs.py`-ra is.
+
 ## Korlátok
 
 - Csak **szöveges** sáv (`subrip`, `ass`/`ssa`, `mov_text`, `webvtt`). A képi

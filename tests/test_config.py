@@ -509,3 +509,22 @@ def test_agy_models_kimenet_feldolgozasa(monkeypatch):
     monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/agy")
     monkeypatch.setattr(subprocess, "run", lambda *a, **k: P())
     assert config.antigravity_available_models() == {"gemini-3.8-flash-high", "gpt-oss-120b-medium"}
+
+
+# ── fájlminták kibontása (Windowson a parancssor nem teszi meg) ─────────────
+
+def test_expand_patterns(tmp_path):
+    for name in ("b - S01E02.mkv", "a - S01E01.mkv", "x.srt"):
+        (tmp_path / name).write_text("")
+    pat = str(tmp_path / "*.mkv")
+    assert config.expand_patterns([pat]) == [str(tmp_path / "a - S01E01.mkv"),
+                                             str(tmp_path / "b - S01E02.mkv")]
+    # nem minta → változatlan; üres találatú minta → változatlan (a hiba megnevezi)
+    assert config.expand_patterns(["plain.mkv"]) == ["plain.mkv"]
+    nomatch = str(tmp_path / "*.avi")
+    assert config.expand_patterns([nomatch]) == [nomatch]
+
+
+def test_expand_patterns_accepts_path_objects(tmp_path):
+    (tmp_path / "a.hun.srt").write_text("")
+    assert config.expand_patterns([tmp_path / "*.hun.srt"]) == [str(tmp_path / "a.hun.srt")]

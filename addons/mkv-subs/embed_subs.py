@@ -50,7 +50,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from extract_subs import normalize_lang  # noqa: E402  (a pipeline nyelvkód-kezelése)
+from extract_subs import expand_patterns, normalize_lang  # noqa: E402  (a pipeline nyelvkód-kezelése)
 
 MARKER = "SUBTR"  # rejtett sávcímke: ezzel ismeri fel a saját, korábban betett sávját
 
@@ -335,7 +335,7 @@ def main(argv=None):
     default = args.default if args.default is not None else env_flag("MKV_SUBS_DEFAULT")
 
     rc = 0
-    for srt in args.srt:
+    for srt in map(Path, expand_patterns(args.srt)):
         try:
             process(srt, default, args.dry_run, args.lang, args.title)
         except Fail as e:

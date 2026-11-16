@@ -32,6 +32,9 @@ python3 addons/vtt2srt/vtt2srt.py input/*.eng.vtt --out-dir input  # más mappá
 python3 addons/vtt2srt/vtt2srt.py x.vtt --force                   # létező .srt felülírása
 ```
 
+A `*`-os mintát (pl. `"Season 01\*.vtt"`) a script maga bontja ki, így Windowson
+(cmd, PowerShell) is működik, ahol a parancssor ezt nem teszi meg.
+
 | Kapcsoló | Jelentés |
 |---|---|
 | `vtt…` | Egy vagy több `.vtt` fájl |

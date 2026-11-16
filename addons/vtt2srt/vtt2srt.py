@@ -42,6 +42,14 @@ import re
 import sys
 from pathlib import Path
 
+# A `*.vtt` minta kibontása (Windowson a parancssor nem teszi meg) a subtr
+# csomagból jön, másolata nincs. A subtr nélkül futtatva a minta nem bomlik ki.
+try:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    from subtr.config import expand_patterns
+except Exception:  # noqa: BLE001
+    expand_patterns = list
+
 # Az óra a WebVTT-spec szerint 2+ jegyű is lehet; a cue-beállítások (align:,
 # position:…) csak szóköz után jöhetnek — "00:00:02.000xyz" hibás, nem elnyelt.
 TIMESTAMP_RE = re.compile(
@@ -142,6 +150,7 @@ def main(argv=None) -> int:
 
     # --out-dir + azonos alapnevű bemenetek (a/x.vtt, b/x.vtt) ugyanarra a
     # célra írnának; ezt írás ELŐTT fogjuk meg, ne fele úton derüljön ki.
+    args.vtt = expand_patterns(args.vtt)
     targets = {}
     for name in args.vtt:
         src = Path(name)
