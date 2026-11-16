@@ -27,7 +27,8 @@ Használat:
   # 3) több hangsávnál (pl. eredeti + szinkron) a nyelvet meg kell adni
   python addons/audio-asr/transcribe.py "Season 01"/*.mkv --lang kor
 
-  # 4) rossz nyelvcímkés sávnál (pl. a koreai hang „eng” címkét kapott)
+  # 4) rossz vagy hiányzó nyelvcímkénél (pl. a koreai hang „eng” címkét kapott):
+  #    a sorszámot a --list mutatja, a --lang ilyenkor kötelező
   python addons/audio-asr/transcribe.py "Season 01"/*.mkv --track 1 --lang kor
 
 A `*.mkv` mintát a script maga is kibontja (subtr.config.expand_patterns), így
@@ -134,8 +135,14 @@ def pick_track(tracks, lang, title_filter, index=None):
         hits = [t for t in hits if t["lang"] == lang]
         if not hits:
             # Címke nélküli egyetlen sáv: a felhasználó megmondta a nyelvét.
-            if len(tracks) == 1 and tracks[0]["lang"] in ("", "und"):
+            untagged = [t for t in tracks if t["lang"] in ("", "und")]
+            if len(tracks) == 1 and untagged:
                 return tracks[0], None
+            if len(untagged) > 1:
+                # Nem az a baj, hogy nincs ilyen nyelvű sáv, hanem hogy a címkékből
+                # nem derül ki, melyik az: ezt csak a sorszám dönti el.
+                return None, (f"{len(untagged)} hangsáv címke nélküli, nem tudni, melyik a „{lang}” — "
+                              "válassz a --track kapcsolóval (a sorszámot a --list mutatja)")
             return None, f"nincs „{lang}” címkéjű hangsáv"
     if title_filter:
         needle = title_filter.lower()
@@ -324,7 +331,7 @@ def load_model(name, device, threads):
             last = exc
             print(f"  {dev} ({ctype}) nem elérhető ({first_line(exc)}), próbálom a következőt",
                   flush=True)
-    sys.exit(f"HIBA: a modell nem tölthető be: {last}")
+    raise Fail(f"a modell nem tölthető be: {first_line(last) if last else 'nincs próbálható eszköz'}")
 
 
 def transcribe(model, video, track, lang, dest, beam):
@@ -341,14 +348,20 @@ def transcribe(model, video, track, lang, dest, beam):
     keep = SegmentFilter(lang)
     n = 0
     triples = ((seg.start, seg.end, seg.text) for seg in segments)
-    with tmp.open("w", encoding="utf-8", newline="\n") as fh:
-        for start, end, text in filter_segments(triples, keep, convert):
-            n += 1
-            fh.write(srt_block(n, start, end, text))
-            fh.flush()
-            if n % 100 == 0:
-                print(f"  {n} felirat, {end / 60:.1f}/{duration / 60:.1f} perc, "
-                      f"{(time.time() - began) / 60:.1f} perc telt el", flush=True)
+    try:
+        with tmp.open("w", encoding="utf-8", newline="\n") as fh:
+            for start, end, text in filter_segments(triples, keep, convert):
+                n += 1
+                fh.write(srt_block(n, start, end, text))
+                fh.flush()
+                if n % 100 == 0:
+                    print(f"  {n} felirat, {end / 60:.1f}/{duration / 60:.1f} perc, "
+                          f"{(time.time() - began) / 60:.1f} perc telt el", flush=True)
+    except BaseException:
+        # Hiba vagy megszakítás (Ctrl+C): a félkész fájlból nem lehet folytatni,
+        # a rész a következő futáskor elölről indul — ne maradjon szemét utána.
+        tmp.unlink(missing_ok=True)
+        raise
     if n == 0:
         # Üres átiratot nem mentünk késznek: a következő futás „KÉSZ, kihagyva”
         # üzenettel átugrana egy valójában el sem készült részt.
@@ -374,7 +387,7 @@ def main():
     ap.add_argument("--title", help="több azonos nyelvű hangsávnál a cím szűrője")
     ap.add_argument("--track", type=int,
                     help="a hangsáv stream-sorszáma (a --list mutatja); a nyelvcímkét "
-                         "figyelmen kívül hagyja — rossz címkés sávhoz, a --lang-gal együtt")
+                         "figyelmen kívül hagyja — rossz címkés sávhoz; a --lang kötelező mellé")
     ap.add_argument("--list", action="store_true",
                     help="csak a hangsávok listázása, átirat nélkül")
     ap.add_argument("--out-dir", default=DEFAULT_OUT_DIR,
@@ -389,6 +402,10 @@ def main():
     ap.add_argument("--force", action="store_true", help="kész átirat felülírása")
     args = ap.parse_args()
 
+    if args.track is not None and not args.lang:
+        # A --track épp akkor kell, amikor a sáv címkéje rossz vagy hiányzik —
+        # a nyelvet ilyenkor nem vehetjük csendben ugyanabból a címkéből.
+        sys.exit("HIBA: a --track mellé add meg a hang nyelvét is a --lang kapcsolóval (pl. --lang kor)")
     require_tools()
     lang_arg = normalize_lang(args.lang) if args.lang else None
     if lang_arg and not whisper_lang(lang_arg):
@@ -451,7 +468,10 @@ def main():
     if jobs:
         if any(lang == "chi" for _, _, lang, _ in jobs) and chinese_converter("chi") is None:
             print("\n(opencc nincs telepítve vagy nem indul — a kínai írásjegyek változatlanok)")
-        model, device = load_model(args.model, args.device, args.threads)
+        try:
+            model, device = load_model(args.model, args.device, args.threads)
+        except Fail as exc:
+            sys.exit(f"HIBA: {exc}")
         for video, track, lang, dest in jobs:
             print(f"\n{video}", flush=True)
             try:
@@ -468,13 +488,16 @@ def main():
                     # nem javítaná, csak megismételné.
                     sys.stderr.write(f"  {device} hiba futás közben "
                                      f"({first_line(exc)}) — processzorra váltok\n")
+                    # Ha a processzoros betöltés is elbukik, az Fail: ez a rész hibás
+                    # lesz, de az évad többi része megy tovább.
                     model, device = load_model(args.model, "cpu", args.threads)
                     transcribe(model, video, track, lang, dest, args.beam)
             except subprocess.CalledProcessError as exc:
                 sys.stderr.write(f"  ffmpeg hiba: {exc.stderr.decode('utf-8', 'replace').strip()}\n")
                 errors += 1
             except KeyboardInterrupt:
-                sys.stderr.write("\nMegszakítva — a félkész átirat a .part fájlban maradt.\n")
+                sys.stderr.write("\nMegszakítva — ez a rész a következő futáskor elölről indul; "
+                                 "a már kész részek megmaradtak.\n")
                 return 1
             except Exception as exc:  # noqa: BLE001 — egy rész hibája ne állítsa le az évadot
                 sys.stderr.write(f"  HIBA: {first_line(exc)}\n")

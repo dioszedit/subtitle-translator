@@ -319,3 +319,49 @@ def test_empty_transcript_is_error_and_leaves_no_file(monkeypatch, tmp_path):
     with pytest.raises(asr.Fail, match="egyetlen felirat sem"):
         _run_transcribe(monkeypatch, tmp_path, [_Seg(0, 1, "시청해 주셔서 감사합니다")])
     assert not list((tmp_path / "asr").glob("*"))
+
+
+# ── a One of a Kind Romance munkamenet javaslatai (2026-11-16) ─────────────
+
+def test_several_untagged_tracks_point_to_track_switch():
+    t, err = asr.pick_track([track(1, "und"), track(2, "")], "kor", None)
+    assert t is None and "--track" in err and "címke nélküli" in err
+
+
+def test_track_requires_lang(monkeypatch, tmp_path):
+    _fake_run(monkeypatch, tmp_path, fail_on=set())
+    monkeypatch.setattr(sys, "argv", sys.argv + ["--track", "1"])
+    with pytest.raises(SystemExit, match="--lang"):
+        asr.main()
+
+
+def test_failed_write_leaves_no_part_file(monkeypatch, tmp_path):
+    class Boom(_Model):
+        def transcribe(self, audio, **kwargs):
+            def gen():
+                yield _Seg(0, 1, "안녕")
+                raise KeyboardInterrupt
+            return gen(), None
+
+    monkeypatch.setattr(asr, "decode_audio", lambda video, index: [0.0] * asr.SAMPLE_RATE)
+    dest = tmp_path / "asr" / "x.kor.asr.srt"
+    with pytest.raises(KeyboardInterrupt):
+        asr.transcribe(Boom([]), "x.mkv", {"index": 1}, "kor", dest, 5)
+    assert not list(dest.parent.glob("*"))
+
+
+def test_cpu_fallback_load_failure_does_not_stop_the_season(monkeypatch, tmp_path, capsys):
+    """Ha a processzoros betöltés is elbukik, az a rész hibás, de a következő rész megy."""
+    loads, runs = _fake_run(monkeypatch, tmp_path, fail_on={"cuda"},
+                            videos=("E01.mkv", "E02.mkv"))
+    real_load = asr.load_model
+
+    def load(name, device, threads):
+        if device == "cpu":
+            raise asr.Fail("a modell nem tölthető be: nincs memória")
+        return real_load(name, device, threads)
+
+    monkeypatch.setattr(asr, "load_model", load)
+    assert asr.main() == 1
+    assert runs == ["cuda", "cuda"]          # mindkét részt megpróbálta
+    assert capsys.readouterr().err.count("nem tölthető be") == 2

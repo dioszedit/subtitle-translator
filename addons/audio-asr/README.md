@@ -63,7 +63,8 @@ keveredik a fordítandó feliratok közé.
 
 **Folytatható:** a kész részeket kihagyja, tehát egy félbeszakadt évad-futás
 egyszerűen újraindítható. Futás közben a `.part` fájlba ír, és csak a végén
-nevezi át, így félkész átirat nem kerül a mappába. Felülírás: `--force`.
+nevezi át, így félkész átirat nem kerül a mappába. Megszakításnál (Ctrl+C) vagy
+hibánál a `.part` fájlt törli; az a rész a következő futáskor elölről indul. Felülírás: `--force`.
 
 **Üres átirat:** ha egyetlen felirat sem készül (néma vagy rossz hangsáv), a
 script hibát jelez, és nem ment fájlt, így a következő futás nem ugorja át.
@@ -82,7 +83,7 @@ elsőt. Ilyenkor futtasd őket külön, más `--out-dir` mappával.
 |---|---|
 | `--lang kor` | a hang nyelve (`kor`/`ko`, `jpn`/`ja`, `chi`/`zh`…); több hangsávnál ez választ |
 | `--title …` | több azonos nyelvű hangsávnál a sáv címének részlete |
-| `--track N` | a hangsáv sorszáma (a `--list` mutatja); a nyelvcímkét figyelmen kívül hagyja, rossz címkés sávhoz — a `--lang`-gal együtt |
+| `--track N` | a hangsáv sorszáma (a `--list` mutatja); a nyelvcímkét figyelmen kívül hagyja, rossz vagy hiányzó címkéhez — a `--lang` kötelező mellé |
 | `--list` | csak listáz, nem ír át |
 | `--out-dir …` | kimeneti mappa (alap: `input/asr`) |
 | `--device auto` | hol fusson: `auto` (alap), `cpu`, `cuda`, `mps` |

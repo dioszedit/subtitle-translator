@@ -43,6 +43,13 @@ Az epizód azonosítójából (pl. `Sorozat - S01E01`) sorban ellenőrizd:
   Ha a felhasználó kéri, a `py subtr.py register` felvázolhat egy első változatot
   az angol forrásból (opcionális, interaktív; több epizód pontosabb) — de a
   jóváhagyás mindig a felhasználóé, ne futtasd rákérdezés nélkül.
+  Ha a videóban NINCS eredeti nyelvű feliratsáv (a
+  `py addons\mkv-subs\extract_subs.py "Season XX\<X>.mkv"` listája szerint), de a
+  hang eredeti nyelvű (koreai, japán, kínai…), a regiszter forrása a hang gépi
+  átirata: `py addons\audio-asr\transcribe.py "Season XX\<X>.mkv" --lang <kód>`
+  (kimenet: `input\asr\<X>.<kód>.asr.srt`), és a `register` ezen fusson. Saját
+  Whisper-scriptet ne írj hozzá. Az átirat csak a regiszterhez való, fordítási
+  forrásnak nem (a `split` meg is áll rajta).
 - **Translate**: kérdezd meg (ha nem mondta), melyik fordítóval:
   `py subtr.py translate --provider claude`, `--provider gemini` (olcsóbb),
   `--provider codex`, `--provider grok` vagy `--provider antigravity` (Gemini
