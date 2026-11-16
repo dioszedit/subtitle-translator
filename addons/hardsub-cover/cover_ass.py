@@ -294,6 +294,7 @@ def main(argv=None):
         ap.add_argument("--" + name.replace("_", "-"), dest=name, type=typ, default=None,
                         help=f"{hlp} [{env}, alap: {default}]")
     args = ap.parse_args(argv)
+    embed_subs.utf8_console()
 
     load_dotenv()
     c = resolve(args)

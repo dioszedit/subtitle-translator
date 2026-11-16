@@ -333,15 +333,23 @@ CATEGORIES_BLOCK = """KATEGÓRIÁK:
 - phrases: visszatérő kifejezések, amelyeknek konzisztens fordítása fontos"""
 
 
+# Gépi hang-átiratnál (addons/audio-asr) a nevek a legkevésbé megbízhatók.
+ASR_NOTE = f"""
+{config.ASR_PROMPT_NOTE} A NEVEK ÍRÁSMÓDJA ezért nem
+megbízható: minden nevet és ritka szót confidence="bizonytalan" jelöléssel adj,
+és a "context" mezőben jelezd, hogy gépi átiratból származik.
+"""
+
+
 def build_pair_prompt(src_chunk: str, hun_chunk: str, ci: int, total: int,
                       new_terms, glossary_text: str, claude_md: str,
-                      src_lang: str = config.DEFAULT_SOURCE_LANG) -> str:
+                      src_lang: str = config.DEFAULT_SOURCE_LANG, asr: bool = False) -> str:
     """Utólagos (forrás-magyar páros) mód promptja — tiszta függvény, tesztelhető."""
     src_name = config.source_lang_name(src_lang)
     return f"""Elemezd az alábbi {src_name}-magyar feliratpárt és gyűjtsd ki a visszatérő, konzisztensen fordítandó kifejezéseket.
 
 {CATEGORIES_BLOCK}
-{_existing_note(new_terms)}{_rules_note(claude_md)}{_glossary_note(glossary_text)}
+{_existing_note(new_terms)}{_rules_note(claude_md)}{_glossary_note(glossary_text)}{ASR_NOTE if asr else ""}
 FONTOS:
 - Csak olyan kifejezéseket adj, amelyek TÖBBSZÖR előfordulnak vagy fontosak a konzisztencia szempontjából
 - A "hu" mezőben azt a fordítást add, amit a magyar feliratban TÉNYLEGESEN használtunk
@@ -362,7 +370,7 @@ MAGYAR FELIRAT (részlet {ci}/{total}):
 
 def build_source_prompt(chunk: str, ci: int, total: int, new_terms,
                         glossary_text: str, claude_md: str,
-                        src_lang: str = config.DEFAULT_SOURCE_LANG) -> str:
+                        src_lang: str = config.DEFAULT_SOURCE_LANG, asr: bool = False) -> str:
     """Fordítás előtti (csak forrás) mód promptja — tiszta függvény, tesztelhető."""
     src_name = config.source_lang_name(src_lang)
     return f"""Olvasd végig az alábbi {src_name.upper()} feliratot. A fordítás MÉG NEM készült el — a Te feladatod,
@@ -370,7 +378,7 @@ hogy ELŐRE összegyűjtsd azokat a visszatérő kifejezéseket, amelyeket az eg
 KONZISZTENSEN kell majd fordítani, és JAVASLATOT tegyél a magyar megfelelőjükre.
 
 {CATEGORIES_BLOCK}
-{_existing_note(new_terms)}{_rules_note(claude_md)}{_glossary_note(glossary_text)}
+{_existing_note(new_terms)}{_rules_note(claude_md)}{_glossary_note(glossary_text)}{ASR_NOTE if asr else ""}
 FONTOS:
 - Csak olyan kifejezéseket adj, amelyek TÖBBSZÖR előfordulnak vagy fontosak a konzisztencia szempontjából
 - A "hu" mező a JAVASOLT fordítás — kövesd a fenti projekt-szabályokat (megszólítások, "rész", semleges nem ahol kétséges)
@@ -411,7 +419,7 @@ def extract_terms(src_path: str, hun_path: str, existing_terms: set,
             print(f"\n[{ci}/{len(chunk_pairs)}] darab elemzése...")
         prompt = build_pair_prompt(ec, hc, ci, len(chunk_pairs),
                                    seen - existing_terms, glossary_text,
-                                   claude_md, src_lang)
+                                   claude_md, src_lang, asr=config.is_asr_path(src_path))
 
         valid = _run_extraction(prompt, seen, timeout, provider, model,
                                 source_text=eng_content, effort=effort)
@@ -448,7 +456,7 @@ def extract_terms_source(src_path: str, existing_terms: set, claude_md: str = ""
             print(f"\n[{ci}/{len(chunks)}] darab elemzése...")
         prompt = build_source_prompt(chunk, ci, len(chunks),
                                      seen - existing_terms, glossary_text,
-                                     claude_md, src_lang)
+                                     claude_md, src_lang, asr=config.is_asr_path(src_path))
 
         valid = _run_extraction(prompt, seen, timeout, provider, model,
                                 source_text=eng_content, effort=effort)
@@ -808,6 +816,10 @@ def main():
         print(f"  Magyar:     {args.hun_srt}")
     print(f"  Szójegyzék: {args.glossary}")
     print("=" * 55)
+    if config.is_asr_path(args.source_srt):
+        print("FIGYELEM: a forrás gépi hang-átirat (.asr) — a nevek félrehallottak lehetnek,")
+        print("  és a kulcsai nem a fordítás forrásnyelvén vannak. A javaslatok bizonytalanként")
+        print("  érkeznek; csak azt vedd át, amit a valódi felirat is megerősít.")
     print()
 
     # Meglévő glossary betöltése

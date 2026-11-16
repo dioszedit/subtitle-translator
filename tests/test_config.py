@@ -9,6 +9,8 @@ függetlenek: nem nyúlnak a GEMINI_API_KEY-hez, csak a SUBTR_* kulcsokat
 import json
 import os
 
+import sys
+
 import pytest
 
 from subtr import config
@@ -564,3 +566,35 @@ def test_expand_patterns_relative(tmp_path, monkeypatch):
     (tmp_path / "input" / "a.eng.vtt").write_text("")
     assert config.expand_patterns(["input/*.eng.vtt"]) == ["input/a.eng.vtt"]
     assert config.expand_patterns(["*.nincs"]) == ["*.nincs"]
+
+
+# ── a szögletes zárójel soha nem minta (harmadik review) ────────────────────
+
+def test_expand_patterns_bracket_in_file_name_with_wildcard(tmp_path):
+    for name in ("[Grp] Show - 01.mkv", "[Grp] Show - 02.mkv", "Show [2026] - S01E01.mkv"):
+        (tmp_path / name).write_text("")
+    assert config.expand_patterns([str(tmp_path / "[Grp]*.mkv")]) == [
+        str(tmp_path / "[Grp] Show - 01.mkv"), str(tmp_path / "[Grp] Show - 02.mkv")]
+    assert config.expand_patterns([str(tmp_path / "Show [2026] - S01E*.mkv")]) == [
+        str(tmp_path / "Show [2026] - S01E01.mkv")]
+
+
+def test_expand_patterns_missing_bracket_name_does_not_resolve_elsewhere(tmp_path):
+    """Az elgépelt `E0[1].mkv` ne oldódjon fel csendben a létező `E01.mkv`-re."""
+    (tmp_path / "E01.mkv").write_text("")
+    typo = str(tmp_path / "E0[1].mkv")
+    assert config.expand_patterns([typo]) == [typo]
+
+
+def test_expand_patterns_question_mark(tmp_path):
+    for name in ("E01.mkv", "E02.mkv", "E10.mkv"):
+        (tmp_path / name).write_text("")
+    assert config.expand_patterns([str(tmp_path / "E0?.mkv")]) == [
+        str(tmp_path / "E01.mkv"), str(tmp_path / "E02.mkv")]
+
+
+def test_utf8_console_survives_replaced_streams(monkeypatch):
+    import io
+    monkeypatch.setattr(sys, "stdout", io.StringIO())   # nincs reconfigure-képes kódolása
+    monkeypatch.setattr(sys, "stderr", object())
+    config.utf8_console()

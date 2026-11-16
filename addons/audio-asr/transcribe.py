@@ -43,6 +43,7 @@ Kilépési kód: 0 siker (a már kész részek kihagyása is az), 1 hiba.
 """
 
 import argparse
+import functools
 import os
 import re
 import subprocess
@@ -55,8 +56,9 @@ from pathlib import Path
 # hangsávokat, másolata nincs.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "mkv-subs"))
 from extract_subs import (  # noqa: E402
-    describe, expand_patterns, find_tool, normalize_lang, probe_streams, require_tools,
-    stem_without_lang)
+    Fail, describe, expand_patterns, find_tool, normalize_lang, probe_streams, require_tools,
+    stem_without_lang, utf8_console)
+from subtr.config import ASR_SUFFIX  # noqa: E402  (a `.asr` jelölés egyetlen helye)
 
 # Pipeline-kód → Whisper-nyelvkód (ISO 639-1). Ami nincs itt, azt a Whisper
 # nem kapja meg nyelvként — ilyenkor a --lang kötelező (lásd whisper_lang).
@@ -67,7 +69,6 @@ WHISPER_LANGS = {
     "tha": "th", "hin": "hi", "ara": "ar",
 }
 
-ASR_TAG = "asr"
 DEFAULT_OUT_DIR = os.path.join("input", "asr")
 SAMPLE_RATE = 16000
 
@@ -155,7 +156,7 @@ def pick_track(tracks, lang, title_filter, index=None):
 def out_path(video, lang, out_dir):
     """`Season 01/X - S01E01.mkv` → `<out_dir>/X - S01E01.kor.asr.srt`."""
     stem = stem_without_lang(video)   # "x.kor.mkv" → ne legyen "x.kor.kor.asr.srt"
-    return Path(out_dir) / f"{stem}.{lang}.{ASR_TAG}.srt"
+    return Path(out_dir) / f"{stem}.{lang}{ASR_SUFFIX}.srt"
 
 
 # ── szöveg-utófeldolgozás ──────────────────────────────────────────────────
@@ -167,11 +168,14 @@ def _norm(text):
     return _PUNCT.sub("", text).lower()
 
 
+# A lista normalizált alakja, nyelvenként egyszer kiszámolva (nem feliratonként).
+_HALLUCINATION_KEYS = {lang: frozenset(_norm(h) for h in items)
+                       for lang, items in HALLUCINATIONS.items()}
+
+
 def is_hallucination(text, lang):
     key = _norm(text)
-    if not key:
-        return True
-    return any(key == _norm(h) for h in HALLUCINATIONS.get(lang, ()))
+    return not key or key in _HALLUCINATION_KEYS.get(lang, ())
 
 
 class SegmentFilter:
@@ -235,8 +239,10 @@ def srt_block(n, start, end, text):
     return f"{n}\n{stamp(start)} --> {stamp(end)}\n{text}\n\n"
 
 
+@functools.lru_cache(maxsize=None)
 def chinese_converter(lang):
-    """Hagyományos → egyszerűsített írásjegy-váltó, ha az opencc telepítve van."""
+    """Hagyományos → egyszerűsített írásjegy-váltó, ha az opencc telepítve van.
+    Nyelvenként egyszer épül fel, nem részenként."""
     if lang != "chi":
         return None
     try:
@@ -272,13 +278,18 @@ def first_line(exc):
     return (str(exc).splitlines() or [type(exc).__name__])[0][:120]
 
 
+# A float16 a gyors mód, de a régebbi NVIDIA-kártyák (GTX 10xx/16xx) nem tudják:
+# ott a float32 még mindig a kártyán fut, nem a processzoron.
+CUDA_CANDIDATES = [("cuda", "float16"), ("cuda", "float32")]
+
+
 def device_candidates(device):
     """(device, compute_type) próbálási sorrend."""
     cpu = ("cpu", "int8")
     if device == "cpu":
         return [cpu]
     if device == "cuda":
-        return [("cuda", "float16"), cpu]
+        return [*CUDA_CANDIDATES, cpu]
     if device == "mps":
         return [("mps", "float16"), cpu]
     # auto
@@ -286,7 +297,7 @@ def device_candidates(device):
     try:
         import ctranslate2
         if ctranslate2.get_cuda_device_count() > 0:
-            out.append(("cuda", "float16"))
+            out.extend(CUDA_CANDIDATES)
     except Exception:
         pass
     if sys.platform == "darwin":
@@ -311,7 +322,7 @@ def load_model(name, device, threads):
             return model, dev
         except Exception as exc:  # noqa: BLE001 — a következő eszközre váltunk
             last = exc
-            print(f"  {dev} nem elérhető ({first_line(exc)}), próbálom a következőt",
+            print(f"  {dev} ({ctype}) nem elérhető ({first_line(exc)}), próbálom a következőt",
                   flush=True)
     sys.exit(f"HIBA: a modell nem tölthető be: {last}")
 
@@ -323,9 +334,6 @@ def transcribe(model, video, track, lang, dest, beam):
         audio, language=whisper_lang(lang), beam_size=beam, vad_filter=True,
         condition_on_previous_text=False)
     convert = chinese_converter(lang)
-    if lang == "chi" and convert is None:
-        print("  (opencc nincs telepítve vagy nem indul — a kínai írásjegyek változatlanok)",
-              flush=True)
 
     dest.parent.mkdir(parents=True, exist_ok=True)
     tmp = dest.with_name(dest.name + ".part")
@@ -341,6 +349,12 @@ def transcribe(model, video, track, lang, dest, beam):
             if n % 100 == 0:
                 print(f"  {n} felirat, {end / 60:.1f}/{duration / 60:.1f} perc, "
                       f"{(time.time() - began) / 60:.1f} perc telt el", flush=True)
+    if n == 0:
+        # Üres átiratot nem mentünk késznek: a következő futás „KÉSZ, kihagyva”
+        # üzenettel átugrana egy valójában el sem készült részt.
+        tmp.unlink(missing_ok=True)
+        raise Fail("egyetlen felirat sem készült — néma vagy rossz hangsáv? "
+                   "(--list mutatja a sávokat, --track választ)")
     os.replace(tmp, dest)
     mins = (time.time() - began) / 60
     print(f"  → {dest}  ({n} felirat, {keep.dropped} eldobva, {mins:.1f} perc)", flush=True)
@@ -349,11 +363,7 @@ def transcribe(model, video, track, lang, dest, beam):
 # ── main ───────────────────────────────────────────────────────────────────
 
 def main():
-    for stream in (sys.stdout, sys.stderr):   # Windows-konzolon se haljon el a koreain
-        try:
-            stream.reconfigure(encoding="utf-8", errors="replace")
-        except Exception:
-            pass
+    utf8_console()
 
     ap = argparse.ArgumentParser(
         description="A videó hangsávjának gépi átirata (Whisper) eredeti nyelvű SRT-be — "
@@ -439,6 +449,8 @@ def main():
 
     # 2) átirat
     if jobs:
+        if any(lang == "chi" for _, _, lang, _ in jobs) and chinese_converter("chi") is None:
+            print("\n(opencc nincs telepítve vagy nem indul — a kínai írásjegyek változatlanok)")
         model, device = load_model(args.model, args.device, args.threads)
         for video, track, lang, dest in jobs:
             print(f"\n{video}", flush=True)

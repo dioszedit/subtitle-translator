@@ -5,6 +5,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 from subtr import config
 
 ADDON_DIR = Path(__file__).resolve().parent.parent / "addons" / "audio-asr"
@@ -265,3 +267,55 @@ def test_same_file_twice_runs_once(monkeypatch, tmp_path):
 def test_traditional_chinese_hallucinations_without_opencc():
     kept, dropped = asr.clean_segments([(0, 1, "謝謝觀看"), (1, 2, "谢谢观看"), (2, 3, "你好")], "chi")
     assert [t for _, _, t in kept] == ["你好"] and dropped == 2
+
+
+# ── harmadik review (2026-11-16) ───────────────────────────────────────────
+
+def test_cuda_tries_float32_before_cpu():
+    """Régebbi NVIDIA-kártya nem tud float16-ot, de float32-vel a kártyán marad."""
+    assert asr.device_candidates("cuda") == [("cuda", "float16"), ("cuda", "float32"),
+                                             ("cpu", "int8")]
+
+
+def test_asr_suffix_comes_from_config():
+    assert asr.ASR_SUFFIX is config.ASR_SUFFIX or asr.ASR_SUFFIX == config.ASR_SUFFIX
+    assert not hasattr(asr, "ASR_TAG")
+    assert asr.out_path("x.mkv", "kor", "o").name == f"x.kor{config.ASR_SUFFIX}.srt"
+
+
+def test_hallucination_keys_precomputed_for_every_language():
+    assert set(asr._HALLUCINATION_KEYS) == set(asr.HALLUCINATIONS)
+    assert asr.is_hallucination("谢谢观看!", "chi") and not asr.is_hallucination("你好", "chi")
+
+
+class _Seg:
+    def __init__(self, start, end, text):
+        self.start, self.end, self.text = start, end, text
+
+
+class _Model:
+    def __init__(self, segs):
+        self.segs = segs
+
+    def transcribe(self, audio, **kwargs):
+        return iter(self.segs), None
+
+
+def _run_transcribe(monkeypatch, tmp_path, segs):
+    monkeypatch.setattr(asr, "decode_audio", lambda video, index: [0.0] * asr.SAMPLE_RATE)
+    dest = tmp_path / "asr" / "x.kor.asr.srt"
+    asr.transcribe(_Model(segs), "x.mkv", {"index": 1}, "kor", dest, 5)
+    return dest
+
+
+def test_transcribe_writes_srt_and_no_part_file(monkeypatch, tmp_path):
+    dest = _run_transcribe(monkeypatch, tmp_path, [_Seg(0, 1, " 안녕 "), _Seg(1, 2, "...")])
+    assert dest.read_text(encoding="utf-8") == "1\n00:00:00,000 --> 00:00:01,000\n안녕\n\n"
+    assert not list(dest.parent.glob("*.part"))
+
+
+def test_empty_transcript_is_error_and_leaves_no_file(monkeypatch, tmp_path):
+    """Néma vagy rossz sáv: ne maradjon üres „kész” fájl, amit a következő futás átugrana."""
+    with pytest.raises(asr.Fail, match="egyetlen felirat sem"):
+        _run_transcribe(monkeypatch, tmp_path, [_Seg(0, 1, "시청해 주셔서 감사합니다")])
+    assert not list((tmp_path / "asr").glob("*"))

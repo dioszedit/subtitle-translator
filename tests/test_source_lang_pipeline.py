@@ -124,3 +124,31 @@ def test_register_prompt_hungarian_reads_the_translation_itself():
     # a forrásnyelvi ágak szövege nem keveredik bele
     assert "kikövetkeztetni" not in hun
     assert "Sie/du" not in hun
+
+
+# ── gépi hang-átirat (.asr) a többi parancsban ──────────────────────────────
+
+def test_split_refuses_machine_transcript(tmp_path, capsys):
+    from subtr.tasks import split
+    src = tmp_path / "Sorozat - S01E01.kor.asr.srt"
+    src.write_text("1\n00:00:01,000 --> 00:00:02,000\n안녕\n", encoding="utf-8")
+    with pytest.raises(SystemExit) as exc:
+        split.main([str(src)])
+    assert exc.value.code == 1
+    assert "nem fordítási forrás" in capsys.readouterr().out
+    assert not (tmp_path / "blocks").exists()
+
+
+def test_glossary_prompts_flag_machine_transcript():
+    from subtr.tasks import glossary_extract as ge
+    for build in (lambda asr: ge.build_source_prompt("D", 1, 1, set(), "", "", "kor", asr=asr),
+                  lambda asr: ge.build_pair_prompt("D", "H", 1, 1, set(), "", "", "kor", asr=asr)):
+        assert "GÉPI ÁTIRAT" in build(True) and "bizonytalan" in build(True)
+        assert "GÉPI ÁTIRAT" not in build(False)
+
+
+def test_asr_note_has_one_shared_text():
+    """A gépi átirat leírása egy helyen van; a register és a glossary is azt használja."""
+    from subtr.tasks import glossary_extract as ge
+    assert config.ASR_PROMPT_NOTE in register_extract.ASR_NOTE
+    assert config.ASR_PROMPT_NOTE in ge.ASR_NOTE

@@ -65,6 +65,13 @@ keveredik a fordítandó feliratok közé.
 egyszerűen újraindítható. Futás közben a `.part` fájlba ír, és csak a végén
 nevezi át, így félkész átirat nem kerül a mappába. Felülírás: `--force`.
 
+**Üres átirat:** ha egyetlen felirat sem készül (néma vagy rossz hangsáv), a
+script hibát jelez, és nem ment fájlt, így a következő futás nem ugorja át.
+
+**Mire nem használható:** a `subtr split` megáll, ha `.asr` fájlt kap, mert az
+átirat nem fordítási forrás. A `subtr glossary` lefut rajta, de figyelmeztet,
+és minden javaslatát bizonytalannak jelöli.
+
 **Azonos nevű részek:** ha két bemenet ugyanarra a fájlra írna (pl. két évad
 `E01.mkv` része egyszerre megadva), a második hibát kap, és nem írja felül az
 elsőt. Ilyenkor futtasd őket külön, más `--out-dir` mappával.
@@ -89,7 +96,8 @@ elsőt. Ilyenkor futtasd őket külön, más `--out-dir` mappával.
 Az `auto` beállítás NVIDIA-kártyán a kártyát, Macen a grafikus gyorsítót
 használja, egyébként a processzort. A választott eszközt mindig kiírja. Ha egy
 eszköz nem működik, magától a következőre vált, a processzor mindig marad
-tartaléknak. Ha a videókártya csak futás közben ad hibát (pl. hiányzó
+tartaléknak. NVIDIA-kártyán előbb a gyors `float16` módot próbálja, és ha a
+kártya azt nem tudja (régebbi GTX-ek), `float32`-vel marad a kártyán. Ha a videókártya csak futás közben ad hibát (pl. hiányzó
 CUDA-fájl vagy kevés videomemória), az adott részt elölről kezdi processzoron,
 és a többi rész is ott megy tovább. Más hiba (pl. a kimeneti fájl nem írható,
 mert nyitva van egy másik programban) nem indít újrafuttatást: a script kiírja,
@@ -101,7 +109,7 @@ processzoron fut tovább. Frissítés: `pip install -U ctranslate2`.
 
 Mért értékek large-v3 modellel:
 
-- Apple M4, grafikus gyorsító: egy 60 perces rész kb. **9 perc**.
+- Apple Silicon gépen, grafikus gyorsítóval: egy 60 perces rész kb. **9 perc**.
 - Processzoron, int8-cal: egy rész nagyjából **10–15 perc**, a géptől függően.
 
 ## Mit szűr ki

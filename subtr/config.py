@@ -8,7 +8,6 @@ fájl nem töltődik be (pl. ha a környezeti változók már máshonnan jönnek
 
 import glob
 import os
-import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -478,7 +477,15 @@ def detect_source_lang(path):
 
 # A hangból készült gépi átirat (addons/audio-asr) jelölése: `X.kor.asr.srt`.
 # A nyelv így is felismerhető, de a fájlról látszik, hogy nem valódi felirat.
+# Az add-on is innen veszi a jelölést.
 ASR_SUFFIX = ".asr"
+
+# A gépi átirat közös leírása a promptokhoz; a taskok a saját teendőjüket
+# fűzik hozzá (register: a formalitás-alak megbízható; glossary: a nevek nem).
+ASR_PROMPT_NOTE = """=== GÉPI ÁTIRAT ===
+Ez NEM felirat, hanem a hangsáv gépi beszédfelismeréssel (Whisper) készült
+átirata. Félrehallások vannak benne (főleg nevekben), egy sorban több beszélő
+mondata is lehet, és a sorok nem jelölik, ki beszél."""
 
 
 def _strip_srt(path) -> str:
@@ -563,40 +570,36 @@ def expand_patterns(paths) -> list[str]:
     a mintát szó szerint kapná meg. Ami nem minta, vagy amire semmi nem illik,
     változatlanul marad — így a hívó „nincs ilyen fájl” hibája megnevezi.
 
-    A `[` is mintajel, de fájl- és mappanévben is gyakori (`Sorozat [2026]`).
-    Ezért ami LÉTEZIK, az soha nem minta:
-      - a létező fájl vagy mappa változatlan marad — különben az `E0[1].mkv`
-        helyett csendben az `E01.mkv` kerülne feldolgozásra;
-      - az útvonal elejének létező mappái szó szerint értendők, így a
-        `Sorozat [2026]/Season */*.mkv` is kibomlik.
+    Helyettesítő CSAK a `*` és a `?`. A szögletes zárójel mindig betű szerint
+    értendő, mert fájl- és mappanévben gyakori (`[Csoport] Sorozat [2026]`):
+      - a `[Csoport]*.mkv` így kibomlik, ahelyett hogy a zárójel karakter-
+        osztályként semmire se illene;
+      - az elgépelt `E0[1].mkv` nem oldódik fel csendben az `E01.mkv`-re —
+        különben a felirat egy másik rész videójába kerülhetne.
+    (A `E0[1-3].mkv`-féle tartományt a bash/zsh a script előtt kibontja; a
+    Windows parancssora eleve nem ismeri.)
 
     Ez az EGYETLEN példány: a subtr parancsai és az add-onok is innen veszik.
     """
     out = []
     for arg in paths:
         arg = str(arg)
-        if not glob.has_magic(arg) or os.path.lexists(arg):
+        if not ("*" in arg or "?" in arg) or os.path.lexists(arg):
             out.append(arg)
             continue
-        out.extend(sorted(glob.glob(_escape_existing_prefix(arg))) or [arg])
+        out.extend(sorted(glob.glob(arg.replace("[", "[[]"))) or [arg])
     return out
 
 
-def _escape_existing_prefix(pattern: str) -> str:
-    """Az útvonal elejének LÉTEZŐ tagjait szó szerintivé teszi a glob számára."""
-    seps = "/\\" if os.name == "nt" else "/"
-    done, prefix, literal = [], "", True
-    for token in re.split(f"([{re.escape(seps)}])", pattern):
-        if literal and token and token not in seps:
-            if os.path.lexists(prefix + token):
-                done.append(glob.escape(token))
-                prefix += token
-                continue
-            literal = False
-        done.append(token)
-        if literal:
-            prefix += token
-    return "".join(done)
+def utf8_console() -> None:
+    """A konzolkimenet UTF-8-ra állítása — Windowson a konzol kódlapja (és az
+    átirányított kimenet) különben elhasal a koreai, kínai vagy ékezetes
+    szövegen. Ez az EGYETLEN példány: a subtr és az add-onok is ezt hívják."""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):   # nem szöveges / lecserélt stream (pl. tesztben)
+            pass
 
 
 def add_source_lang_argument(parser) -> None:

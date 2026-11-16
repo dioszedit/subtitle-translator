@@ -226,11 +226,8 @@ HUNGARIAN_MARKER = ("Ön/ön, Maga/maga, Önök + 3. személyű igealak és birt
                     "felszólításnál »jöjjön« = MAGÁZ, »gyere« = TEGEZ")
 
 
-ASR_NOTE = """
-=== GÉPI ÁTIRAT ===
-Ez NEM felirat, hanem a hangsáv gépi beszédfelismeréssel (Whisper) készült
-átirata. Félrehallások vannak benne (főleg nevekben), egy sorban több beszélő
-mondata is lehet, és a sorok nem jelölik, ki beszél. A mondatvégi
+ASR_NOTE = f"""
+{config.ASR_PROMPT_NOTE} A mondatvégi
 formalitás-alak (pl. -요 / banmal) ettől még megbízható jel; a nevekre és a
 beszélő kilétére viszont ne építs egyetlen sorból. Ahol a beszélő csak
 találgatható, confidence="bizonytalan".

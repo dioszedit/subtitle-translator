@@ -128,3 +128,22 @@ def test_no_bare_ffmpeg_command_in_addons():
     for path in ADDONS.glob("*/*.py"):
         src = path.read_text(encoding="utf-8")
         assert not re.search(r'\[\s*"ff(mpeg|probe)"', src), path
+
+
+def test_console_setup_and_tool_runner_are_shared():
+    """Egy konzolbeállítás (subtr.config) és egy ffmpeg-futtató (extract_subs)."""
+    for rel in FILE_LIST_SCRIPTS:
+        src = (ADDONS / rel).read_text(encoding="utf-8")
+        assert "utf8_console()" in src, rel
+        assert ".reconfigure(" not in src, rel
+    assert "utf8_console()" in (ROOT / "subtr" / "cli.py").read_text(encoding="utf-8")
+    owners = [p.parent.name + "/" + p.name for p in ADDONS.glob("*/*.py")
+              if "text=True" in p.read_text(encoding="utf-8")]
+    assert owners == ["mkv-subs/extract_subs.py"]     # csak a run_tool-ban
+
+
+def test_asr_suffix_defined_once():
+    src = (ADDONS / "audio-asr" / "transcribe.py").read_text(encoding="utf-8")
+    # (az `input/asr` mappanév nem a jelölés — az maradhat)
+    assert "ASR_TAG" not in src and '".asr"' not in src
+    assert "{ASR_SUFFIX}.srt" in src

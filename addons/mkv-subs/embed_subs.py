@@ -51,7 +51,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 # A nyelvkód-kezelés, az ffmpeg megkeresése és az ffprobe hívása az extract_subs-ból jön —
 # ugyanaz a kód szolgálja a kicsomagolást, a beágyazást, a hardsub-covert és az audio-asr-t.
 from extract_subs import (  # noqa: E402
-    Fail, expand_patterns, ffprobe_json, find_tool, normalize_lang)
+    Fail, expand_patterns, ffprobe_json, find_tool, normalize_lang, run_tool, utf8_console)
 
 MARKER = "SUBTR"  # rejtett sávcímke: ezzel ismeri fel a saját, korábban betett sávját
 
@@ -218,9 +218,9 @@ def embed(mkv: Path, sub: Path, track: Track, default: bool):
     tmp = mkv.with_name(f".tmp_{mkv.name}")
     cmd, keep, pos = mux_cmd(ffmpeg, mkv, sub, tmp, before.get("streams", []), track, default)
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True)
+        r = run_tool(cmd)
         if r.returncode:
-            raise Fail(f"ffmpeg hiba: {r.stderr.strip()[-300:]}")
+            raise Fail(f"ffmpeg hiba: {(r.stderr or '').strip()[-300:]}")
         problems = check_mux(before, probe(ffprobe, tmp), keep, pos, track, default)
         if problems:
             raise Fail("a muxolt fájl hibás, az eredetit nem cseréltem: " + "; ".join(problems))
@@ -316,6 +316,7 @@ def main(argv=None):
                     help="legyen az alapértelmezett feliratsáv [MKV_SUBS_DEFAULT, alap: nem]")
     ap.add_argument("--dry-run", action="store_true", help="csak kiírja, mi történne")
     args = ap.parse_args(argv)
+    utf8_console()
 
     load_dotenv()
     default = args.default if args.default is not None else env_flag("MKV_SUBS_DEFAULT")

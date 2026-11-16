@@ -47,7 +47,7 @@ from pathlib import Path
 # meg is mondja.
 try:
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-    from subtr.config import expand_patterns
+    from subtr.config import expand_patterns, utf8_console
 except ImportError as exc:
     sys.exit(f"HIBA: ez az add-on a program `subtr` mappájával együtt működik, "
              f"de az nem tölthető be ({exc}). A teljes program mappájából futtasd.")
@@ -145,6 +145,7 @@ def main(argv=None) -> int:
     parser.add_argument("--out-dir", help="Kimeneti mappa (alapból a .vtt mellé)")
     parser.add_argument("--force", action="store_true", help="Meglévő .srt felülírása")
     args = parser.parse_args(argv)
+    utf8_console()
 
     out_dir = Path(args.out_dir) if args.out_dir else None
     if out_dir:

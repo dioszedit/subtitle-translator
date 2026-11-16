@@ -10,6 +10,7 @@ import glob
 import re
 import sys
 
+from subtr import config
 from subtr.srt import split_blocks as parse_sections
 import os
 import argparse
@@ -109,6 +110,14 @@ def main(argv=None):
 
     if not os.path.isfile(args.input):
         print(f"HIBA: Nem találom a fájlt: {args.input}")
+        sys.exit(1)
+
+    if config.is_asr_path(args.input):
+        # A hangsáv gépi átirata (addons/audio-asr) támpont a regiszterhez, nem
+        # fordítási forrás: félrehallásokkal, beszélők nélkül. Itt megállunk,
+        # hogy a translate se indulhasson el rajta.
+        print(f"HIBA: {args.input} gépi hang-átirat (.asr), nem fordítási forrás.")
+        print("  A fordítás a valódi feliratból készül; az átirat a `register` parancshoz való.")
         sys.exit(1)
 
     split_srt(args.input, args.block_size, args.clean)

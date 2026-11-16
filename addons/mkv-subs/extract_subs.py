@@ -61,7 +61,8 @@ from pathlib import Path
 # csendben félig működne.
 try:
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-    from subtr.config import SOURCE_LANG_ALIASES as _ALIASES, SOURCE_LANGS, expand_patterns
+    from subtr.config import (
+        SOURCE_LANG_ALIASES as _ALIASES, SOURCE_LANGS, expand_patterns, utf8_console)
 except ImportError as exc:
     sys.exit(f"HIBA: ez az add-on a program `subtr` mappájával együtt működik, "
              f"de az nem tölthető be ({exc}). A teljes program mappájából futtasd.")
@@ -105,6 +106,17 @@ def require_tools():
         sys.exit(f"HIBA: {exc} (macOS: brew install ffmpeg; Windows: winget install ffmpeg)")
 
 
+def run_tool(cmd):
+    """ffmpeg / ffprobe futtatása; a kimenet UTF-8-ként olvasva.
+
+    Az ffmpeg az útvonalakat és a sávcímeket UTF-8-ban írja ki (koreai, kínai,
+    ékezetes nevek); Windowson a konzol kódlapjával olvasva maga a hívás hasalna
+    el. Az `errors="replace"` miatt egy hibás bájt sem állítja meg a köteget.
+    """
+    return subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
+                          errors="replace")
+
+
 def ffprobe_json(path, entries, select=None, tool=None):
     """Az ffprobe JSON-válasza a kért mezőkkel (`-show_entries`). Hibánál Fail.
 
@@ -114,9 +126,7 @@ def ffprobe_json(path, entries, select=None, tool=None):
     if select:
         cmd += ["-select_streams", select]
     cmd += ["-show_entries", entries, "-of", "json", str(path)]
-    # encoding: a sávcímek UTF-8-ban jönnek (koreai, kínai) — Windowson a
-    # konzol kódlapjával olvasva elhasalna.
-    r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8")
+    r = run_tool(cmd)
     if r.returncode:
         raise Fail(f"ffprobe hiba: {(r.stderr or '').strip()[-300:]}")
     return json.loads(r.stdout or "{}")
@@ -210,17 +220,17 @@ def extract(video, track, dest, force):
     dest.parent.mkdir(parents=True, exist_ok=True)
     cmd = [find_tool("ffmpeg"), "-v", "error", "-y", "-i", video,
            "-map", f"0:{track['index']}", "-c:s", "srt", str(dest)]
-    try:
-        subprocess.run(cmd, capture_output=True, text=True, check=True)
-    except subprocess.CalledProcessError as exc:
+    r = run_tool(cmd)
+    if r.returncode:
         sys.stderr.write(f"  ffmpeg hiba a(z) {track['index']}. sávnál: "
-                         f"{exc.stderr.strip()}\n")
+                         f"{(r.stderr or '').strip()}\n")
         return False
     print(f"  → {dest}")
     return True
 
 
 def main():
+    utf8_console()
     ap = argparse.ArgumentParser(
         description="Beágyazott feliratsávok listázása / kicsomagolása "
                     "nyelvcímke szerint.")

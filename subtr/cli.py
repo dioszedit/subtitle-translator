@@ -12,6 +12,8 @@ ahol értelmezett, a --provider kapcsolóval választható. Részletek:
 import importlib
 import sys
 
+from subtr import config
+
 # parancs → (modul, egysoros leírás). A sorrend a pipeline sorrendje —
 # a `subtr --help` ebben a sorrendben listáz.
 COMMANDS = {
@@ -41,8 +43,7 @@ def _usage() -> str:
 
 
 def main(argv=None):
-    sys.stdout.reconfigure(encoding="utf-8")
-    sys.stderr.reconfigure(encoding="utf-8")
+    config.utf8_console()
     argv = list(sys.argv[1:] if argv is None else argv)
 
     if not argv or argv[0] in ("-h", "--help"):

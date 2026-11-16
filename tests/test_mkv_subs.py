@@ -184,3 +184,14 @@ def test_ffprobe_error_is_fail_and_probe_streams_returns_none(monkeypatch, capsy
         mkv_subs.ffprobe_json("x.mkv", "stream=index")
     assert mkv_subs.probe_streams("x.mkv", "s") is None
     assert "Invalid data" in capsys.readouterr().err
+
+
+def test_run_tool_reads_utf8_and_never_raises_on_bad_bytes(monkeypatch):
+    seen = {}
+
+    def run(cmd, **kwargs):
+        seen.update(kwargs)
+
+    monkeypatch.setattr(mkv_subs.subprocess, "run", run)
+    mkv_subs.run_tool(["ffmpeg"])
+    assert seen["encoding"] == "utf-8" and seen["errors"] == "replace"
