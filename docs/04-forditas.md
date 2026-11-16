@@ -82,6 +82,16 @@ python subtr.py register "Season 01\Sorozat - S01E01.jpn.srt"
 python subtr.py translate "blocks\Sorozat - S01E01.eng" --provider claude
 ```
 
+**Ha nincs eredeti nyelvű feliratsáv**, csak a hang koreai, japán vagy kínai,
+akkor az `audio-asr` add-on a hangsávból készít gépi átiratot. A `register` ezt
+is felismeri (`….kor.asr.srt`), és szól a modellnek a félrehallásokról.
+Részletek: [`addons/audio-asr/README.md`](../addons/audio-asr/README.md).
+
+```powershell
+python addons\audio-asr\transcribe.py "Season 01\Sorozat - S01E01.mkv" --lang kor
+python subtr.py register "input\asr\Sorozat - S01E01.kor.asr.srt"
+```
+
 Két nyeresége van, és a második legalább annyit ér, mint az első:
 
 1. **A formalitás-alak közvetlen bizonyíték** — nem következtetés.

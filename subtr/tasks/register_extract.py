@@ -226,15 +226,29 @@ HUNGARIAN_MARKER = ("Ön/ön, Maga/maga, Önök + 3. személyű igealak és birt
                     "felszólításnál »jöjjön« = MAGÁZ, »gyere« = TEGEZ")
 
 
+ASR_NOTE = """
+=== GÉPI ÁTIRAT ===
+Ez NEM felirat, hanem a hangsáv gépi beszédfelismeréssel (Whisper) készült
+átirata. Félrehallások vannak benne (főleg nevekben), egy sorban több beszélő
+mondata is lehet, és a sorok nem jelölik, ki beszél. A mondatvégi
+formalitás-alak (pl. -요 / banmal) ettől még megbízható jel; a nevekre és a
+beszélő kilétére viszont ne építs egyetlen sorból. Ahol a beszélő csak
+találgatható, confidence="bizonytalan".
+"""
+
+
 def build_prompt(context: str, existing, dialogue: str, episode_label: str,
                  src_lang: str = config.DEFAULT_SOURCE_LANG,
-                 hungarian: bool = False) -> str:
+                 hungarian: bool = False, asr: bool = False) -> str:
     """A regiszter-kinyerő prompt.
 
     hungarian=True: a `dialogue` nem forrásfelirat, hanem a KÉSZ MAGYAR
     fordítás (pl. más forrásból átvett korábbi részek) — ott a tegezés/magázás
     nem következtetés és nem is idegen nyelvű jel leolvasása, hanem maga a
-    magyar igealak. A forrásnyelv ilyenkor nem számít."""
+    magyar igealak. A forrásnyelv ilyenkor nem számít.
+
+    asr=True: a `dialogue` a hangsáv gépi átirata (addons/audio-asr), nem
+    felirat — félrehallásokkal, beszélő nélkül; a prompt erre figyelmeztet."""
     existing_txt = "\n".join(
         f"  - {p['a']} {ARROW_BOTH if p['mutual'] else ARROW_ONE} {p['b']}: {p['form']}"
         for p in existing
@@ -298,7 +312,7 @@ melyik szereplő melyiket TEGEZI és melyiket MAGÁZZA a magyar fordításban.
     return f"""Feliratfordítás előkészítése: MEGSZÓLÍTÁSI REGISZTERT állítasz össze.
 
 {intro}
-
+{ASR_NOTE if asr and not hungarian else ""}
 === FONTOS SZABÁLYOK ===
 - A viszony gyakran ASZIMMETRIKUS: a főnök tegez, a beosztott magáz. Ilyenkor
   KÉT külön sort adj vissza (mutual=false mindkettőnél), ne egyet.
@@ -576,8 +590,11 @@ def main():
         src_lang = config.resolve_source_lang(args.source_lang, path)
         lang_label = "magyar — kész fordítás" if args.hungarian else config.source_lang_name(src_lang)
         print(f"\n=== {label} ({dialogue.count(chr(10)) + 1} sor, {lang_label})")
+        asr = config.is_asr_path(path)
+        if asr and not args.hungarian:
+            print("  (gépi hang-átirat — a prompt jelzi a félrehallásokat)")
         prompt = build_prompt(context, existing, dialogue, label, src_lang,
-                              hungarian=args.hungarian)
+                              hungarian=args.hungarian, asr=asr)
         if args.provider == "gemini":
             rel = run_gemini(prompt, model)
         elif args.provider in CLI_PROVIDERS:

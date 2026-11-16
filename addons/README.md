@@ -10,6 +10,7 @@ Mindegyiknek saját README-je van a részletekkel.
 | [`srt-preclean/`](srt-preclean/README.md) | Epizódonként, **csak SDH-forrásnál** | A nyers SRT-ből kiszedi a hang-/effekt-cue-kat, újraszámoz, blokkokra bont |
 | [`vtt2srt/`](vtt2srt/README.md) | **Csak ha van kész fordítás** `.vtt`-ben más forrásból | WebVTT → SRT (fejléc/NOTE/STYLE eldobása, újraszámozás, `.`→`,`), hogy a `glossary`/`register`/`verify`/`review` dolgozni tudjon vele |
 | [`mkv-subs/`](mkv-subs/README.md) | Ha a felirat a videóban van, vagy kell az **eredeti nyelvű sáv a regiszterhez**; a végén, ha a kész felirat az **mkv-ba** kell | Feliratsávok listázása és kicsomagolása **nyelvcímke szerint** (a sávsorrend fájlonként változik); `embed_subs.py`: a kész felirat beágyazása — bármilyen nyelvű, a nyelv a fájlnévből (opcionálisan alapértelmezettként) — `ffmpeg` kell hozzá |
+| [`audio-asr/`](audio-asr/README.md) | Ha a hang koreai, japán, kínai…, de **nincs eredeti nyelvű feliratsáv** | A hangsáv gépi átirata Whisperrel (`input/asr/…kor.asr.srt`) — regiszter-támpontnak, nem fordítási forrásnak; `faster-whisper` és `ffmpeg` kell hozzá |
 | [`hardsub-cover/`](hardsub-cover/README.md) | Epizódonként a végén, **csak ha a videóban beégetett idegen felirat van** | A kész `.hun.srt`-ből fekete, szöveghez igazodó dobozos ASS-t készít a beégetett felirat fölé; `--mux`-szal alapértelmezett sávként az `.mkv`-ba teszi |
 
 ```bash
@@ -25,6 +26,10 @@ python addons/vtt2srt/vtt2srt.py "Season 01"/*.hun.vtt
 # 0/e — feliratsávok a videóból; az eredeti nyelvű sáv a regiszterhez kell
 python addons/mkv-subs/extract_subs.py "Season 01/Sorozat - S01E01.mkv"
 python addons/mkv-subs/extract_subs.py "Season 01"/*.mkv --lang jpn --out-dir input
+
+# 0/f — nincs eredeti nyelvű sáv: a hang átirata a regiszterhez (pip install faster-whisper)
+python addons/audio-asr/transcribe.py "Season 01"/*.mkv --lang kor
+python subtr.py register "input/asr/Sorozat - S01E01.kor.asr.srt"
 
 # utómunka után — a kész felirat beágyazása az mkv-ba (opcionális; a nyelv a fájlnévből)
 python addons/mkv-subs/embed_subs.py "Season 01/Sorozat - S01E01.hun.srt" --dry-run        # mi történne (nem ír semmit)

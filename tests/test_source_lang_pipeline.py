@@ -56,6 +56,17 @@ def test_register_prompt_reads_instead_of_guessing():
     assert "a német forrás" in ger
 
 
+def test_register_prompt_warns_about_machine_transcript():
+    """A hang-átiratnál (audio-asr) a prompt szól a félrehallásokról."""
+    asr = register_extract.build_prompt("", [], "D", "E03", "kor", asr=True)
+    sub = register_extract.build_prompt("", [], "D", "E03", "kor")
+    assert "GÉPI ÁTIRAT" in asr and "LEOLVASÁS" in asr
+    assert "GÉPI ÁTIRAT" not in sub
+    # kész magyar fordításnál az asr-jelzés értelmetlen, nem kerül be
+    assert "GÉPI ÁTIRAT" not in register_extract.build_prompt(
+        "", [], "D", "E03", "kor", hungarian=True, asr=True)
+
+
 def test_review_prompt_mentions_the_formality_marker():
     ger = review.build_system_instruction("", "", has_source=True, src_lang="ger")
     eng = review.build_system_instruction("", "", has_source=True, src_lang="eng")

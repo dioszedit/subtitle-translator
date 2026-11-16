@@ -282,11 +282,26 @@ def test_normalize_source_lang(value, expected):
     ("/abs/path/Sorozat.chi.srt", "chi"),
     ("input/Sorozat - S01E01.srt", None),            # nincs nyelvkód
     ("input/Sorozat - S01E01.clean.srt", None),      # nem nyelvkód a tag
+    ("input/asr/Sorozat - S01E01.kor.asr.srt", "kor"),  # gépi hang-átirat
+    ("input/asr/Sorozat - S01E01.KOR.ASR.SRT", "kor"),
+    ("input/Sorozat - S01E01.asr.srt", None),        # csak .asr, nyelv nélkül
     ("", None),
     (None, None),
 ])
 def test_detect_source_lang(path, expected):
     assert config.detect_source_lang(path) == expected
+
+
+@pytest.mark.parametrize("path,expected", [
+    ("input/asr/Sorozat - S01E01.kor.asr.srt", True),
+    ("input/asr/Sorozat - S01E01.kor.ASR.srt", True),
+    ("input/Sorozat - S01E01.kor.srt", False),
+    ("input/Sorozat - S01E01.laser.srt", False),     # nem tag, csak szóvég
+    ("", False),
+    (None, False),
+])
+def test_is_asr_path(path, expected):
+    assert config.is_asr_path(path) is expected
 
 
 def test_resolve_source_lang_precedence(monkeypatch):

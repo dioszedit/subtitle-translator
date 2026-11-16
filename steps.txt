@@ -80,6 +80,13 @@
 #      AZ EREDETI NYELVŰ SÁV a megszólítási regiszterhez kell — lásd 1.6.
 #      Részletek: addons\mkv-subs\README.md
 
+# 0/f. (HA NINCS EREDETI NYELVŰ FELIRATSÁV, de a hang koreai/japán/kínai…) a hangsáv
+#      gépi átirata Whisperrel — a REGISZTERHEZ, nem fordítási forrásnak
+#      (pip install faster-whisper; ffmpeg kell; az első futás letölti a ~3 GB-os modellt):
+# py addons\audio-asr\transcribe.py "Season 01"\*.mkv --lang kor
+# py subtr.py register "input\asr\Sorozat - S01E01.kor.asr.srt" "input\asr\Sorozat - S01E02.kor.asr.srt"
+#      Részletek: addons\audio-asr\README.md
+
 # 1. SRT szétvágás (ezt TE futtatod, nem kell hozzá Claude)
 py subtr.py split "input\Sorozat - S01E01.eng.srt"
 # Újra-splitnél (pl. más --block-size) a régi blokkok törléséhez: --clean

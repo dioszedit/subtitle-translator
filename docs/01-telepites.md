@@ -191,6 +191,7 @@ subtitle-translator/
 │   ├── srt-preclean/            ← 0/b: SDH-forrás előtisztítása, 6/b: SDH-tisztítás a kész fordításon
 │   ├── vtt2srt/                 ← 0/d: meglévő .vtt felirat átvétele (WebVTT → SRT)
 │   ├── mkv-subs/                ← 0/e: feliratsávok a videóból, nyelvcímke szerint; a végén a kész felirat vissza az mkv-ba (ffmpeg)
+│   ├── audio-asr/               ← 0/f: a hangsáv gépi átirata (Whisper) a regiszterhez, ha nincs eredeti nyelvű sáv
 │   └── hardsub-cover/           ← utómunka: beégetett idegen felirat takarása dobozos ASS-sávval
 │
 ├── input/                       ← Ide tedd a forrásnyelvi SRT fájlokat

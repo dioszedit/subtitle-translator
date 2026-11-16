@@ -465,13 +465,28 @@ def detect_source_lang(path):
     """
     if not path:
         return None
-    name = os.path.basename(str(path).rstrip("/\\"))
-    if name.lower().endswith(".srt"):
-        name = name[: -len(".srt")]
+    name = _strip_srt(path)
+    if name.lower().endswith(ASR_SUFFIX):           # `X.kor.asr` → a `kor` számít
+        name = name[: -len(ASR_SUFFIX)]
     _, dot, tag = name.rpartition(".")
     if not dot:
         return None
     return normalize_source_lang(tag)
+
+
+# A hangból készült gépi átirat (addons/audio-asr) jelölése: `X.kor.asr.srt`.
+# A nyelv így is felismerhető, de a fájlról látszik, hogy nem valódi felirat.
+ASR_SUFFIX = ".asr"
+
+
+def _strip_srt(path) -> str:
+    name = os.path.basename(str(path).rstrip("/\\"))
+    return name[: -len(".srt")] if name.lower().endswith(".srt") else name
+
+
+def is_asr_path(path) -> bool:
+    """A fájl az audio-asr add-on gépi átirata-e (`….kor.asr.srt`)."""
+    return bool(path) and _strip_srt(path).lower().endswith(ASR_SUFFIX)
 
 
 def resolve_source_lang(cli_value=None, path=None):
