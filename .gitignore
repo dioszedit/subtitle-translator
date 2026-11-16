@@ -30,6 +30,7 @@ dist/
 
 # Munkamenet-fájlok — projektenként / epizódonként mások
 input/*.srt
+input/asr/
 output/*.srt
 output/*.txt
 output/*.json

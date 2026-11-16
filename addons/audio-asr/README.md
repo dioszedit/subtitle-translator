@@ -26,6 +26,9 @@ pip install opencc-python-reimplemented
 Kell még az **ffmpeg** (a `mkv-subs` add-onhoz is kell): macOS-en
 `brew install ffmpeg`, Windowson `winget install ffmpeg`.
 
+Az add-on a program `subtr` mappáját és a `mkv-subs` add-ont is használja, ezért
+a teljes program mappájából futtasd, ne külön kimásolva.
+
 A **large-v3** modell kb. 3 GB, és az első futáskor töltődik le. Ez eltarthat
 egy darabig.
 
@@ -62,6 +65,10 @@ keveredik a fordítandó feliratok közé.
 egyszerűen újraindítható. Futás közben a `.part` fájlba ír, és csak a végén
 nevezi át, így félkész átirat nem kerül a mappába. Felülírás: `--force`.
 
+**Azonos nevű részek:** ha két bemenet ugyanarra a fájlra írna (pl. két évad
+`E01.mkv` része egyszerre megadva), a második hibát kap, és nem írja felül az
+elsőt. Ilyenkor futtasd őket külön, más `--out-dir` mappával.
+
 ## Kapcsolók
 
 | Kapcsoló | Mit csinál |
@@ -84,7 +91,13 @@ használja, egyébként a processzort. A választott eszközt mindig kiírja. Ha
 eszköz nem működik, magától a következőre vált, a processzor mindig marad
 tartaléknak. Ha a videókártya csak futás közben ad hibát (pl. hiányzó
 CUDA-fájl vagy kevés videomemória), az adott részt elölről kezdi processzoron,
-és a többi rész is ott megy tovább. Egy rész hibája nem állítja le az évadot.
+és a többi rész is ott megy tovább. Más hiba (pl. a kimeneti fájl nem írható,
+mert nyitva van egy másik programban) nem indít újrafuttatást: a script kiírja,
+és a következő résszel folytatja. Egy rész hibája nem állítja le az évadot.
+
+**Macen a grafikus gyorsítóhoz a `ctranslate2` csomag 4.9-es vagy újabb
+verziója kell.** Régebbivel a script kiírja, hogy az `mps` nem elérhető, és
+processzoron fut tovább. Frissítés: `pip install -U ctranslate2`.
 
 Mért értékek large-v3 modellel:
 
@@ -95,7 +108,7 @@ Mért értékek large-v3 modellel:
 
 - **Ismert Whisper-hallucinációk**, amelyeket zene vagy csend alatt ír ki,
   például „시청해 주셔서 감사합니다”, „ご視聴ありがとうございました”,
-  „谢谢观看”. Csak akkor dobja el, ha a sor teljes egészében ilyen, így valódi
+  „谢谢观看” (a kínaiak hagyományos írásjegyekkel is). Csak akkor dobja el, ha a sor teljes egészében ilyen, így valódi
   mondat nem vész el. A sima „감사합니다” (köszönöm) megmarad.
 - **Beragadás:** ha ugyanaz a sor kettőnél többször jön egymás után, az első
   kettőt megtartja, a többit eldobja. Egy közbeeső eldobott sor (pl. zene

@@ -43,12 +43,14 @@ import sys
 from pathlib import Path
 
 # A `*.vtt` minta kibontása (Windowson a parancssor nem teszi meg) a subtr
-# csomagból jön, másolata nincs. A subtr nélkül futtatva a minta nem bomlik ki.
+# csomagból jön, másolata nincs. A subtr nélkül az add-on nem fut, és ezt
+# meg is mondja.
 try:
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     from subtr.config import expand_patterns
-except Exception:  # noqa: BLE001
-    expand_patterns = list
+except ImportError as exc:
+    sys.exit(f"HIBA: ez az add-on a program `subtr` mappájával együtt működik, "
+             f"de az nem tölthető be ({exc}). A teljes program mappájából futtasd.")
 
 # Az óra a WebVTT-spec szerint 2+ jegyű is lehet; a cue-beállítások (align:,
 # position:…) csak szóköz után jöhetnek — "00:00:02.000xyz" hibás, nem elnyelt.

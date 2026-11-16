@@ -33,7 +33,8 @@ Használat:
 A `*.mkv` mintát a script maga is kibontja (subtr.config.expand_patterns), így
 Windowson (cmd, PowerShell) is működik.
 
-Függőség: `ffmpeg` + `ffprobe` a PATH-on, és a `faster-whisper` csomag
+Függőség: `ffmpeg` + `ffprobe` a PATH-on, a program `subtr` mappája és a
+`mkv-subs` add-on (a programmal együtt jönnek), és a `faster-whisper` csomag
 (`pip install faster-whisper`). A large-v3 modell (~3 GB) első futáskor
 töltődik le. Kínainál az `opencc` (`pip install opencc-python-reimplemented`)
 opcionális: ha megvan, a hagyományos írásjegyeket egyszerűsítettre váltja.
@@ -42,25 +43,20 @@ Kilépési kód: 0 siker (a már kész részek kihagyása is az), 1 hiba.
 """
 
 import argparse
-import json
 import os
 import re
-import shutil
 import subprocess
 import sys
 import time
 from pathlib import Path
 
-# A pipeline nyelvkód-rövidítései és a fájlminta-kibontás a subtr csomagból
-# jönnek — másolatuk SEHOL nincs. Az add-on a programmal együtt települ; ha
-# valaki mégis a subtr nélkül futtatja, a tartalék csak annyi, hogy a script ne
-# omoljon össze: a rövid kódok (`ko`) helyett a hosszú kell (`kor`), és a
-# `*.mkv` minta nem bomlik ki.
-try:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-    from subtr.config import SOURCE_LANG_ALIASES as _ALIASES, expand_patterns
-except Exception:  # noqa: BLE001 — subtr nélkül: lásd fent
-    _ALIASES, expand_patterns = {}, list
+# A sávlistázás, a nyelvkód-kezelés és a fájlminta-kibontás a mkv-subs add-onból
+# (és azon át a subtr csomagból) jön — ugyanaz a kód listázza a felirat- és a
+# hangsávokat, másolata nincs.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "mkv-subs"))
+from extract_subs import (  # noqa: E402
+    describe, expand_patterns, normalize_lang, probe_streams, require_tools,
+    stem_without_lang)
 
 # Pipeline-kód → Whisper-nyelvkód (ISO 639-1). Ami nincs itt, azt a Whisper
 # nem kapja meg nyelvként — ilyenkor a --lang kötelező (lásd whisper_lang).
@@ -91,8 +87,13 @@ HALLUCINATIONS = {
         "チャンネル登録お願いします", "チャンネル登録よろしくお願いします",
     ],
     "chi": [
-        "请不吝点赞订阅转发打赏支持明镜与点点栏目", "谢谢观看", "感谢观看",
-        "字幕由Amaraorg社区提供", "字幕by索兰娅", "请订阅我的频道", "點贊訂閱轉發打賞支持明鏡與點點欄目",
+        # Egyszerűsített és hagyományos alakban is: az opencc opcionális, nélküle
+        # a Whisper hagyományos írásjegyes sorai változatlanul érkeznek ide.
+        "请不吝点赞订阅转发打赏支持明镜与点点栏目", "請不吝點贊訂閱轉發打賞支持明鏡與點點欄目",
+        "点赞订阅转发打赏支持明镜与点点栏目", "點贊訂閱轉發打賞支持明鏡與點點欄目",
+        "谢谢观看", "謝謝觀看", "感谢观看", "感謝觀看",
+        "字幕由Amaraorg社区提供", "字幕由Amaraorg社區提供", "字幕by索兰娅", "字幕by索蘭婭",
+        "请订阅我的频道", "請訂閱我的頻道",
     ],
     "eng": [
         "thanksforwatching", "thankyouforwatching", "pleasesubscribe",
@@ -106,68 +107,12 @@ MAX_REPEAT = 2
 
 # ── nyelv ──────────────────────────────────────────────────────────────────
 
-def normalize_lang(value):
-    """Nyelvkód a pipeline alakjára (`ko` → `kor`). Ismeretlen kód marad."""
-    if not value:
-        return ""
-    key = str(value).strip().lower()
-    return _ALIASES.get(key, key)
-
-
 def whisper_lang(lang):
     """A Whisper nyelvkódja, vagy None, ha nem ismerjük."""
     return WHISPER_LANGS.get(normalize_lang(lang))
 
 
 # ── hangsávok ──────────────────────────────────────────────────────────────
-
-def require_tools():
-    missing = [t for t in ("ffprobe", "ffmpeg") if not shutil.which(t)]
-    if missing:
-        sys.exit(f"HIBA: nincs a PATH-on: {', '.join(missing)} "
-                 "(macOS: brew install ffmpeg; Windows: winget install ffmpeg)")
-
-
-def probe_audio(video):
-    """A videó hangsávjai: [{index, lang, title, codec, channels, default}]."""
-    cmd = ["ffprobe", "-v", "error", "-select_streams", "a",
-           "-show_entries", "stream=index,codec_name,channels:stream_tags=language,title"
-           ":stream_disposition=default",
-           "-of", "json", str(video)]
-    try:
-        raw = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
-                             check=True).stdout
-    except subprocess.CalledProcessError as exc:
-        sys.stderr.write(f"  ffprobe hiba: {exc.stderr.strip()}\n")
-        return None
-    return parse_probe(raw)
-
-
-def parse_probe(raw):
-    out = []
-    for st in json.loads(raw or "{}").get("streams", []):
-        tags = st.get("tags") or {}
-        disp = st.get("disposition") or {}
-        out.append({
-            "index": st.get("index"),
-            "lang": normalize_lang(tags.get("language")),
-            "title": tags.get("title") or "",
-            "codec": (st.get("codec_name") or "").lower(),
-            "channels": st.get("channels"),
-            "default": bool(disp.get("default")),
-        })
-    return out
-
-
-def describe(tracks):
-    for t in tracks:
-        flags = ["default"] if t["default"] else []
-        extra = f"  [{', '.join(flags)}]" if flags else ""
-        title = f"  „{t['title']}”" if t["title"] else ""
-        lang = t["lang"] or "?"
-        ch = f"{t['channels']}ch" if t["channels"] else ""
-        print(f"  stream {t['index']:>2}  {lang:<4} {t['codec']:<8} {ch:<4}{title}{extra}")
-
 
 def pick_track(tracks, lang, title_filter, index=None):
     """A használandó hangsáv. (sáv, None) siker, (None, hibaüzenet) ha nem dönthető el.
@@ -209,10 +154,7 @@ def pick_track(tracks, lang, title_filter, index=None):
 
 def out_path(video, lang, out_dir):
     """`Season 01/X - S01E01.mkv` → `<out_dir>/X - S01E01.kor.asr.srt`."""
-    stem = Path(video).stem
-    base, dot, tag = stem.rpartition(".")
-    if dot and base and normalize_lang(tag) in WHISPER_LANGS:
-        stem = base   # "x.kor.mkv" → ne legyen "x.kor.kor.asr.srt"
+    stem = stem_without_lang(video)   # "x.kor.mkv" → ne legyen "x.kor.kor.asr.srt"
     return Path(out_dir) / f"{stem}.{lang}.{ASR_TAG}.srt"
 
 
@@ -325,6 +267,11 @@ def decode_audio(video, track_index):
     return np.frombuffer(raw, dtype=np.float32)
 
 
+def first_line(exc):
+    """A hiba első sora röviden; üres üzenetnél a hiba típusa."""
+    return (str(exc).splitlines() or [type(exc).__name__])[0][:120]
+
+
 def device_candidates(device):
     """(device, compute_type) próbálási sorrend."""
     cpu = ("cpu", "int8")
@@ -364,7 +311,7 @@ def load_model(name, device, threads):
             return model, dev
         except Exception as exc:  # noqa: BLE001 — a következő eszközre váltunk
             last = exc
-            print(f"  {dev} nem elérhető ({str(exc).splitlines()[0][:120]}), próbálom a következőt",
+            print(f"  {dev} nem elérhető ({first_line(exc)}), próbálom a következőt",
                   flush=True)
     sys.exit(f"HIBA: a modell nem tölthető be: {last}")
 
@@ -440,12 +387,13 @@ def main():
 
     # 1) minden videónál sávválasztás — a modellt csak akkor töltjük be, ha van mit átírni
     jobs, errors = [], 0
+    targets = {}   # cél → forrásvideó: két bemenet ne írjon ugyanarra a fájlra
     for video in expand_patterns(args.videos):
         if not Path(video).is_file():
             sys.stderr.write(f"HIBA: nincs ilyen fájl: {video}\n")
             errors += 1
             continue
-        tracks = probe_audio(video)
+        tracks = probe_streams(video, "a")
         if tracks is None:
             errors += 1
             continue
@@ -455,22 +403,34 @@ def main():
             errors += 1
             continue
         if args.list:
-            describe(tracks)
+            describe(tracks, subtitles=False)
             continue
         track, err = pick_track(tracks, lang_arg, args.title, args.track)
         if err:
-            describe(tracks)
+            describe(tracks, subtitles=False)
             sys.stderr.write(f"  HIBA: {err}\n")
             errors += 1
             continue
         lang = lang_arg or track["lang"]
         if not whisper_lang(lang):
-            describe([track])
+            describe([track], subtitles=False)
             sys.stderr.write(f"  HIBA: a sáv nyelve ismeretlen („{lang or '?'}”) — "
                              "add meg a --lang kapcsolót\n")
             errors += 1
             continue
         dest = out_path(video, lang, args.out_dir)
+        source = Path(video).resolve()
+        if dest in targets:
+            if targets[dest] == source:
+                print("  kétszer megadva, egyszer írom át")
+            else:
+                # Pl. két évad azonos nevű része: a második felülírná az elsőt,
+                # két teljes átirat árán. Írás ELŐTT fogjuk meg.
+                sys.stderr.write(f"  HIBA: ugyanarra a célra írna, mint {targets[dest]}: {dest} "
+                                 "— futtasd külön, más --out-dir mappával\n")
+                errors += 1
+            continue
+        targets[dest] = source
         if dest.exists() and not args.force:
             print(f"  KÉSZ, kihagyva: {dest} (--force felülírja)")
             continue
@@ -485,16 +445,17 @@ def main():
             try:
                 try:
                     transcribe(model, video, track, lang, dest, args.beam)
-                except (subprocess.CalledProcessError, KeyboardInterrupt):
-                    raise
-                except Exception as exc:  # noqa: BLE001
+                except RuntimeError as exc:
                     if device == "cpu":
                         raise
-                    # A videókártya hibája (hiányzó CUDA-fájl, kevés memória) sokszor
-                    # csak az átirat közben jön elő, nem a betöltéskor: a hátralévő
-                    # részek processzoron mennek tovább, ez a rész elölről.
+                    # A videókártya hibája (hiányzó CUDA-fájl, kevés videomemória)
+                    # sokszor csak az átirat közben jön elő, nem a betöltéskor, és a
+                    # CTranslate2 RuntimeError-ként adja: a hátralévő részek
+                    # processzoron mennek tovább, ez a rész elölről. Más hiba
+                    # (fájlírás, lemez, memória) NEM ide tartozik — azt az újrafuttatás
+                    # nem javítaná, csak megismételné.
                     sys.stderr.write(f"  {device} hiba futás közben "
-                                     f"({str(exc).splitlines()[0][:120]}) — processzorra váltok\n")
+                                     f"({first_line(exc)}) — processzorra váltok\n")
                     model, device = load_model(args.model, "cpu", args.threads)
                     transcribe(model, video, track, lang, dest, args.beam)
             except subprocess.CalledProcessError as exc:
@@ -504,7 +465,7 @@ def main():
                 sys.stderr.write("\nMegszakítva — a félkész átirat a .part fájlban maradt.\n")
                 return 1
             except Exception as exc:  # noqa: BLE001 — egy rész hibája ne állítsa le az évadot
-                sys.stderr.write(f"  HIBA: {exc}\n")
+                sys.stderr.write(f"  HIBA: {first_line(exc)}\n")
                 errors += 1
 
     return 1 if errors else 0

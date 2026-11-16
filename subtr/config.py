@@ -8,6 +8,7 @@ fájl nem töltődik be (pl. ha a környezeti változók már máshonnan jönnek
 
 import glob
 import os
+import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -562,14 +563,40 @@ def expand_patterns(paths) -> list[str]:
     a mintát szó szerint kapná meg. Ami nem minta, vagy amire semmi nem illik,
     változatlanul marad — így a hívó „nincs ilyen fájl” hibája megnevezi.
 
+    A `[` is mintajel, de fájl- és mappanévben is gyakori (`Sorozat [2026]`).
+    Ezért ami LÉTEZIK, az soha nem minta:
+      - a létező fájl vagy mappa változatlan marad — különben az `E0[1].mkv`
+        helyett csendben az `E01.mkv` kerülne feldolgozásra;
+      - az útvonal elejének létező mappái szó szerint értendők, így a
+        `Sorozat [2026]/Season */*.mkv` is kibomlik.
+
     Ez az EGYETLEN példány: a subtr parancsai és az add-onok is innen veszik.
     """
     out = []
     for arg in paths:
         arg = str(arg)
-        hits = sorted(glob.glob(arg)) if glob.has_magic(arg) else []
-        out.extend(hits or [arg])
+        if not glob.has_magic(arg) or os.path.lexists(arg):
+            out.append(arg)
+            continue
+        out.extend(sorted(glob.glob(_escape_existing_prefix(arg))) or [arg])
     return out
+
+
+def _escape_existing_prefix(pattern: str) -> str:
+    """Az útvonal elejének LÉTEZŐ tagjait szó szerintivé teszi a glob számára."""
+    seps = "/\\" if os.name == "nt" else "/"
+    done, prefix, literal = [], "", True
+    for token in re.split(f"([{re.escape(seps)}])", pattern):
+        if literal and token and token not in seps:
+            if os.path.lexists(prefix + token):
+                done.append(glob.escape(token))
+                prefix += token
+                continue
+            literal = False
+        done.append(token)
+        if literal:
+            prefix += token
+    return "".join(done)
 
 
 def add_source_lang_argument(parser) -> None:

@@ -1,7 +1,9 @@
 # Add-onok
 
-Opcionális, önálló segédscriptek a fordítási pipeline köré. Nem részei a
-`subtr` csomagnak: külön futtatod őket, és nem minden sorozatnál kellenek.
+Opcionális segédscriptek a fordítási pipeline köré. Nem részei a `subtr`
+csomagnak: külön futtatod őket, és nem minden sorozatnál kellenek. A közös
+logikát (nyelvkódok, fájlminták kibontása) viszont a `subtr` mappából veszik,
+ezért a teljes program mappájából futtasd őket, ne külön kimásolva.
 Mindegyiknek saját README-je van a részletekkel.
 
 | Add-on | Mikor | Mit csinál |

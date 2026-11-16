@@ -57,10 +57,33 @@ def test_cover_ass_gets_it_through_embed_subs():
     assert from_subtr(load("hardsub-cover/cover_ass.py").embed_subs.expand_patterns)
 
 
-@pytest.mark.parametrize("rel", ["audio-asr/transcribe.py", "mkv-subs/extract_subs.py"])
-def test_addons_use_the_one_alias_table(rel):
-    # nem üres tartalék, hanem a subtr táblája (a másolatot a lenti forrás-teszt zárja ki)
-    assert load(rel)._ALIASES == config.SOURCE_LANG_ALIASES
+def test_extract_subs_uses_the_one_alias_table():
+    assert load("mkv-subs/extract_subs.py")._ALIASES == config.SOURCE_LANG_ALIASES
+
+
+@pytest.mark.parametrize("name", ["normalize_lang", "require_tools", "probe_streams",
+                                  "describe", "stem_without_lang"])
+def test_audio_asr_takes_track_helpers_from_mkv_subs(name):
+    """A hang- és a feliratsávokat ugyanaz a kód listázza."""
+    fn = getattr(load("audio-asr/transcribe.py"), name)
+    assert fn.__module__ == "extract_subs" and fn.__name__ == name
+
+
+@pytest.mark.parametrize("definition", ["def normalize_lang", "def require_tools",
+                                        "def probe_streams", "def stem_without_lang",
+                                        "def describe(tracks"])
+def test_track_helpers_defined_once(definition):
+    owners = [p.parent.name + "/" + p.name for p in ADDONS.glob("*/*.py")
+              if definition in p.read_text(encoding="utf-8")]
+    assert owners == ["mkv-subs/extract_subs.py"]
+
+
+def test_no_silent_fallback_without_subtr():
+    """Ha a subtr nem tölthető be, az add-on megáll — nem működik csendben félig."""
+    for rel in ("mkv-subs/extract_subs.py", "vtt2srt/vtt2srt.py"):
+        src = (ADDONS / rel).read_text(encoding="utf-8")
+        assert "except ImportError as exc:\n    sys.exit(" in src, rel
+        assert "expand_patterns = list" not in src and "= {}, set()" not in src, rel
 
 
 @pytest.mark.parametrize("rel", FILE_LIST_SCRIPTS)

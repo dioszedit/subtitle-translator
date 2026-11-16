@@ -102,3 +102,43 @@ def test_probe_parses_streams(monkeypatch):
     # a képi sáv nem szöveges — a kicsomagolás kihagyja
     assert tracks[1]["codec"] in mkv_subs.IMAGE_CODECS
     assert tracks[0]["codec"] in mkv_subs.TEXT_CODECS
+
+
+# ── közös sávkezelés (az audio-asr is ezt használja) ────────────────────────
+
+def test_probe_streams_audio(monkeypatch):
+    payload = {"streams": [
+        {"index": 1, "codec_name": "AAC", "channels": 2,
+         "tags": {"language": "ko", "title": "한국어"}, "disposition": {"default": 1}},
+        {"index": 2, "codec_name": "opus"},
+    ]}
+    seen = {}
+
+    class Done:
+        stdout = json.dumps(payload)
+
+    def run(cmd, **kwargs):
+        seen["cmd"], seen["kwargs"] = cmd, kwargs
+        return Done()
+
+    monkeypatch.setattr(mkv_subs.subprocess, "run", run)
+    tracks = mkv_subs.probe_streams("x.mkv", "a")
+    assert seen["cmd"][seen["cmd"].index("-select_streams") + 1] == "a"
+    # a sávcímek UTF-8-ban jönnek; Windowson a konzol kódlapjával elhasalna
+    assert seen["kwargs"].get("encoding") == "utf-8"
+    assert tracks[0]["lang"] == "kor" and tracks[0]["channels"] == 2
+    assert tracks[0]["title"] == "한국어" and tracks[0]["default"] is True
+    assert tracks[1]["lang"] == "" and tracks[1]["channels"] is None
+
+
+def test_describe_audio_has_channels_and_no_codec_verdict(capsys):
+    mkv_subs.describe([{"index": 1, "lang": "kor", "title": "", "codec": "aac",
+                        "channels": 2, "forced": False, "default": True}], subtitles=False)
+    out = capsys.readouterr().out
+    assert "aac 2ch" in out and "ismeretlen kodek" not in out and "default" in out
+
+
+def test_stem_without_lang():
+    assert mkv_subs.stem_without_lang("Season 01/x.eng.mkv") == "x"
+    assert mkv_subs.stem_without_lang("Season 01/Sorozat - S01E01.mkv") == "Sorozat - S01E01"
+    assert mkv_subs.stem_without_lang("x.clean.mkv") == "x.clean"

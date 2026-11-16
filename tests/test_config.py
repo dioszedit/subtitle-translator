@@ -528,3 +528,39 @@ def test_expand_patterns(tmp_path):
 def test_expand_patterns_accepts_path_objects(tmp_path):
     (tmp_path / "a.hun.srt").write_text("")
     assert config.expand_patterns([tmp_path / "*.hun.srt"]) == [str(tmp_path / "a.hun.srt")]
+
+
+def test_expand_patterns_existing_bracket_name_is_literal(tmp_path):
+    """Az `E0[1].mkv` létező fájl, nem minta — ne az `E01.mkv` kerüljön a helyére."""
+    for name in ("E0[1].mkv", "E01.mkv"):
+        (tmp_path / name).write_text("")
+    literal = str(tmp_path / "E0[1].mkv")
+    assert config.expand_patterns([literal]) == [literal]
+
+
+def test_expand_patterns_in_bracketed_folder(tmp_path):
+    """`Sorozat [2026]/Season 01/*.mkv` — a mappanév zárójele nem minta."""
+    season = tmp_path / "Sorozat [2026]" / "Season 01"
+    season.mkdir(parents=True)
+    for name in ("b.mkv", "a.mkv"):
+        (season / name).write_text("")
+    assert config.expand_patterns([str(season / "*.mkv")]) == [str(season / "a.mkv"),
+                                                               str(season / "b.mkv")]
+
+
+def test_expand_patterns_bracketed_folder_plus_wildcard_folder(tmp_path):
+    """`Sorozat [2026]/S*/*.mkv` — a létező zárójeles mappa szó szerinti, az `S*` minta."""
+    root = tmp_path / "Sorozat [2026]"
+    for season in ("S1", "S2"):
+        (root / season).mkdir(parents=True)
+        (root / season / "E01.mkv").write_text("")
+    assert config.expand_patterns([str(root / "S*" / "*.mkv")]) == [
+        str(root / "S1" / "E01.mkv"), str(root / "S2" / "E01.mkv")]
+
+
+def test_expand_patterns_relative(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "input").mkdir()
+    (tmp_path / "input" / "a.eng.vtt").write_text("")
+    assert config.expand_patterns(["input/*.eng.vtt"]) == ["input/a.eng.vtt"]
+    assert config.expand_patterns(["*.nincs"]) == ["*.nincs"]

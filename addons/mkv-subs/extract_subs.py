@@ -55,15 +55,15 @@ from pathlib import Path
 
 # A pipeline nyelvkódjai és a fájlminta-kibontás a subtr csomagból jönnek —
 # másolatuk SEHOL nincs, hogy ne csúszhassanak szét. Az add-on a programmal
-# együtt települ; ha valaki mégis a subtr nélkül futtatja, a tartalék nem egy
-# második példány, csak annyi, hogy a script ne omoljon össze: a rövid kódok
-# (`ja`) nem válnak hosszúvá (`jpn`), és a `*.mkv` minta nem bomlik ki.
+# együtt települ; a subtr nélkül nem fut, és ezt meg is mondja, ahelyett hogy
+# csendben félig működne.
 try:
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     from subtr.config import SOURCE_LANG_ALIASES as _ALIASES, SOURCE_LANGS, expand_patterns
-    _LANGS = set(SOURCE_LANGS)
-except Exception:  # noqa: BLE001 — subtr nélkül: lásd fent
-    _ALIASES, _LANGS, expand_patterns = {}, set(), list
+except ImportError as exc:
+    sys.exit(f"HIBA: ez az add-on a program `subtr` mappájával együtt működik, "
+             f"de az nem tölthető be ({exc}). A teljes program mappájából futtasd.")
+_LANGS = set(SOURCE_LANGS)
 
 # Amit az ffmpeg SRT-vé tud alakítani. A képi feliratok nincsenek köztük.
 TEXT_CODECS = {"subrip", "srt", "ass", "ssa", "mov_text", "webvtt", "text"}
@@ -82,17 +82,25 @@ def require_tools():
     missing = [t for t in ("ffprobe", "ffmpeg") if not shutil.which(t)]
     if missing:
         sys.exit(f"HIBA: nincs a PATH-on: {', '.join(missing)} "
-                 "(macOS: brew install ffmpeg)")
+                 "(macOS: brew install ffmpeg; Windows: winget install ffmpeg)")
 
 
-def probe_subtitles(video):
-    """A videó feliratsávjai: [{index, lang, title, codec, forced, default}]."""
-    cmd = ["ffprobe", "-v", "error", "-select_streams", "s",
-           "-show_entries", "stream=index,codec_name:stream_tags=language,title"
+def probe_streams(video, kind):
+    """A videó sávjai: kind="s" felirat, "a" hang.
+
+    [{index, lang, raw_lang, title, codec, channels, forced, default}] —
+    a `channels` csak hangsávnál van kitöltve. ffprobe-hibánál None.
+    Az audio-asr add-on is ezt használja a hangsávokhoz.
+    """
+    cmd = ["ffprobe", "-v", "error", "-select_streams", kind,
+           "-show_entries", "stream=index,codec_name,channels:stream_tags=language,title"
            ":stream_disposition=forced,default",
-           "-of", "json", video]
+           "-of", "json", str(video)]
     try:
-        raw = subprocess.run(cmd, capture_output=True, text=True, check=True).stdout
+        # encoding: a sávcímek UTF-8-ban jönnek (koreai, kínai) — Windowson a
+        # konzol kódlapjával olvasva elhasalna.
+        raw = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
+                             check=True).stdout
     except subprocess.CalledProcessError as exc:
         sys.stderr.write(f"  ffprobe hiba: {exc.stderr.strip()}\n")
         return None
@@ -106,27 +114,42 @@ def probe_subtitles(video):
             "raw_lang": (tags.get("language") or "").lower(),
             "title": tags.get("title") or "",
             "codec": (st.get("codec_name") or "").lower(),
+            "channels": st.get("channels"),
             "forced": bool(disp.get("forced")),
             "default": bool(disp.get("default")),
         })
     return out
 
 
-def describe(tracks):
+def probe_subtitles(video):
+    """A videó feliratsávjai."""
+    return probe_streams(video, "s")
+
+
+def describe(tracks, subtitles=True):
+    """A sávok kiírása. subtitles=False: hangsávok (csatornaszám, kodek-minősítés nélkül)."""
     for t in tracks:
         flags = []
         if t["default"]:
             flags.append("default")
-        if t["forced"]:
+        if t.get("forced"):
             flags.append("forced")
-        if t["codec"] in IMAGE_CODECS:
+        if subtitles and t["codec"] in IMAGE_CODECS:
             flags.append("KÉPI — nem csomagolható ki")
-        elif t["codec"] not in TEXT_CODECS:
+        elif subtitles and t["codec"] not in TEXT_CODECS:
             flags.append("ismeretlen kodek")
         extra = f"  [{', '.join(flags)}]" if flags else ""
         title = f"  „{t['title']}”" if t["title"] else ""
         lang = t["lang"] or "?"
-        print(f"  stream {t['index']:>2}  {lang:<4} {t['codec']:<18}{title}{extra}")
+        codec = t["codec"] if subtitles else f"{t['codec']} {t.get('channels') or '?'}ch"
+        print(f"  stream {t['index']:>2}  {lang:<4} {codec:<18}{title}{extra}")
+
+
+def stem_without_lang(video):
+    """A fájlnév töve a záró nyelvjelölés nélkül: `x.eng.mkv` → `x`, `x.mkv` → `x`."""
+    stem = Path(video).stem
+    base, dot, tag = stem.rpartition(".")
+    return base if dot and base and normalize_lang(tag) in _LANGS else stem
 
 
 def pick(tracks, lang, title_filter):
@@ -139,11 +162,8 @@ def pick(tracks, lang, title_filter):
 
 
 def out_path(video, lang, out_dir):
-    stem = Path(video).stem
     # Ha a videónév már visel nyelvtaget, ne duplázzuk: "x.eng.mkv" → "x.jpn.srt"
-    base, dot, tag = stem.rpartition(".")
-    if dot and base and normalize_lang(tag) in _LANGS:
-        stem = base
+    stem = stem_without_lang(video)
     target_dir = Path(out_dir) if out_dir else Path(video).parent
     return target_dir / f"{stem}.{lang}.srt"
 

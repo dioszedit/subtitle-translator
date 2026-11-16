@@ -16,7 +16,7 @@ _spec.loader.exec_module(asr)
 
 def track(index, lang, title="", default=False):
     return {"index": index, "lang": asr.normalize_lang(lang), "title": title,
-            "codec": "aac", "channels": 2, "default": default}
+            "codec": "aac", "channels": 2, "forced": False, "default": default}
 
 
 # ── nyelv ──────────────────────────────────────────────────────────────────
@@ -69,18 +69,6 @@ def test_same_language_twice_needs_title():
     assert t is None and "--title" in err
     t, err = asr.pick_track(tracks, "kor", "korean")
     assert err is None and t["index"] == 1
-
-
-def test_parse_probe():
-    raw = json.dumps({"streams": [
-        {"index": 1, "codec_name": "AAC", "channels": 2,
-         "tags": {"language": "ko", "title": "Korean"}, "disposition": {"default": 1}},
-        {"index": 2, "codec_name": "opus"},
-    ]})
-    tracks = asr.parse_probe(raw)
-    assert tracks[0] == {"index": 1, "lang": "kor", "title": "Korean", "codec": "aac",
-                         "channels": 2, "default": True}
-    assert tracks[1]["lang"] == "" and tracks[1]["default"] is False
 
 
 # ── kimeneti fájlnév ───────────────────────────────────────────────────────
@@ -192,13 +180,18 @@ def test_chinese_converter_survives_broken_opencc(monkeypatch):
     assert asr.chinese_converter("kor") is None
 
 
-def _fake_run(monkeypatch, tmp_path, fail_on):
+def _fake_run(monkeypatch, tmp_path, fail_on, error=RuntimeError("cublas64_12.dll not found"),
+              videos=("S - S01E01.mkv",)):
     """main() ffmpeg és Whisper nélkül: a transcribe() az adott eszközön hibát dob."""
-    video = tmp_path / "S - S01E01.mkv"
-    video.write_text("")
+    paths = []
+    for name in videos:
+        video = tmp_path / name
+        video.parent.mkdir(parents=True, exist_ok=True)
+        video.write_text("")
+        paths.append(str(video))
     loads, runs = [], []
     monkeypatch.setattr(asr, "require_tools", lambda: None)
-    monkeypatch.setattr(asr, "probe_audio", lambda v: [track(1, "kor")])
+    monkeypatch.setattr(asr, "probe_streams", lambda v, kind: [track(1, "kor")])
 
     def load(name, device, threads):
         dev = "cuda" if device == "auto" else device
@@ -208,13 +201,13 @@ def _fake_run(monkeypatch, tmp_path, fail_on):
     def run(model, video, trk, lang, dest, beam):
         runs.append(model)
         if model in fail_on:
-            raise RuntimeError("cublas64_12.dll not found")
+            raise error
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_text("ok")
 
     monkeypatch.setattr(asr, "load_model", load)
     monkeypatch.setattr(asr, "transcribe", run)
-    monkeypatch.setattr(sys, "argv", ["transcribe.py", str(video),
+    monkeypatch.setattr(sys, "argv", ["transcribe.py", *paths,
                                       "--out-dir", str(tmp_path / "asr")])
     return loads, runs
 
@@ -230,3 +223,45 @@ def test_cpu_error_is_reported_not_crashing(monkeypatch, tmp_path):
     loads, runs = _fake_run(monkeypatch, tmp_path, fail_on={"cuda", "cpu"})
     assert asr.main() == 1
     assert runs == ["cuda", "cpu"]
+
+
+# ── második review (2026-11-16) ────────────────────────────────────────────
+
+def test_non_gpu_error_does_not_trigger_cpu_rerun(monkeypatch, tmp_path, capsys):
+    """Fájlírási hiba nem videókártya-hiba: nincs újratöltés és újrafuttatás."""
+    loads, runs = _fake_run(monkeypatch, tmp_path, fail_on={"cuda"},
+                            error=PermissionError("a fájl használatban van"))
+    assert asr.main() == 1
+    assert loads == ["cuda"] and runs == ["cuda"]
+    assert "használatban" in capsys.readouterr().err
+
+
+def test_empty_error_message_does_not_break_fallback(monkeypatch, tmp_path):
+    loads, runs = _fake_run(monkeypatch, tmp_path, fail_on={"cuda"}, error=RuntimeError())
+    assert asr.main() == 0
+    assert runs == ["cuda", "cpu"]
+
+
+def test_first_line():
+    assert asr.first_line(RuntimeError()) == "RuntimeError"
+    assert asr.first_line(RuntimeError("első\nmásodik")) == "első"
+
+
+def test_same_target_from_two_seasons_is_error(monkeypatch, tmp_path, capsys):
+    loads, runs = _fake_run(monkeypatch, tmp_path, fail_on=set(),
+                            videos=("Season 01/E01.mkv", "Season 02/E01.mkv"))
+    assert asr.main() == 1
+    assert len(runs) == 1                       # az első elkészül, a második nem írja felül
+    assert "ugyanarra a célra" in capsys.readouterr().err
+
+
+def test_same_file_twice_runs_once(monkeypatch, tmp_path):
+    loads, runs = _fake_run(monkeypatch, tmp_path, fail_on=set(),
+                            videos=("E01.mkv", "E01.mkv"))
+    assert asr.main() == 0
+    assert len(runs) == 1
+
+
+def test_traditional_chinese_hallucinations_without_opencc():
+    kept, dropped = asr.clean_segments([(0, 1, "謝謝觀看"), (1, 2, "谢谢观看"), (2, 3, "你好")], "chi")
+    assert [t for _, _, t in kept] == ["你好"] and dropped == 2
