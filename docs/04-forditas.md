@@ -95,12 +95,14 @@ python subtr.py register "input\asr\Sorozat - S01E01.kor.asr.srt"
 **Ha az eredeti nyelvű felirat a képbe van égetve** (nincs külön sávja), a
 `hardsub-ocr` add-on OCR-rel kiolvassa, és az angol SRT cue-ihoz igazítja
 (ugyanazok a sorszámok és időbélyegek, üres cue-nál `—`). A nyelv tetszőleges
-(`--lang`, alap: `chi`). Ez is csak támpont, nem fordítási forrás.
+(`--lang`, alap: `chi`). A kimenet `….chi.ocr.srt`: a `register` ezt is
+felismeri, és szól a modellnek a félreolvasott írásjegyekről; a `split` megáll
+rajta. Ez is csak támpont, nem fordítási forrás.
 Részletek: [`addons/hardsub-ocr/README.md`](../addons/hardsub-ocr/README.md).
 
 ```powershell
 python addons\hardsub-ocr\ocr_subs.py "Season 01\Sorozat - S01E01.mp4"
-python subtr.py register "input\Sorozat - S01E01.chi.srt"
+python subtr.py register "input\Sorozat - S01E01.chi.ocr.srt"
 ```
 
 Két nyeresége van, és a második legalább annyit ér, mint az első:

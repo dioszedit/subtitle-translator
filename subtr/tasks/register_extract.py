@@ -118,7 +118,9 @@ def srt_dialogue(path: str) -> str:
         lines = [l.strip() for l in block.strip().split("\n") if l.strip()]
         if len(lines) >= 3 and lines[0].isdigit():
             text = " ".join(lines[2:])
-            if text:
+            # A „—” az OCR-kinyerés (addons/hardsub-ocr) üres cue-ja: nincs benne
+            # párbeszéd, csak a promptot hosszítaná.
+            if text and text != "—":
                 out.append(f"#{lines[0]} {text}")
     return "\n".join(out)
 
@@ -234,9 +236,17 @@ találgatható, confidence="bizonytalan".
 """
 
 
+OCR_NOTE = f"""
+{config.OCR_PROMPT_NOTE} A formalitás-jelek (pl. 您/你,
+-요 / banmal) ezért megbízhatók; egy-egy félreolvasott írásjegyre (főleg
+nevekben) viszont ne építs, és a beszélő kilétére egyetlen sorból se. Ahol
+a beszélő csak találgatható, confidence="bizonytalan".
+"""
+
+
 def build_prompt(context: str, existing, dialogue: str, episode_label: str,
                  src_lang: str = config.DEFAULT_SOURCE_LANG,
-                 hungarian: bool = False, asr: bool = False) -> str:
+                 hungarian: bool = False, asr: bool = False, ocr: bool = False) -> str:
     """A regiszter-kinyerő prompt.
 
     hungarian=True: a `dialogue` nem forrásfelirat, hanem a KÉSZ MAGYAR
@@ -245,7 +255,10 @@ def build_prompt(context: str, existing, dialogue: str, episode_label: str,
     magyar igealak. A forrásnyelv ilyenkor nem számít.
 
     asr=True: a `dialogue` a hangsáv gépi átirata (addons/audio-asr), nem
-    felirat — félrehallásokkal, beszélő nélkül; a prompt erre figyelmeztet."""
+    felirat — félrehallásokkal, beszélő nélkül; a prompt erre figyelmeztet.
+
+    ocr=True: a `dialogue` a beégetett felirat OCR-kinyerése (addons/hardsub-ocr)
+    — a szöveg hivatalos felirat, de félreolvasott írásjegyekkel, beszélő nélkül."""
     existing_txt = "\n".join(
         f"  - {p['a']} {ARROW_BOTH if p['mutual'] else ARROW_ONE} {p['b']}: {p['form']}"
         for p in existing
@@ -309,7 +322,7 @@ melyik szereplő melyiket TEGEZI és melyiket MAGÁZZA a magyar fordításban.
     return f"""Feliratfordítás előkészítése: MEGSZÓLÍTÁSI REGISZTERT állítasz össze.
 
 {intro}
-{ASR_NOTE if asr and not hungarian else ""}
+{ASR_NOTE if asr and not hungarian else ""}{OCR_NOTE if ocr and not hungarian else ""}
 === FONTOS SZABÁLYOK ===
 - A viszony gyakran ASZIMMETRIKUS: a főnök tegez, a beosztott magáz. Ilyenkor
   KÉT külön sort adj vissza (mutual=false mindkettőnél), ne egyet.
@@ -588,11 +601,13 @@ def main():
         src_lang = config.resolve_source_lang(args.source_lang, path)
         lang_label = "magyar — kész fordítás" if args.hungarian else config.source_lang_name(src_lang)
         print(f"\n=== {label} ({dialogue.count(chr(10)) + 1} sor, {lang_label})")
-        asr = config.is_asr_path(path)
+        asr, ocr = config.is_asr_path(path), config.is_ocr_path(path)
         if asr and not args.hungarian:
             print("  (gépi hang-átirat — a prompt jelzi a félrehallásokat)")
+        if ocr and not args.hungarian:
+            print("  (beégetett felirat OCR-rel — a prompt jelzi a félreolvasásokat)")
         prompt = build_prompt(context, existing, dialogue, label, src_lang,
-                              hungarian=args.hungarian, asr=asr)
+                              hungarian=args.hungarian, asr=asr, ocr=ocr)
         if args.provider == "gemini":
             rel = run_gemini(prompt, model)
         elif args.provider in CLI_PROVIDERS:

@@ -287,6 +287,9 @@ def test_normalize_source_lang(value, expected):
     ("input/asr/Sorozat - S01E01.kor.asr.srt", "kor"),  # gépi hang-átirat
     ("input/asr/Sorozat - S01E01.KOR.ASR.SRT", "kor"),
     ("input/Sorozat - S01E01.asr.srt", None),        # csak .asr, nyelv nélkül
+    ("input/Sorozat - S01E01.kor.ocr.srt", "kor"),   # beégetett felirat OCR-rel
+    ("input/Sorozat - S01E01.CHI.OCR.srt", "chi"),
+    ("input/Sorozat - S01E01.ocr.srt", None),        # csak .ocr, nyelv nélkül
     ("", None),
     (None, None),
 ])
@@ -304,6 +307,22 @@ def test_detect_source_lang(path, expected):
 ])
 def test_is_asr_path(path, expected):
     assert config.is_asr_path(path) is expected
+
+
+@pytest.mark.parametrize("path,asr,ocr", [
+    ("input/asr/Sorozat - S01E01.kor.asr.srt", True, False),
+    ("input/Sorozat - S01E01.chi.ocr.srt", False, True),
+    ("input/Sorozat - S01E01.kor.OCR.srt", False, True),
+    ("blocks/Sorozat - S01E01.chi.ocr", False, True),   # mappanév is
+    ("input/Sorozat - S01E01.chi.srt", False, False),
+    ("input/Sorozat - S01E01.doctor.srt", False, False),  # nem tag, csak szóvég
+    ("", False, False),
+    (None, False, False),
+])
+def test_is_ocr_and_machine_path(path, asr, ocr):
+    assert config.is_asr_path(path) is asr
+    assert config.is_ocr_path(path) is ocr
+    assert config.is_machine_path(path) is (asr or ocr)
 
 
 def test_resolve_source_lang_precedence(monkeypatch):

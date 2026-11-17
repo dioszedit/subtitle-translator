@@ -467,8 +467,10 @@ def detect_source_lang(path):
     if not path:
         return None
     name = _strip_srt(path)
-    if name.lower().endswith(ASR_SUFFIX):           # `X.kor.asr` → a `kor` számít
-        name = name[: -len(ASR_SUFFIX)]
+    for suffix in MACHINE_SUFFIXES:                  # `X.kor.asr`, `X.chi.ocr` → a nyelv számít
+        if name.lower().endswith(suffix):
+            name = name[: -len(suffix)]
+            break
     _, dot, tag = name.rpartition(".")
     if not dot:
         return None
@@ -488,6 +490,24 @@ Ez NEM felirat, hanem a hangsáv gépi beszédfelismeréssel (Whisper) készült
 mondata is lehet, és a sorok nem jelölik, ki beszél."""
 
 
+# A képbe égetett feliratból OCR-rel kinyert szöveg (addons/hardsub-ocr)
+# jelölése: `X.chi.ocr.srt`. A cue-k a forrás SRT-hez igazodnak, de ez sem
+# fordítási forrás. Az add-on is innen veszi a jelölést.
+OCR_SUFFIX = ".ocr"
+
+# A gépi úton készült „feliratok” jelölései (hang → .asr, kép → .ocr): a
+# nyelvfelismerés mindkettőt levágja, a split mindkettőn megáll.
+MACHINE_SUFFIXES = (ASR_SUFFIX, OCR_SUFFIX)
+
+# Az OCR-kinyerés közös leírása a promptokhoz (register, glossary).
+OCR_PROMPT_NOTE = """=== OCR-KINYERÉS ===
+Ez a videó képébe égetett felirat, gépi szövegfelismeréssel (OCR) kiolvasva és
+a forrásfelirat soraihoz igazítva; a „—” sor azt jelzi, hogy abban a sorban
+nem talált szöveget. Elírt vagy félreolvasott írásjegyek előfordulhatnak
+(főleg nevekben és ritka írásjegyeknél), és a sorok nem jelölik, ki beszél.
+A szöveg viszont maga a hivatalos felirat, nem átirat."""
+
+
 def _strip_srt(path) -> str:
     name = os.path.basename(str(path).rstrip("/\\"))
     return name[: -len(".srt")] if name.lower().endswith(".srt") else name
@@ -496,6 +516,16 @@ def _strip_srt(path) -> str:
 def is_asr_path(path) -> bool:
     """A fájl az audio-asr add-on gépi átirata-e (`….kor.asr.srt`)."""
     return bool(path) and _strip_srt(path).lower().endswith(ASR_SUFFIX)
+
+
+def is_ocr_path(path) -> bool:
+    """A fájl a hardsub-ocr add-on OCR-kinyerése-e (`….chi.ocr.srt`)."""
+    return bool(path) and _strip_srt(path).lower().endswith(OCR_SUFFIX)
+
+
+def is_machine_path(path) -> bool:
+    """Gépi úton (hangból vagy képből) készült-e a fájl — nem fordítási forrás."""
+    return is_asr_path(path) or is_ocr_path(path)
 
 
 def resolve_source_lang(cli_value=None, path=None):

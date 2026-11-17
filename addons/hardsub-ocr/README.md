@@ -75,20 +75,28 @@ python addons/hardsub-ocr/ocr_subs.py "Season 01/Sorozat - S01E01.mp4" \
     --ref "input/Sorozat - S01E01.eng.srt" --out-dir proba
 
 # a regiszter ebből — a fordítás marad angolból
-python subtr.py register "input/Sorozat - S01E01.chi.srt"
+python subtr.py register "input/Sorozat - S01E01.chi.ocr.srt"
 ```
 
 Windowson `py addons\hardsub-ocr\ocr_subs.py "Season 01\*.mp4"`. A `*.mp4`
 mintát a script maga bontja ki, mert a Windows parancssora ezt nem teszi meg.
 
-**Kimenet:** `input/Sorozat - S01E01.chi.srt` (a nyelvkód a `--lang`-ból). A
-pipeline a fájlnévből felismeri a nyelvet, így a `register` magától a kínai
-ágon fut.
+**Kimenet:** `input/Sorozat - S01E01.chi.ocr.srt` (a nyelvkód a `--lang`-ból).
+Az `.ocr` jelzi, hogy gépi kinyerés. A pipeline a nyelvet így is felismeri
+(`chi`), így a `register` magától a kínai ágon fut, és szól a modellnek, hogy
+félreolvasott írásjegyek lehetnek benne (a formalitás-jelek, pl. 您/你, ettől
+még megbízhatók).
+
+**Mire nem használható:** a `subtr split` megáll, ha `.ocr` fájlt kap, mert a
+kinyert szöveg nem fordítási forrás. A `subtr glossary` lefut rajta, de
+figyelmeztet, és minden javaslatát bizonytalannak jelöli. A `review` és a
+`verify` forrás-keresése (`.hun.` → `.eng.`, `.chi.`…) nem találja meg, így
+véletlenül sem lesz belőle a review forrása.
 
 **Forrás SRT:** ha nem adod meg (`--ref`), az `input/` mappában (`--ref-dir`)
 keresi a videó nevéhez illő `<név>.<forrásnyelv>.srt` fájlt; az angol az első.
-Az OCR nyelvével azonos kódú fájlt (pl. egy korábbi `.chi.srt` kimenetet) nem
-veszi forrásnak. Több résznél a `--ref` nem adható meg, ott a `--ref-dir` dönt.
+Az OCR nyelvével azonos kódú fájlt (kínainál a `.chi.srt`-t) nem veszi
+forrásnak, a `.ocr.srt` kimenetet pedig soha. Több résznél a `--ref` nem adható meg, ott a `--ref-dir` dönt.
 
 **Kész rész:** ha a kimenet már létezik, kihagyja (`KÉSZ, kihagyva`);
 felülírás: `--force`. Félkész fájl nem marad: a végén egyben írja ki.

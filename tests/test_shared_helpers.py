@@ -144,6 +144,12 @@ def test_console_setup_and_tool_runner_are_shared():
     assert owners == ["mkv-subs/extract_subs.py"]     # csak a run_tool-ban
 
 
+def test_ocr_suffix_defined_once():
+    src = (ADDONS / "hardsub-ocr" / "ocr_subs.py").read_text(encoding="utf-8")
+    assert '".ocr"' not in src
+    assert "{OCR_SUFFIX}.srt" in src
+
+
 def test_asr_suffix_defined_once():
     src = (ADDONS / "audio-asr" / "transcribe.py").read_text(encoding="utf-8")
     # (az `input/asr` mappanév nem a jelölés — az maradhat)

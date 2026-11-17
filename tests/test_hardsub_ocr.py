@@ -282,9 +282,16 @@ def test_align_without_retry(tmp_path, cfg):
 
 def test_out_path_uses_lang_and_strips_video_lang_tag():
     assert ocr.out_path("Season 01/Sorozat - S01E01.mp4", "chi", "input") == \
-        Path("input/Sorozat - S01E01.chi.srt")
-    assert ocr.out_path("Sorozat - S01E01.kor.mkv", "kor", "x") == Path("x/Sorozat - S01E01.kor.srt")
-    assert ocr.out_path("Sorozat - S01E01.mkv", "eng", "input") == Path("input/Sorozat - S01E01.eng.srt")
+        Path("input/Sorozat - S01E01.chi.ocr.srt")
+    assert ocr.out_path("Sorozat - S01E01.kor.mkv", "kor", "x") == Path("x/Sorozat - S01E01.kor.ocr.srt")
+    assert ocr.out_path("Sorozat - S01E01.mkv", "eng", "input") == Path("input/Sorozat - S01E01.eng.ocr.srt")
+
+
+def test_out_path_is_machine_marked_and_keeps_lang():
+    p = ocr.out_path("Sorozat - S01E01.mp4", "kor", "input")
+    assert config.is_ocr_path(p) and config.is_machine_path(p)
+    assert config.detect_source_lang(p) == "kor"
+    assert p.name.endswith(f".kor{config.OCR_SUFFIX}.srt")
 
 
 def test_find_ref_prefers_english(tmp_path):
@@ -295,7 +302,8 @@ def test_find_ref_prefers_english(tmp_path):
 
 
 def test_find_ref_skips_ocr_language(tmp_path):
-    (tmp_path / "Sorozat - S01E01.chi.srt").write_text("x")   # a korábbi OCR-kimenet
+    (tmp_path / "Sorozat - S01E01.chi.srt").write_text("x")   # az OCR nyelve: nem forrás
+    (tmp_path / "Sorozat - S01E01.eng.ocr.srt").write_text("x")   # gépi kinyerés: soha
     (tmp_path / "Sorozat - S01E01.ger.srt").write_text("x")
     ref, err = ocr.find_ref("Sorozat - S01E01.mp4", "chi", tmp_path)
     assert err is None and ref.name == "Sorozat - S01E01.ger.srt"
@@ -344,7 +352,7 @@ def test_existing_output_is_skipped_without_force(tmp_path, monkeypatch, capsys)
     video = tmp_path / "Sorozat - S01E01.mp4"
     video.write_bytes(b"")
     (tmp_path / "Sorozat - S01E01.eng.srt").write_text(SRT, encoding="utf-8")
-    dest = tmp_path / "Sorozat - S01E01.chi.srt"
+    dest = tmp_path / "Sorozat - S01E01.chi.ocr.srt"
     dest.write_text("régi", encoding="utf-8")
     monkeypatch.setattr(ocr, "require_tools", lambda: None)
     monkeypatch.setattr(ocr, "load_dotenv", lambda: None)
@@ -359,10 +367,11 @@ def test_existing_output_is_skipped_without_force(tmp_path, monkeypatch, capsys)
 def test_output_never_overwrites_ref(tmp_path, monkeypatch):
     video = tmp_path / "Sorozat - S01E01.mp4"
     video.write_bytes(b"")
-    ref = tmp_path / "Sorozat - S01E01.eng.srt"
+    ref = tmp_path / "Sorozat - S01E01.eng.ocr.srt"   # (rossz) forrásnak egy korábbi kimenet
     ref.write_text(SRT, encoding="utf-8")
     monkeypatch.setattr(ocr, "require_tools", lambda: None)
     monkeypatch.setattr(ocr, "load_dotenv", lambda: None)
+    monkeypatch.setattr(ocr.engines, "create", lambda *a: pytest.fail("nem kellett volna motor"))
     for env, *_ in ocr.SETTINGS.values():
         monkeypatch.delenv(env, raising=False)
     rc = ocr.main([str(video), "--ref", str(ref), "--lang", "eng", "--out-dir", str(tmp_path),

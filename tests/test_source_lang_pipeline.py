@@ -67,6 +67,24 @@ def test_register_prompt_warns_about_machine_transcript():
         "", [], "D", "E03", "kor", hungarian=True, asr=True)
 
 
+def test_register_prompt_warns_about_ocr():
+    """Az OCR-kinyerésnél (hardsub-ocr) saját megjegyzés: félreolvasás, de hivatalos felirat."""
+    ocr = register_extract.build_prompt("", [], "D", "E03", "chi", ocr=True)
+    sub = register_extract.build_prompt("", [], "D", "E03", "chi")
+    assert "OCR-KINYERÉS" in ocr and "您/你" in ocr and "hivatalos felirat" in ocr
+    assert "GÉPI ÁTIRAT" not in ocr
+    assert "OCR-KINYERÉS" not in sub
+    assert "OCR-KINYERÉS" not in register_extract.build_prompt(
+        "", [], "D", "E03", "chi", hungarian=True, ocr=True)
+
+
+def test_register_dialogue_skips_empty_ocr_cues(tmp_path):
+    p = tmp_path / "S - S01E01.chi.ocr.srt"
+    p.write_text("1\n00:00:01,000 --> 00:00:02,000\n你好\n\n"
+                 "2\n00:00:03,000 --> 00:00:04,000\n—\n", encoding="utf-8")
+    assert register_extract.srt_dialogue(str(p)) == "#1 你好"
+
+
 def test_review_prompt_mentions_the_formality_marker():
     ger = review.build_system_instruction("", "", has_source=True, src_lang="ger")
     eng = review.build_system_instruction("", "", has_source=True, src_lang="eng")
@@ -128,6 +146,29 @@ def test_register_prompt_hungarian_reads_the_translation_itself():
 
 # ── gépi hang-átirat (.asr) a többi parancsban ──────────────────────────────
 
+def test_split_refuses_ocr_extraction(tmp_path, capsys):
+    from subtr.tasks import split
+    src = tmp_path / "Sorozat - S01E01.chi.ocr.srt"
+    src.write_text("1\n00:00:01,000 --> 00:00:02,000\n你好\n", encoding="utf-8")
+    with pytest.raises(SystemExit) as exc:
+        split.main([str(src)])
+    assert exc.value.code == 1
+    out = capsys.readouterr().out
+    assert "OCR-kinyerés (.ocr)" in out and "nem fordítási forrás" in out and "register" in out
+    assert not (tmp_path / "blocks").exists()
+
+
+def test_find_source_srt_never_picks_ocr_output(tmp_path, monkeypatch):
+    """A review/verify forrás-keresése a `.hun.` tagot cseréli nyelvkódra, így a
+    `….chi.ocr.srt` nem lehet forrás — az OCR-kinyerés nem a fordítás forrása."""
+    monkeypatch.chdir(tmp_path)
+    _touch(tmp_path / "input" / "S - S01E02.chi.ocr.srt")
+    hun = tmp_path / "output" / "S - S01E02.hun.srt"
+    assert review.find_source_srt(hun, "chi") is None
+    _touch(tmp_path / "input" / "S - S01E02.eng.srt")
+    assert review.find_source_srt(hun, "chi").name == "S - S01E02.eng.srt"
+
+
 def test_split_refuses_machine_transcript(tmp_path, capsys):
     from subtr.tasks import split
     src = tmp_path / "Sorozat - S01E01.kor.asr.srt"
@@ -145,6 +186,21 @@ def test_glossary_prompts_flag_machine_transcript():
                   lambda asr: ge.build_pair_prompt("D", "H", 1, 1, set(), "", "", "kor", asr=asr)):
         assert "GÉPI ÁTIRAT" in build(True) and "bizonytalan" in build(True)
         assert "GÉPI ÁTIRAT" not in build(False)
+
+
+def test_glossary_prompts_flag_ocr():
+    from subtr.tasks import glossary_extract as ge
+    for build in (lambda ocr: ge.build_source_prompt("D", 1, 1, set(), "", "", "chi", ocr=ocr),
+                  lambda ocr: ge.build_pair_prompt("D", "H", 1, 1, set(), "", "", "chi", ocr=ocr)):
+        assert "OCR-KINYERÉS" in build(True) and "bizonytalan" in build(True)
+        assert "GÉPI ÁTIRAT" not in build(True)
+        assert "OCR-KINYERÉS" not in build(False)
+
+
+def test_ocr_note_has_one_shared_text():
+    from subtr.tasks import glossary_extract as ge
+    assert config.OCR_PROMPT_NOTE in register_extract.OCR_NOTE
+    assert config.OCR_PROMPT_NOTE in ge.OCR_NOTE
 
 
 def test_asr_note_has_one_shared_text():

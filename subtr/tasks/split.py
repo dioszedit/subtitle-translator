@@ -112,12 +112,17 @@ def main(argv=None):
         print(f"HIBA: Nem találom a fájlt: {args.input}")
         sys.exit(1)
 
-    if config.is_asr_path(args.input):
-        # A hangsáv gépi átirata (addons/audio-asr) támpont a regiszterhez, nem
-        # fordítási forrás: félrehallásokkal, beszélők nélkül. Itt megállunk,
-        # hogy a translate se indulhasson el rajta.
-        print(f"HIBA: {args.input} gépi hang-átirat (.asr), nem fordítási forrás.")
-        print("  A fordítás a valódi feliratból készül; az átirat a `register` parancshoz való.")
+    if config.is_machine_path(args.input):
+        # A hangsáv gépi átirata (addons/audio-asr) és a beégetett felirat
+        # OCR-kinyerése (addons/hardsub-ocr) támpont a regiszterhez, nem
+        # fordítási forrás: félrehallásokkal / félreolvasásokkal, beszélők
+        # nélkül. Itt megállunk, hogy a translate se indulhasson el rajta.
+        if config.is_ocr_path(args.input):
+            print(f"HIBA: {args.input} gépi OCR-kinyerés (.ocr), nem fordítási forrás.")
+            print("  A fordítás a valódi feliratból készül; a kinyert szöveg a `register` parancshoz való.")
+        else:
+            print(f"HIBA: {args.input} gépi hang-átirat (.asr), nem fordítási forrás.")
+            print("  A fordítás a valódi feliratból készül; az átirat a `register` parancshoz való.")
         sys.exit(1)
 
     split_srt(args.input, args.block_size, args.clean)

@@ -88,11 +88,11 @@
 #      Részletek: addons\audio-asr\README.md
 
 # 0/g. (HA AZ EREDETI NYELVŰ FELIRAT A KÉPBE VAN ÉGETVE, külön sáv nélkül) OCR-rel
-#      kiolvasva, az angol SRT cue-ihoz igazítva (üres cue: —) — a REGISZTERHEZ, nem
+#      kiolvasva, az angol SRT cue-ihoz igazítva (üres cue: —; kimenet: input\<név>.<kód>.ocr.srt) — a REGISZTERHEZ, nem
 #      fordítási forrásnak (ffmpeg kell; macOS: beépített Vision, máshol: pip install -e ".[ocr]"):
 # py addons\hardsub-ocr\ocr_subs.py "Season 01\*.mp4"                 # kínai (alap)
 # py addons\hardsub-ocr\ocr_subs.py "Season 01\*.mkv" --lang kor      # más nyelv
-# py subtr.py register "input\Sorozat - S01E01.chi.srt"
+# py subtr.py register "input\Sorozat - S01E01.chi.ocr.srt"
 #      A felirat-sáv helye: HARDSUB_OCR_TOP / HARDSUB_OCR_BOTTOM a .env-ben.
 #      Részletek: addons\hardsub-ocr\README.md
 

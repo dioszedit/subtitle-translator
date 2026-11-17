@@ -52,8 +52,9 @@ Az epizód azonosítójából (pl. `Sorozat - S01E01`) sorban ellenőrizd:
   forrásnak nem (a `split` meg is áll rajta).
   Ha az eredeti nyelvű felirat a KÉPBE van égetve (hardsub), a hangnál
   megbízhatóbb forrás az OCR: `py addons\hardsub-ocr\ocr_subs.py "Season XX\<X>.mp4"`
-  (`--lang <kód>`, alap `chi`; kimenet: `input\<X>.<kód>.srt`, az angol cue-ihoz
-  igazítva, üres cue-nál `—`), és a `register` ezen fusson. Ez sem fordítási forrás.
+  (`--lang <kód>`, alap `chi`; kimenet: `input\<X>.<kód>.ocr.srt`, az angol cue-ihoz
+  igazítva, üres cue-nál `—`), és a `register` ezen fusson. Ez sem fordítási forrás
+  (a `split` meg is áll rajta).
 - **Translate**: kérdezd meg (ha nem mondta), melyik fordítóval:
   `py subtr.py translate --provider claude`, `--provider gemini` (olcsóbb),
   `--provider codex`, `--provider grok` vagy `--provider antigravity` (Gemini

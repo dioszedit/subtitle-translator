@@ -16,7 +16,10 @@ Mire jó?
   névalakokhoz jó, a fordításhoz nem.
 
 Kimenet:
-  `input/Sorozat - S01E01.chi.srt` (a nyelvkód a --lang kapcsolóból)
+  `input/Sorozat - S01E01.chi.ocr.srt` (a nyelvkód a --lang kapcsolóból)
+  Az `.ocr` tag jelzi, hogy gépi kinyerés. A pipeline a nyelvet így is
+  felismeri (`chi`), a `split` megáll rajta, a `register` pedig figyelmezteti
+  a modellt a félreolvasásokra.
 
 Használat:
   # a forrás SRT a videó nevéből: input/Sorozat - S01E01.eng.srt (vagy más forrásnyelv)
@@ -76,7 +79,7 @@ from embed_subs import load_dotenv  # noqa: E402
 from extract_subs import (  # noqa: E402
     Fail, expand_patterns, ffprobe_json, find_tool, normalize_lang, require_tools,
     run_tool, stem_without_lang, utf8_console)
-from subtr.config import SOURCE_LANGS  # noqa: E402
+from subtr.config import OCR_SUFFIX, SOURCE_LANGS  # noqa: E402  (az `.ocr` jelölés egyetlen helye)
 from subtr.srt import parse_sections, write_srt  # noqa: E402
 
 import engines  # noqa: E402
@@ -230,8 +233,8 @@ def output_sections(cues, texts):
 # ── fájlnevek ──────────────────────────────────────────────────────────────
 
 def out_path(video, lang, out_dir):
-    """`Season 01/X - S01E01.mp4` → `<out_dir>/X - S01E01.<lang>.srt`."""
-    return Path(out_dir) / f"{stem_without_lang(video)}.{lang}.srt"
+    """`Season 01/X - S01E01.mp4` → `<out_dir>/X - S01E01.<lang>.ocr.srt`."""
+    return Path(out_dir) / f"{stem_without_lang(video)}.{lang}{OCR_SUFFIX}.srt"
 
 
 def find_ref(video, lang, ref_dir):
@@ -429,7 +432,7 @@ def engine_name(value):
 SETTINGS = {
     "lang":           ("HARDSUB_OCR_LANG", DEFAULT_LANG, str,
                        "a beégetett felirat nyelve (chi, kor, jpn, tha, vie, eng…) — a kimenet "
-                       "nevében is ez lesz", None),
+                       "nevében is ez lesz (<név>.<lang>.ocr.srt)", None),
     "engine":         ("HARDSUB_OCR_ENGINE", "auto", engine_name,
                        "OCR-motor: auto (macOS: vision, máshol rapidocr), vision, rapidocr", None),
     "engine_lang":    ("HARDSUB_OCR_ENGINE_LANG", "", str,
