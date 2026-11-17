@@ -166,6 +166,11 @@
       "en": "Captain",
       "hu": "kapitány",
       "context": "katonai / őrségi rang; név + kapitány. 1 sorozat; Csongor."
+    },
+    {
+      "en": "Honey",
+      "hu": "Drágám",
+      "context": "相公 / 娘子 — házastársak egymás közt"
     }
   ],
   "place_names": [],
@@ -244,6 +249,11 @@
       "en": "Wish Tree",
       "hu": "Kívánságfa",
       "context": "许愿树 — a fa, amelyre kívánságokat (szalagot, cédulát) akasztanak"
+    },
+    {
+      "en": "jade pendant",
+      "hu": "jádemedál",
+      "context": "玉佩 — sosem jádefüggő; magical pendant = varázsmedál"
     }
   ],
   "phrases": [

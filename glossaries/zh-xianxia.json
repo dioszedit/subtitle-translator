@@ -664,6 +664,46 @@
       "en": "vital energy",
       "hu": "életerő",
       "context": "元气 / 精气 — a test életereje (vérzéssel, kiszívással elvész)"
+    },
+    {
+      "en": "barrier",
+      "hu": "védőfal",
+      "context": "结界 — sosem védőpajzs"
+    },
+    {
+      "en": "demon souls",
+      "hu": "démonlelkek",
+      "context": "妖魂"
+    },
+    {
+      "en": "blood sacrifice",
+      "hu": "véráldozat",
+      "context": ""
+    },
+    {
+      "en": "take human form",
+      "hu": "emberi alakot ölt",
+      "context": "化作人形"
+    },
+    {
+      "en": "rabbit demon",
+      "hu": "nyúldémon",
+      "context": "兔妖"
+    },
+    {
+      "en": "mystical spring",
+      "hu": "szellemforrás",
+      "context": "灵泉 — a „mystical” jelzőt következetesen „szellem-” előtaggal (szellemfű, szellemforrás)"
+    },
+    {
+      "en": "mindless husk",
+      "hu": "üres porhüvely",
+      "context": "行尸 — turn mindless = üres porhüvely lesz; nem esztelen báb"
+    },
+    {
+      "en": "dark energy",
+      "hu": "sötét energia",
+      "context": "煞气 — baljós, sötét erő"
     }
   ],
   "phrases": [

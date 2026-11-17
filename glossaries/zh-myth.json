@@ -7,7 +7,13 @@
     "version": "1.0"
   },
   "honorifics": [],
-  "place_names": [],
+  "place_names": [
+    {
+      "en": "Peach Blossom Paradise",
+      "hu": "Barackvirág-paradicsom",
+      "context": "桃源 / 桃花源 — ragozva: a Barackvirág-paradicsomban, -ba, -ból"
+    }
+  ],
   "character_names": [
     {
       "en": "Jade Emperor",
@@ -95,6 +101,16 @@
       "en": "thread of fate",
       "hu": "sorsfonal",
       "context": "姻缘线 / 红线 — a szerelmeseket összekötő sorsfonal"
+    },
+    {
+      "en": "flood dragon",
+      "hu": "vízisárkány",
+      "context": "蛟"
+    },
+    {
+      "en": "true dragon",
+      "hu": "igazi sárkány",
+      "context": "真龙"
     }
   ],
   "phrases": []
