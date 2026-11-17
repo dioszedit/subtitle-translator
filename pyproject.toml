@@ -27,6 +27,10 @@ dependencies = [
     "pydantic",
 ]
 
+[project.optional-dependencies]
+# addons/hardsub-ocr: OCR-motor Windowson/Linuxon (macOS-en a beépített Vision fut)
+ocr = ["rapidocr>=3", "onnxruntime"]
+
 [project.urls]
 Repository = "https://github.com/dioszedit/subtitle-translator"
 Issues = "https://github.com/dioszedit/subtitle-translator/issues"

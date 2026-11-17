@@ -13,6 +13,7 @@ Mindegyiknek saját README-je van a részletekkel.
 | [`vtt2srt/`](vtt2srt/README.md) | **Csak ha van kész fordítás** `.vtt`-ben más forrásból | WebVTT → SRT (fejléc/NOTE/STYLE eldobása, újraszámozás, `.`→`,`), hogy a `glossary`/`register`/`verify`/`review` dolgozni tudjon vele |
 | [`mkv-subs/`](mkv-subs/README.md) | Ha a felirat a videóban van, vagy kell az **eredeti nyelvű sáv a regiszterhez**; a végén, ha a kész felirat az **mkv-ba** kell | Feliratsávok listázása és kicsomagolása **nyelvcímke szerint** (a sávsorrend fájlonként változik); `embed_subs.py`: a kész felirat beágyazása — bármilyen nyelvű, a nyelv a fájlnévből (opcionálisan alapértelmezettként) — `ffmpeg` kell hozzá |
 | [`audio-asr/`](audio-asr/README.md) | Ha a hang koreai, japán, kínai…, de **nincs eredeti nyelvű feliratsáv** | A hangsáv gépi átirata Whisperrel (`input/asr/…kor.asr.srt`) — regiszter-támpontnak, nem fordítási forrásnak; `faster-whisper` és `ffmpeg` kell hozzá |
+| [`hardsub-ocr/`](hardsub-ocr/README.md) | Ha az eredeti nyelvű (pl. kínai) felirat **a képbe van égetve**, és nincs külön sávja | OCR-rel kiolvassa, és a forrás SRT cue-ihoz igazítja (`input/…chi.srt`, üres cue-nál `—`) — regiszter-támpontnak, nem fordítási forrásnak; macOS-en a beépített Vision, máshol RapidOCR (`pip install -e ".[ocr]"`), `ffmpeg` kell hozzá |
 | [`hardsub-cover/`](hardsub-cover/README.md) | Epizódonként a végén, **csak ha a videóban beégetett idegen felirat van** | A kész `.hun.srt`-ből fekete, szöveghez igazodó dobozos ASS-t készít a beégetett felirat fölé; `--mux`-szal alapértelmezett sávként az `.mkv`-ba teszi |
 
 ```bash
@@ -33,6 +34,11 @@ python addons/mkv-subs/extract_subs.py "Season 01"/*.mkv --lang jpn --out-dir in
 python addons/audio-asr/transcribe.py "Season 01"/*.mkv --lang kor
 python subtr.py register "input/asr/Sorozat - S01E01.kor.asr.srt"
 
+# 0/g — BEÉGETETT eredeti nyelvű felirat: OCR a regiszterhez, az angol cue-ihoz igazítva
+python addons/hardsub-ocr/ocr_subs.py "Season 01"/*.mp4                      # kínai (alap), forrás: input/…eng.srt
+python addons/hardsub-ocr/ocr_subs.py "Season 01"/*.mkv --lang kor           # koreai
+python subtr.py register "input/Sorozat - S01E01.chi.srt"
+
 # utómunka után — a kész felirat beágyazása az mkv-ba (opcionális; a nyelv a fájlnévből)
 python addons/mkv-subs/embed_subs.py "Season 01/Sorozat - S01E01.hun.srt" --dry-run        # mi történne (nem ír semmit)
 python addons/mkv-subs/embed_subs.py "Season 01"/*.hun.srt --default                       # magyar, „Magyar”, alapértelmezett
@@ -48,8 +54,9 @@ python addons/mkv-subs/embed_subs.py "Season 01"/*.hun.srt                      
 
 ## Függőségek
 
-Mindegyik add-on csak a Python standard libet használja — nem kell
-telepíteni semmit. Két külső feltétel van: az `mkv-subs` és a `hardsub-cover --mux`
+Az add-onok a Python standard libet használják — nem kell telepíteni
+semmit; kivétel az `audio-asr` (`faster-whisper`) és a `hardsub-ocr` RapidOCR-motorja
+(`pip install -e ".[ocr]"`; macOS-en a beépített Vision miatt nem kell). Két külső feltétel van: az `mkv-subs`, a `hardsub-ocr` és a `hardsub-cover --mux`
 `ffmpeg`-et hív (a `hardsub-cover` `ffprobe`-ot is; a PATH-on kell lenniük), a `tmdb-init` pedig egy ingyenes TMDB
 API-kulcsot vár a `.env`-ben (`TMDB_API_KEY`, részletek a saját READMÉ-jében).
 

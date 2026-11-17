@@ -23,6 +23,7 @@ FILE_LIST_SCRIPTS = [
     "mkv-subs/extract_subs.py",
     "mkv-subs/embed_subs.py",
     "hardsub-cover/cover_ass.py",
+    "hardsub-ocr/ocr_subs.py",
     "vtt2srt/vtt2srt.py",
 ]
 
@@ -48,7 +49,8 @@ def load(rel):
 
 
 @pytest.mark.parametrize("rel", ["audio-asr/transcribe.py", "mkv-subs/extract_subs.py",
-                                 "mkv-subs/embed_subs.py", "vtt2srt/vtt2srt.py"])
+                                 "mkv-subs/embed_subs.py", "vtt2srt/vtt2srt.py",
+                                 "hardsub-ocr/ocr_subs.py"])
 def test_addons_use_the_one_expand_patterns(rel):
     assert from_subtr(load(rel).expand_patterns)
 

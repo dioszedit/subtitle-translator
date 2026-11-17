@@ -92,6 +92,17 @@ python addons\audio-asr\transcribe.py "Season 01\Sorozat - S01E01.mkv" --lang ko
 python subtr.py register "input\asr\Sorozat - S01E01.kor.asr.srt"
 ```
 
+**Ha az eredeti nyelvű felirat a képbe van égetve** (nincs külön sávja), a
+`hardsub-ocr` add-on OCR-rel kiolvassa, és az angol SRT cue-ihoz igazítja
+(ugyanazok a sorszámok és időbélyegek, üres cue-nál `—`). A nyelv tetszőleges
+(`--lang`, alap: `chi`). Ez is csak támpont, nem fordítási forrás.
+Részletek: [`addons/hardsub-ocr/README.md`](../addons/hardsub-ocr/README.md).
+
+```powershell
+python addons\hardsub-ocr\ocr_subs.py "Season 01\Sorozat - S01E01.mp4"
+python subtr.py register "input\Sorozat - S01E01.chi.srt"
+```
+
 Két nyeresége van, és a második legalább annyit ér, mint az első:
 
 1. **A formalitás-alak közvetlen bizonyíték** — nem következtetés.

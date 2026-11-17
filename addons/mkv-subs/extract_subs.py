@@ -106,15 +106,16 @@ def require_tools():
         sys.exit(f"HIBA: {exc} (macOS: brew install ffmpeg; Windows: winget install ffmpeg)")
 
 
-def run_tool(cmd):
-    """ffmpeg / ffprobe futtatása; a kimenet UTF-8-ként olvasva.
+def run_tool(cmd, input=None):
+    """ffmpeg / ffprobe (vagy más segédprogram) futtatása; a kimenet UTF-8-ként olvasva.
 
     Az ffmpeg az útvonalakat és a sávcímeket UTF-8-ban írja ki (koreai, kínai,
     ékezetes nevek); Windowson a konzol kódlapjával olvasva maga a hívás hasalna
     el. Az `errors="replace"` miatt egy hibás bájt sem állítja meg a köteget.
+    input: a program bemenete (szöveg), pl. a hardsub-ocr Vision-segédjének képlistája.
     """
     return subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
-                          errors="replace")
+                          errors="replace", input=input)
 
 
 def ffprobe_json(path, entries, select=None, tool=None):
