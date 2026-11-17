@@ -36,15 +36,17 @@ A `*.mp4` mintát a script maga is kibontja (subtr.config.expand_patterns), így
 Windowson (cmd, PowerShell) is működik.
 
 Algoritmus:
-  1. ffmpeg a videóból kivágja a felirat-sávot (alapból a kép alsó ~15%-a),
-     másodpercenként 4 képkockát (--fps);
-  2. cue-nként 1–2 mintavétel (a cue 35%-ánál és 70%-ánál, rövid cue-nál a
-     felénél) → OCR;
-  3. szűrés: reklám (kulcsszavak, URL-ek; nem latin írású nyelvnél minden
-     latin betűs/számos sor), és csak a nyelv írásrendszerét tartalmazó sorok;
+  1. cue-nként 1–2 mintavétel (a cue 35%-ánál és 70%-ánál, rövid cue-nál a
+     felénél; a képkocka-rács --fps, alapból 4/mp); ffmpeg CSAK ezeket a
+     képkockákat vágja ki a felirat-sávból (alapból a kép alsó ~15%-a) → OCR;
+  2. ha a motor a képek többségét nem tudja beolvasni, a rész hibával megáll
+     (nem ír csupa `—` kimenetet);
+  3. szűrés: reklám (kulcsszavak, URL-ek; nem latin írású nyelvnél a latin
+     betűs sor és a hosszú számsor — telefonszám, kód), és csak a nyelv
+     írásrendszerét tartalmazó sorok;
   4. a legjobb jelölt (a legkisebb soronkénti megbízhatóság, aztán a hossz);
-  5. pótló kör az üresen maradt cue-kra: a cue több képkockája (max 8),
-     nyersen ÉS binarizálva (fehér felirat világos háttér előtt), csak
+  5. pótló kör az üresen maradt cue-kra: a cue több képkockája (max 8; ezeket
+     egy második ffmpeg-menet vágja ki), nyersen ÉS binarizálva (fehér felirat világos háttér előtt), csak
      elég biztos (--retry-min-conf) találat számít.
 
 OCR-motor (--engine): `auto` = macOS-en a beépített Vision (nincs mit
@@ -55,7 +57,7 @@ Beállítások (elsőbbségi sorrend): kapcsoló > HARDSUB_OCR_* a .env-ben /
 környezetben > alapérték. A .env-et a munkakönyvtárból (vagy fölötte)
 keresi, mint a pipeline többi része. Lásd: .env.example, README.md.
 
-Függőség: `ffmpeg` + `ffprobe` a PATH-on, a program `subtr` mappája és a
+Függőség: `ffmpeg` (7.0 vagy újabb) + `ffprobe` a PATH-on, a program `subtr` mappája és a
 `mkv-subs` add-on (a programmal együtt jönnek), és az OCR-motor.
 
 Kilépési kód: 0 siker (a már kész részek kihagyása is az), 1 hiba.
@@ -115,9 +117,10 @@ LANG_SCRIPT = {
     "may": "latin",
 }
 
-# Nem latin írású feliratban a latin betű vagy szám szinte mindig a képre
-# tett reklám (weboldal, kód, telefonszám) — a teljes és félszélességű alak is.
-LATIN_OR_DIGIT = r"[A-Za-z0-9０-９Ａ-Ｚａ-ｚ]"
+# Nem latin írású feliratban a latin betű szinte mindig a képre tett reklám
+# (weboldal, kód) — a teljes és félszélességű alak is. A szám önmagában nem
+# gyanús („3天后”, „10억”), csak a hosszú számsor (telefonszám, QQ-szám, kód).
+LATIN_OR_LONG_NUMBER = r"[A-Za-zＡ-Ｚａ-ｚ]|[0-9０-９]{5,}"
 
 # Minden nyelvre: webcím-minták.
 AD_COMMON = [r"\.(?:com|net|cc|tv|vip|top|xyz|io)\b", r"www\.", r"https?://"]
@@ -125,7 +128,7 @@ AD_COMMON = [r"\.(?:com|net|cc|tv|vip|top|xyz|io)\b", r"www\.", r"https?://"]
 # Nyelvenkénti reklám-kulcsszavak (szerencsejáték-/fogadási hirdetések, ezek
 # kerülnek a kalóz-kiadások képére). Bővítés: HARDSUB_OCR_AD_EXTRA / --ad-extra.
 AD_WORDS = {
-    "chi": ["官方", "投注", "娱乐", "提现", "平台", "CSGO", "天下会", "百家乐", "联盟",
+    "chi": ["官方", "扫码", "投注", "娱乐", "提现", "平台", "CSGO", "天下会", "百家乐", "联盟",
             "世界杯", "锦标赛", "足球", "篮球", "彩票", "博彩"],
 }
 
@@ -150,7 +153,7 @@ class LineFilter:
         self.ads = ad_pattern(lang, ad_extra)
         if drop_latin is None:   # auto: csak nem latin írású nyelvnél
             drop_latin = script_of(lang) != "latin"
-        self.latin = re.compile(LATIN_OR_DIGIT) if drop_latin else None
+        self.latin = re.compile(LATIN_OR_LONG_NUMBER) if drop_latin else None
 
     def keep(self, text):
         text = " ".join(text.split())
@@ -307,15 +310,53 @@ def video_size(video):
     return int(streams[0]["width"]), int(streams[0]["height"])
 
 
-def extract_frames(video, frames_dir, fps, y, h, duration):
-    """A felirat-sáv képkockái PNG-ként: frames_dir/000000.png… (0. kocka = 0 mp)."""
-    cmd = [find_tool("ffmpeg"), "-nostdin", "-v", "error", "-i", str(video),
-           "-t", f"{duration:.3f}", "-an", "-sn",
-           "-vf", f"fps={fps},crop=iw:{h}:0:{y}", "-start_number", "0",
-           str(Path(frames_dir) / "%06d.png")]
+def select_expr(numbers):
+    """Az ffmpeg `select` kifejezése a megadott képkocka-sorszámokra; az egymást
+    követő sorszámok egy `between`-be olvadnak (a pótló kör kockái ilyenek)."""
+    nums = sorted(set(numbers))
+    parts, i = [], 0
+    while i < len(nums):
+        j = i
+        while j + 1 < len(nums) and nums[j + 1] == nums[j] + 1:
+            j += 1
+        parts.append(f"eq(n\\,{nums[i]})" if i == j else f"between(n\\,{nums[i]}\\,{nums[j]})")
+        i = j + 1
+    return "+".join(parts)
+
+
+def extract_frames(video, frames_dir, fps, y, h, numbers):
+    """A felirat-sáv megadott sorszámú képkockái PNG-ként: frames_dir/<n>.png,
+    ahol az n. kocka az fps-rács n. kockája (0. = a videó eleje). Csak ezeket
+    írja ki — egy egész rész összes kockája gigabájtnyi PNG lenne a temp-ben.
+
+    A szűrőlánc fájlból megy (`-/vf`, ffmpeg 7+): sok ezer sorszám a Windows
+    parancssor-korlátjába (32K) nem férne bele."""
+    nums = sorted(set(n for n in numbers if n >= 0))
+    if not nums:
+        return
+    frames_dir = Path(frames_dir)
+    stage = frames_dir / "_stage"
+    stage.mkdir(exist_ok=True)
+    script = frames_dir / "_select.txt"
+    script.write_text(f"fps={fps},select='{select_expr(nums)}',crop=iw:{h}:0:{y}",
+                      encoding="ascii")
+    duration = (nums[-1] + 1) / fps + 1.0
+    cmd = [find_tool("ffmpeg"), "-nostdin", "-v", "error", "-y", "-i", str(video),
+           "-t", f"{duration:.3f}", "-an", "-sn", "-/vf", str(script),
+           "-fps_mode", "passthrough", "-start_number", "0", str(stage / "%06d.png")]
     r = run_tool(cmd)
     if r.returncode:
-        raise Fail(f"ffmpeg hiba a képkockák kivágásánál: {(r.stderr or '').strip()[-300:]}")
+        err = (r.stderr or "").strip()
+        if "/vf" in err:
+            err += " — ffmpeg 7.0 vagy újabb kell"
+        raise Fail(f"ffmpeg hiba a képkockák kivágásánál: {err[-300:]}")
+    # A kimenet sorban számozott (a k. kiírt kocka a k. kért sorszám); ha a
+    # videó hamarabb véget ér, a végéről hiányoznak kockák — azok kimaradnak.
+    for k, n in enumerate(nums):
+        src = stage / f"{k:06d}.png"
+        if not src.exists():
+            break
+        os.replace(src, frame_file(frames_dir, n))
 
 
 def frame_file(frames_dir, n):
@@ -349,21 +390,36 @@ def binarize(paths, out_dir, threshold):
 
 # ── igazítás (motorfüggetlen mag) ──────────────────────────────────────────
 
+# Ha a motor a képek ennél nagyobb részét nem tudja beolvasni, az nem „nincs
+# felirat”, hanem motorhiba: a rész megáll, nem ír csupa `—` kimenetet.
+MAX_UNREADABLE = 0.5
+
+
 class Recognizer:
     """Az OCR-motor köré: képenként egyszer olvas (a pótló kör újrahasznosítja
-    a fő kör eredményeit), és a hiányzó képkockát (a videó vége után) kihagyja."""
+    a fő kör eredményeit), a hiányzó képkockát (a videó vége után) kihagyja,
+    és számolja, hány képet nem tudott a motor beolvasni (None)."""
 
     def __init__(self, engine, line_filter, progress=None):
         self.engine = engine
         self.filter = line_filter
         self.progress = progress
+        self.reset()
+
+    def reset(self):
+        """Új rész előtt: az előző rész képkockái a temp-mappával együtt törlődtek."""
         self.cache = {}
+        self.read = 0
+        self.unreadable = 0
 
     def run(self, paths):
         todo = [p for p in dict.fromkeys(paths) if p not in self.cache and Path(p).exists()]
         for k in range(0, len(todo), BATCH):
             chunk = todo[k:k + BATCH]
             for p, lines in zip(chunk, self.engine.recognize(chunk)):
+                self.read += 1
+                if lines is None:
+                    self.unreadable += 1
                 self.cache[p] = candidate(self.filter(lines))
             if self.progress:
                 self.progress(min(k + BATCH, len(todo)), len(todo))
@@ -371,16 +427,30 @@ class Recognizer:
     def get(self, path):
         return self.cache.get(path)
 
+    def check(self):
+        """Fail, ha a képek többsége olvashatatlan volt — a motor romlott el."""
+        if self.read and self.unreadable / self.read > MAX_UNREADABLE:
+            last = getattr(self.engine, "last_error", None)
+            raise Fail(f"az OCR-motor a {self.read} képkockából {self.unreadable}-t nem tudott "
+                       f"beolvasni{f' (utolsó hiba: {last})' if last else ''} — kimenet nem "
+                       "készült; ellenőrizd a motor telepítését (--engine)")
 
-def align(cues, frames_dir, recognizer, cfg, binarizer=None, log=print):
+
+def align(cues, frames_dir, recognizer, cfg, binarizer=None, extractor=None, log=print):
     """Cue-nként a kinyert szöveg. -> (szövegek, statisztika).
 
     binarizer(paths) -> {eredeti: binarizált}; None = a pótló kör csak nyers képpel.
+    extractor(sorszámok): kivágja ezeket a képkockákat a frames_dir-be; None =
+    a képkockák már ott vannak (tesztek).
+    A végén Fail, ha a motor a képek többségét nem tudta beolvasni.
     """
     fps = cfg["fps"]
-    plan = [[frame_file(frames_dir, n) for n in sample_frames(c["start"], c["end"], fps)]
-            for c in cues]
-    log(f"  OCR: {len({p for ps in plan for p in ps})} képkocka ({len(cues)} cue)")
+    nums = [sample_frames(c["start"], c["end"], fps) for c in cues]
+    done = {n for ns in nums for n in ns}
+    if extractor:
+        extractor(done)
+    plan = [[frame_file(frames_dir, n) for n in ns] for ns in nums]
+    log(f"  OCR: {len(done)} képkocka ({len(cues)} cue)")
     recognizer.run([p for ps in plan for p in ps])
     texts = []
     for ps in plan:
@@ -390,9 +460,11 @@ def align(cues, frames_dir, recognizer, cfg, binarizer=None, log=print):
     empty = [i for i, t in enumerate(texts) if not t]
     stats = {"cues": len(cues), "first_empty": len(empty), "retried": 0}
     if empty and cfg["retry_frames"] > 0:
-        rplan = {i: [frame_file(frames_dir, n) for n in
-                     retry_frames(cues[i]["start"], cues[i]["end"], fps, cfg["retry_frames"])]
+        rnums = {i: retry_frames(cues[i]["start"], cues[i]["end"], fps, cfg["retry_frames"])
                  for i in empty}
+        if extractor:
+            extractor({n for ns in rnums.values() for n in ns} - done)
+        rplan = {i: [frame_file(frames_dir, n) for n in ns] for i, ns in rnums.items()}
         raw = [p for ps in rplan.values() for p in ps if p.exists()]
         bins = binarizer(raw) if binarizer else {}
         log(f"  pótló kör: {len(empty)} üres cue, {len(raw)} képkocka nyersen"
@@ -404,6 +476,7 @@ def align(cues, frames_dir, recognizer, cfg, binarizer=None, log=print):
             if text:
                 texts[i] = text
                 stats["retried"] += 1
+    recognizer.check()
     stats["empty"] = sum(1 for t in texts if not t)
     return texts, stats
 
@@ -454,8 +527,8 @@ SETTINGS = {
     "ad_extra":       ("HARDSUB_OCR_AD_EXTRA", "", str,
                        "további reklám-minta (regex, pl. 'abc|xyz'), a nyelv alaplistája mellé", None),
     "drop_latin":     ("HARDSUB_OCR_DROP_LATIN", "auto", parse_bool_auto,
-                       "latin betűs/számos sor eldobása reklámként: auto (csak nem latin írású "
-                       "nyelvnél), 1, 0", None),
+                       "latin betűs / hosszú számsoros sor eldobása reklámként: auto (csak nem "
+                       "latin írású nyelvnél), 1, 0", None),
 }
 
 
@@ -499,15 +572,18 @@ def process(video, ref, dest, recognizer, cfg):
     cues = read_cues(ref)
     width, height = video_size(video)
     y, h = band_pixels(cfg["top"], cfg["bottom"], height)
-    duration = max(c["end"] for c in cues) + 1.0
     print(f"  forrás: {ref} ({len(cues)} cue); sáv: {width}x{h} px, y={y}", flush=True)
     with tempfile.TemporaryDirectory(prefix="hardsub-ocr-") as tmp:
         frames = Path(tmp) / "frames"
         frames.mkdir()
-        extract_frames(video, frames, cfg["fps"], y, h, duration)
-        texts, stats = align(cues, frames, recognizer, cfg,
-                             binarizer=lambda ps: binarize(ps, tmp, cfg["bin_threshold"]))
-        recognizer.cache.clear()   # a képkockák a mappával együtt törlődnek
+        recognizer.reset()
+        try:
+            texts, stats = align(
+                cues, frames, recognizer, cfg,
+                binarizer=lambda ps: binarize(ps, tmp, cfg["bin_threshold"]),
+                extractor=lambda ns: extract_frames(video, frames, cfg["fps"], y, h, ns))
+        finally:
+            recognizer.reset()   # a képkockák a mappával együtt törlődnek
     dest.parent.mkdir(parents=True, exist_ok=True)
     part = dest.with_name(dest.name + ".part")
     try:
@@ -564,29 +640,28 @@ def main(argv=None):
             sys.stderr.write(f"HIBA: nincs ilyen fájl: {video}\n")
             errors += 1
             continue
-        print(f"\n{video}")
         if args.ref:
             ref, err = Path(args.ref), None if Path(args.ref).is_file() else f"nincs ilyen fájl: {args.ref}"
         else:
             ref, err = find_ref(video, lang, args.ref_dir)
         if err:
-            sys.stderr.write(f"  HIBA: {err}\n")
+            sys.stderr.write(f"\n{video}\n  HIBA: {err}\n")
             errors += 1
             continue
         dest = out_path(video, lang, args.out_dir)
         if dest.resolve() == ref.resolve():
-            sys.stderr.write(f"  HIBA: a kimenet a forrás SRT-re írna ({dest}) — más --lang "
+            sys.stderr.write(f"\n{video}\n  HIBA: a kimenet a forrás SRT-re írna ({dest}) — más --lang "
                              "vagy --out-dir kell\n")
             errors += 1
             continue
         if dest in targets:
-            sys.stderr.write(f"  HIBA: ugyanarra a célra írna, mint {targets[dest]}: {dest} "
+            sys.stderr.write(f"\n{video}\n  HIBA: ugyanarra a célra írna, mint {targets[dest]}: {dest} "
                              "— futtasd külön, más --out-dir mappával\n")
             errors += 1
             continue
         targets[dest] = video
         if dest.exists() and not args.force:
-            print(f"  KÉSZ, kihagyva: {dest} (--force felülírja)")
+            print(f"\n{video}\n  KÉSZ, kihagyva: {dest} (--force felülírja)")
             continue
         jobs.append((video, ref, dest))
 

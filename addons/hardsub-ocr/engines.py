@@ -22,6 +22,7 @@ import hashlib
 import json
 import os
 import sys
+import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -123,7 +124,11 @@ def build_vision_helper():
     if exe.exists():
         return exe
     exe.parent.mkdir(parents=True, exist_ok=True)
-    tmp = exe.with_name(exe.name + ".part")
+    # Egyedi ideiglenes név: két egyszerre induló első futás ne írjon egymás
+    # félkész fájljába; a kész programot os.replace teszi a helyére.
+    fd, tmp = tempfile.mkstemp(prefix=exe.name + ".", suffix=".part", dir=exe.parent)
+    os.close(fd)
+    tmp = Path(tmp)
     print(f"A Vision-segéd fordítása (egyszeri, ~1 perc): {exe}", flush=True)
     # xcrun-on át: az állítja be a macOS SDK-t (a fordító közvetlen hívása nélküle
     # „unable to load standard library” hibával áll le).
@@ -153,17 +158,18 @@ class VisionEngine:
     def __init__(self, lang, engine_lang=None):
         if sys.platform != "darwin":
             raise EngineError("a Vision-motor csak macOS-en fut — válaszd a --engine rapidocr motort")
-        codes = engine_lang or VISION_LANGS.get(lang)
+        codes = [c.strip() for c in (engine_lang or VISION_LANGS.get(lang) or "").split(",")]
+        codes = [c for c in codes if c]
         if not codes:
             raise EngineError(f"a Vision-motorhoz nincs nyelvleképezés: {lang} — add meg a "
                               "Vision-kódot (HARDSUB_OCR_ENGINE_LANG / --engine-lang, pl. en-US)")
         self.exe = build_vision_helper()
         supported = self.supported()
-        missing = [c for c in codes.split(",") if c not in supported]
+        missing = [c for c in codes if c not in supported]
         if missing:
             raise EngineError(f"ezen a gépen a Vision nem ismeri: {', '.join(missing)} "
                               f"(ismert: {', '.join(supported)}) — próbáld a --engine rapidocr motort")
-        self.lang = codes
+        self.lang = ",".join(codes)
 
     def supported(self):
         r = _run([str(self.exe), "--supported"])
@@ -203,9 +209,10 @@ class RapidOcrEngine:
     az csak a kínai (+angol) modellt ismeri.
     """
     name = "rapidocr"
+    last_error = None   # az utolsó olvasási hiba (a Recognizer hibaüzenetéhez)
 
     def __init__(self, lang, engine_lang=None):
-        code = engine_lang or RAPID_LANGS.get(lang)
+        code = (engine_lang or "").strip() or RAPID_LANGS.get(lang)
         if not code:
             raise EngineError(f"a RapidOCR-motorhoz nincs modell ehhez a nyelvhez: {lang}")
         try:
@@ -242,7 +249,11 @@ class RapidOcrEngine:
             except Exception as exc:  # noqa: BLE001 — nincs ilyen modell ebben a verzióban
                 last = exc
         else:
-            raise EngineError(f"a RapidOCR-hez nincs „{code}” felismerő modell ({last})")
+            # Nem csak hiányzó modell lehet: első futáskor a modell letöltése is
+            # itt bukik el (nincs internet) — az utolsó hiba szövege dönti el.
+            raise EngineError(f"a RapidOCR „{code}” felismerő modellje nem indult el (utolsó "
+                              f"hiba: {last}) — vagy nincs ilyen modell, vagy az első "
+                              "futáskori letöltés nem sikerült (internet kell hozzá)")
         self._new = True
 
     def _one(self, path):
@@ -258,6 +269,7 @@ class RapidOcrEngine:
         for p in paths:
             try:
                 out.append(self._one(p))
-            except Exception:  # noqa: BLE001 — egy olvashatatlan kép ne állítsa le a részt
+            except Exception as exc:  # noqa: BLE001 — egy olvashatatlan kép ne állítsa le a részt
+                self.last_error = f"{type(exc).__name__}: {exc}"[:200]
                 out.append(None)
         return out

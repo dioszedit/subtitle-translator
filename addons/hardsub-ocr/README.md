@@ -34,8 +34,8 @@ Ha a beégetett feliratot a kész magyar felirattal **takarni** is akarod, az a
 
 ## Telepítés
 
-Kell az **ffmpeg** (a `mkv-subs` add-onhoz is kell): macOS-en
-`brew install ffmpeg`, Windowson `winget install ffmpeg`. Az add-on a program
+Kell az **ffmpeg**, legalább a 7.0-s változat (a `mkv-subs` add-onhoz is
+kell): macOS-en `brew install ffmpeg`, Windowson `winget install ffmpeg`. Az add-on a program
 `subtr` mappáját és a `mkv-subs` add-ont is használja, ezért a teljes program
 mappájából futtasd, ne külön kimásolva.
 
@@ -107,25 +107,30 @@ Macen, Visionnel kb. 2 perc. A RapidOCR processzoron lassabb (ugyanott kb.
 
 ## Hogyan dolgozik
 
-1. Az ffmpeg a videóból kivágja a **felirat-sávot** (alapból a kép magasságának
-   83,3%–98,6% közti része, ez 1280×720-on a 600–710. pixelsor), másodpercenként
-   4 képkockát (`--fps`). Az arány miatt 1080p-n is ugyanazt a sávot vágja.
-2. Cue-nként 1–2 képkockát olvas: a cue 35%-ánál és 70%-ánál, a 0,8 mp-nél
-   rövidebb cue-nál a felénél.
+1. Cue-nként 1–2 képkockát olvas: a cue 35%-ánál és 70%-ánál, a 0,8 mp-nél
+   rövidebb cue-nál a felénél (a képkocka-rács másodpercenként 4 kocka,
+   `--fps`).
+2. Az ffmpeg a videóból csak **ezeket a képkockákat** vágja ki, és belőlük csak
+   a **felirat-sávot** (alapból a kép magasságának 83,3%–98,6% közti része, ez
+   1280×720-on a 600–710. pixelsor). Az arány miatt 1080p-n is ugyanazt a
+   sávot vágja. Ha az OCR-motor a képek többségét nem tudja beolvasni, a rész
+   hibával megáll — nem ír csupa `—` kimenetet, amit a következő futás késznek
+   hinne.
 3. **Szűrés:**
    - reklám: webcímek (`.com`, `www.`…) és a nyelv kulcsszólistája (kínainál
      fogadási/kaszinó-hirdetések szavai: 官方, 投注, 娱乐, 平台, 百家乐, 世界杯,
      足球, 篮球…), bővíthető: `--ad-extra`;
    - **nem latin írású** nyelvnél (kínai, koreai, japán, thai…) a latin betűs
-     vagy számot tartalmazó sor is reklámnak számít — latin betűs nyelvnél ez
-     magától kikapcsol (`--drop-latin`);
+     sor és a legalább 5 jegyű számsor (telefonszám, QQ-szám, kód) is
+     reklámnak számít; a rövid szám nem (`3天后`, `10억` megmarad). Latin betűs
+     nyelvnél ez magától kikapcsol (`--drop-latin`);
    - csak az a sor marad, amiben van **a nyelv írásrendszeréből** karakter
      (kínainál írásjegy, koreainál hangul, japánnál kana vagy kanji, thainál
      thai írás, latin betűs nyelvnél latin betű).
 4. A képkockák közül a legjobb jelölt nyer: a legnagyobb megbízhatóság (a
    leggyengébb sora szerint), egyenlőnél a hosszabb.
 5. **Pótló kör** az üresen maradt cue-kra: a cue több képkockája (legfeljebb
-   8, egyenletesen elosztva), nyersen és **binarizálva** is (a fehér felirat
+   8, egyenletesen elosztva; ezeket egy második ffmpeg-menet vágja ki), nyersen és **binarizálva** is (a fehér felirat
    feketére, minden más fehérre — így a világos háttér előtti felirat is
    olvasható). Itt csak a legalább 0,5 megbízhatóságú találat számít.
 
@@ -152,7 +157,7 @@ indításkor kiírja, melyik érték honnan jött. Mintát a `.env.example` ad.
 | `--retry-frames` | `HARDSUB_OCR_RETRY_FRAMES` | `8` | a pótló körben cue-nként legfeljebb ennyi képkocka; `0` = nincs pótló kör |
 | `--bin-threshold` | `HARDSUB_OCR_BIN_THRESHOLD` | `215` | a binarizálás küszöbe (0–255) |
 | `--ad-extra` | `HARDSUB_OCR_AD_EXTRA` | – | további reklám-minta (regex, pl. `abc\|xyz`) a nyelv alaplistája mellé |
-| `--drop-latin` | `HARDSUB_OCR_DROP_LATIN` | `auto` | latin betűs/számos sor eldobása: `auto` (csak nem latin írású nyelvnél), `1`, `0` |
+| `--drop-latin` | `HARDSUB_OCR_DROP_LATIN` | `auto` | latin betűs / hosszú számsoros sor eldobása: `auto` (csak nem latin írású nyelvnél), `1`, `0` |
 | `--ref`, `--ref-dir` | – | `input` | a forrás SRT, illetve hol keresse |
 | `--out-dir` | – | `input` | kimeneti mappa |
 | `--force` | – | – | kész kimenet felülírása |
