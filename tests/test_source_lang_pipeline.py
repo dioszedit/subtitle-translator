@@ -6,6 +6,7 @@ nyelvről beszélnek, (2) a review megtalálja a nem angol forrást is, és
 (3) ahol a forrásnyelv jelöli a formalitást, ott a prompt ezt ki is mondja.
 """
 
+import sys
 from pathlib import Path
 
 import pytest
@@ -208,3 +209,43 @@ def test_asr_note_has_one_shared_text():
     from subtr.tasks import glossary_extract as ge
     assert config.ASR_PROMPT_NOTE in register_extract.ASR_NOTE
     assert config.ASR_PROMPT_NOTE in ge.ASR_NOTE
+
+
+# ── a gépi jelölés tisztítás után sem vész el ───────────────────────────────
+
+def test_split_refuses_precleaned_ocr(tmp_path, capsys):
+    """Az `X.chi.ocr.clean.srt` (srt-preclean kimenete) is gépi marad."""
+    from subtr.tasks import split
+    src = tmp_path / "Sorozat - S01E01.chi.ocr.clean.srt"
+    src.write_text("1\n00:00:01,000 --> 00:00:02,000\n你好\n", encoding="utf-8")
+    with pytest.raises(SystemExit) as exc:
+        split.main([str(src)])
+    assert exc.value.code == 1
+    assert "nem fordítási forrás" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("name", ["Sorozat - S01E01.chi.ocr", "Sorozat - S01E01.kor.asr.clean"])
+def test_translate_refuses_machine_blocks(tmp_path, capsys, name):
+    from subtr.tasks import translate
+    blocks = tmp_path / "blocks" / name
+    blocks.mkdir(parents=True)
+    with pytest.raises(SystemExit) as exc:
+        translate.main([str(blocks)])
+    assert exc.value.code == 1
+    assert "nem fordítási forrás" in capsys.readouterr().out
+
+
+def test_preclean_refuses_machine_file(tmp_path, monkeypatch, capsys):
+    import importlib.util
+    addon = Path(__file__).resolve().parent.parent / "addons" / "srt-preclean" / "preclean_srt.py"
+    spec = importlib.util.spec_from_file_location("preclean_srt_guard", addon)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    src = tmp_path / "Sorozat - S01E01.chi.ocr.srt"
+    src.write_text("1\n00:00:01,000 --> 00:00:02,000\n你好\n", encoding="utf-8")
+    monkeypatch.setattr(sys, "argv", ["preclean_srt.py", str(src)])
+    with pytest.raises(SystemExit) as exc:
+        mod.main()
+    assert exc.value.code == 1
+    assert "nem fordítási forrás" in capsys.readouterr().out
+    assert not (tmp_path / "Sorozat - S01E01.chi.ocr.clean.srt").exists()

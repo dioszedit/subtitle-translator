@@ -314,6 +314,9 @@ def test_is_asr_path(path, expected):
     ("input/Sorozat - S01E01.chi.ocr.srt", False, True),
     ("input/Sorozat - S01E01.kor.OCR.srt", False, True),
     ("blocks/Sorozat - S01E01.chi.ocr", False, True),   # mappanév is
+    ("input/Sorozat - S01E01.chi.ocr.clean.srt", False, True),   # srt-preclean után is
+    ("blocks/Sorozat - S01E01.kor.asr.clean", True, False),
+    ("input/Mr. Ocr - S01E01.eng.srt", False, False),   # a címben nem tag
     ("input/Sorozat - S01E01.chi.srt", False, False),
     ("input/Sorozat - S01E01.doctor.srt", False, False),  # nem tag, csak szóvég
     ("", False, False),

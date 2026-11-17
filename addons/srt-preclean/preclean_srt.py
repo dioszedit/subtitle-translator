@@ -49,6 +49,13 @@ import re
 import sys
 from pathlib import Path
 
+try:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    from subtr.config import is_machine_path
+except ImportError as exc:
+    sys.exit(f"HIBA: ez az add-on a program `subtr` mappájával együtt működik, "
+             f"de az nem tölthető be ({exc}). A teljes program mappájából futtasd.")
+
 sys.stdout.reconfigure(encoding="utf-8")
 
 # WebVTT-artefaktumok, amelyek néha SRT-be szivárognak.
@@ -211,6 +218,12 @@ def main():
     src = Path(args.srt_file)
     if not src.exists():
         print(f"HIBA: nincs ilyen fájl: {src}")
+        sys.exit(1)
+    if is_machine_path(src):
+        # A gépi hang-átirat (.asr) és OCR-kinyerés (.ocr) nem fordítási forrás;
+        # a tisztítás után a `split` / `translate` már nem látná rajta a jelölést.
+        print(f"HIBA: {src} gépi úton készült (.asr / .ocr), nem fordítási forrás.")
+        print("  A fordítás a valódi feliratból készül; ez a fájl a `register` parancshoz való.")
         sys.exit(1)
 
     keep_res = [re.compile(k) for k in args.keep]

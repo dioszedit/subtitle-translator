@@ -39,15 +39,18 @@ Algoritmus:
   1. cue-nként 1–2 mintavétel (a cue 35%-ánál és 70%-ánál, rövid cue-nál a
      felénél; a képkocka-rács --fps, alapból 4/mp); ffmpeg CSAK ezeket a
      képkockákat vágja ki a felirat-sávból (alapból a kép alsó ~15%-a) → OCR;
-  2. ha a motor a képek többségét nem tudja beolvasni, a rész hibával megáll
-     (nem ír csupa `—` kimenetet);
-  3. szűrés: reklám (kulcsszavak, URL-ek; nem latin írású nyelvnél a latin
-     betűs sor és a hosszú számsor — telefonszám, kód), és csak a nyelv
-     írásrendszerét tartalmazó sorok;
-  4. a legjobb jelölt (a legkisebb soronkénti megbízhatóság, aztán a hossz);
-  5. pótló kör az üresen maradt cue-kra: a cue több képkockája (max 8; ezeket
-     egy második ffmpeg-menet vágja ki), nyersen ÉS binarizálva (fehér felirat világos háttér előtt), csak
-     elég biztos (--retry-min-conf) találat számít.
+  2. ha a motor a képek többségét nem tudja beolvasni, a futás hibával megáll
+     (nem ír csupa `—` kimenetet, a további részek sem indulnak);
+  3. szűrés: reklám (URL-ek; kulcsszó csak két kulcsszóval vagy számmal /
+     latin betűvel együtt; nem latin írású nyelvnél a hosszú számsor és a
+     túlnyomóan latin betűs sor), a cue-k nagy részén visszatérő rávetített
+     sor (vízjel), és csak a nyelv írásrendszerét tartalmazó sorok;
+  4. a legjobb jelölt (a legkisebb soronkénti megbízhatóság, aztán a hossz;
+     az egyetlen írásjegyű jelölt csak --retry-min-conf fölött);
+  5. pótló kör az üresen maradt cue-kra: a cue belsejének több képkockája
+     (max 8; ezeket egy második ffmpeg-menet vágja ki), nyersen ÉS binarizálva
+     (fehér felirat világos háttér előtt), csak elég biztos (--retry-min-conf)
+     találat számít.
 
 OCR-motor (--engine): `auto` = macOS-en a beépített Vision (nincs mit
 telepíteni, csak az Xcode Command Line Tools a fordításhoz), máshol RapidOCR
@@ -64,6 +67,7 @@ Kilépési kód: 0 siker (a már kész részek kihagyása is az), 1 hiba.
 """
 
 import argparse
+import math
 import os
 import re
 import subprocess
@@ -117,16 +121,26 @@ LANG_SCRIPT = {
     "may": "latin",
 }
 
-# Nem latin írású feliratban a latin betű szinte mindig a képre tett reklám
-# (weboldal, kód) — a teljes és félszélességű alak is. A szám önmagában nem
-# gyanús („3天后”, „10억”), csak a hosszú számsor (telefonszám, QQ-szám, kód).
-LATIN_OR_LONG_NUMBER = r"[A-Za-zＡ-Ｚａ-ｚ]|[0-9０-９]{5,}"
+# Nem latin írású feliratban (ha a latin-szűrés be van kapcsolva):
+# - a latin betű önmagában nem gyanús („我是CEO”, „오늘 TV 봤어?”), csak a
+#   túlnyomóan latin betűs sor (legalább 4 latin betű, és több, mint a nyelv
+#   saját írásjegye) — ez a képre tett reklám, kód, stáblista;
+# - a szám önmagában sem („3天后”, „10억”), csak a hosszú számsor (telefonszám,
+#   QQ-szám, kód). A teljes és félszélességű alak is számít.
+LATIN_LETTER = r"[A-Za-zＡ-Ｚａ-ｚ]"
+LATIN_HEAVY_MIN = 4
+LONG_NUMBER = r"[0-9０-９]{5,}"
+ANY_DIGIT = r"[0-9０-９]"
 
-# Minden nyelvre: webcím-minták.
+# Minden nyelvre: webcím-minták (mindig reklám).
 AD_COMMON = [r"\.(?:com|net|cc|tv|vip|top|xyz|io)\b", r"www\.", r"https?://"]
 
 # Nyelvenkénti reklám-kulcsszavak (szerencsejáték-/fogadási hirdetések, ezek
-# kerülnek a kalóz-kiadások képére). Bővítés: HARDSUB_OCR_AD_EXTRA / --ad-extra.
+# kerülnek a kalóz-kiadások képére). Ezek hétköznapi szavak is (娱乐公司,
+# 平台, 联盟, 足球比赛), ezért egy kulcsszó egymagában nem elég: reklám csak
+# két különböző kulcsszóval, vagy kulcsszó + szám / latin betű együtt
+# („官方娱乐平台”, „扫码领取88元”, „CSGO竞猜”). A felhasználói minta
+# (HARDSUB_OCR_AD_EXTRA / --ad-extra) viszont egymagában is reklám.
 AD_WORDS = {
     "chi": ["官方", "扫码", "投注", "娱乐", "提现", "平台", "CSGO", "天下会", "百家乐", "联盟",
             "世界杯", "锦标赛", "足球", "篮球", "彩票", "博彩"],
@@ -138,8 +152,9 @@ def script_of(lang):
 
 
 def ad_pattern(lang, extra=""):
-    """A nyelv reklám-regexe: közös URL-minták + a nyelv kulcsszavai + extra."""
-    parts = list(AD_COMMON) + [re.escape(w) for w in AD_WORDS.get(lang, [])]
+    """A biztos reklám regexe: a közös URL-minták + a felhasználói minta.
+    (A nyelv kulcsszavai külön, gyenge jelként számítanak — lásd LineFilter.)"""
+    parts = list(AD_COMMON)
     if extra.strip():
         parts.append(f"(?:{extra.strip()})")
     return re.compile("|".join(parts), re.IGNORECASE)
@@ -151,15 +166,30 @@ class LineFilter:
     def __init__(self, lang, ad_extra="", drop_latin=None):
         self.script = re.compile(SCRIPTS[script_of(lang)])
         self.ads = ad_pattern(lang, ad_extra)
+        self.words = [w.lower() for w in AD_WORDS.get(lang, [])]
         if drop_latin is None:   # auto: csak nem latin írású nyelvnél
             drop_latin = script_of(lang) != "latin"
-        self.latin = re.compile(LATIN_OR_LONG_NUMBER) if drop_latin else None
+        self.drop_latin = drop_latin
+        self.letter = re.compile(LATIN_LETTER)
+        self.long_number = re.compile(LONG_NUMBER)
+        self.digit = re.compile(ANY_DIGIT)
+
+    def is_ad(self, text):
+        if self.ads.search(text):
+            return True
+        letters = len(self.letter.findall(text))
+        if self.drop_latin:
+            if self.long_number.search(text):
+                return True
+            if letters >= LATIN_HEAVY_MIN and letters > len(self.script.findall(text)):
+                return True
+        low = text.lower()
+        hits = sum(1 for w in self.words if w in low)
+        return hits >= 2 or (hits == 1 and (letters > 0 or bool(self.digit.search(text))))
 
     def keep(self, text):
         text = " ".join(text.split())
-        if not text or self.ads.search(text):
-            return None
-        if self.latin is not None and self.latin.search(text):
+        if not text or self.is_ad(text):
             return None
         if not self.script.search(text):
             return None
@@ -271,10 +301,16 @@ def sample_frames(start, end, fps):
 
 def retry_frames(start, end, fps, limit):
     """A pótló kör képkockái: a cue összes képkockája, de legfeljebb `limit`,
-    egyenletesen elosztva (ne csak a cue eleje kerüljön sorra)."""
-    frames = list(range(int(start * fps) + 1, int(end * fps) + 1))
+    egyenletesen elosztva (ne csak a cue eleje kerüljön sorra). Csak a cue
+    belsejéből (fél lépés távolság a két végétől): a határon már a szomszéd
+    cue felirata látszhat, és az egy üres cue-ba kerülne."""
     if limit <= 0:
         return []
+    first = math.ceil(start * fps + 0.5)
+    last = math.floor(end * fps - 0.5)
+    frames = list(range(first, last + 1))
+    if not frames and end > start:
+        frames = [int(round((start + end) / 2 * fps))]
     if len(frames) <= limit:
         return frames
     step = len(frames) / limit
@@ -312,7 +348,11 @@ def video_size(video):
 
 def select_expr(numbers):
     """Az ffmpeg `select` kifejezése a megadott képkocka-sorszámokra; az egymást
-    követő sorszámok egy `between`-be olvadnak (a pótló kör kockái ilyenek)."""
+    követő sorszámok egy `between`-be olvadnak (a pótló kör kockái ilyenek).
+
+    A tagok kiegyensúlyozott, zárójelezett fába kerülnek: az ffmpeg
+    kifejezés-értelmezője a lapos `a+b+c+…` láncot ~100 tag fölött nem
+    fogadja el („Cannot allocate memory”), egy rész viszont ezernyi kockát kér."""
     nums = sorted(set(numbers))
     parts, i = [], 0
     while i < len(nums):
@@ -321,13 +361,31 @@ def select_expr(numbers):
             j += 1
         parts.append(f"eq(n\\,{nums[i]})" if i == j else f"between(n\\,{nums[i]}\\,{nums[j]})")
         i = j + 1
-    return "+".join(parts)
+
+    def tree(xs):
+        if len(xs) == 1:
+            return xs[0]
+        mid = len(xs) // 2
+        return f"({tree(xs[:mid])}+{tree(xs[mid:])})"
+    return tree(parts) if parts else "0"
+
+
+def ffmpeg_error(stderr):
+    """Az ffmpeg hibaszövegének érdemi része: az utolsó néhány sor, a hosszú
+    (a szűrőláncot visszhangzó) sorok rövidítve."""
+    lines = [l.strip() for l in (stderr or "").splitlines() if l.strip()]
+    return " | ".join(l if len(l) <= 160 else l[:70] + " … " + l[-70:] for l in lines[-3:])
 
 
 def extract_frames(video, frames_dir, fps, y, h, numbers):
     """A felirat-sáv megadott sorszámú képkockái PNG-ként: frames_dir/<n>.png,
-    ahol az n. kocka az fps-rács n. kockája (0. = a videó eleje). Csak ezeket
-    írja ki — egy egész rész összes kockája gigabájtnyi PNG lenne a temp-ben.
+    ahol az n. kocka a videó n/fps időpontjában (vagy épp előtte) látható kép.
+    Csak ezeket írja ki — egy egész rész összes kockája gigabájtnyi PNG lenne
+    a temp-ben.
+
+    `fps=…:start_time=0:round=up`: a rács a fájl 0. másodpercétől indul (akkor
+    is, ha a képsáv később kezdődik, mint a hang), és az n. kocka nem fél
+    lépéssel későbbi képet mutat, hanem az n/fps-kor láthatót.
 
     A szűrőlánc fájlból megy (`-/vf`, ffmpeg 7+): sok ezer sorszám a Windows
     parancssor-korlátjába (32K) nem férne bele."""
@@ -338,18 +396,18 @@ def extract_frames(video, frames_dir, fps, y, h, numbers):
     stage = frames_dir / "_stage"
     stage.mkdir(exist_ok=True)
     script = frames_dir / "_select.txt"
-    script.write_text(f"fps={fps},select='{select_expr(nums)}',crop=iw:{h}:0:{y}",
-                      encoding="ascii")
+    script.write_text(f"fps={fps}:start_time=0:round=up,select='{select_expr(nums)}',"
+                      f"crop=iw:{h}:0:{y}", encoding="ascii")
     duration = (nums[-1] + 1) / fps + 1.0
     cmd = [find_tool("ffmpeg"), "-nostdin", "-v", "error", "-y", "-i", str(video),
            "-t", f"{duration:.3f}", "-an", "-sn", "-/vf", str(script),
            "-fps_mode", "passthrough", "-start_number", "0", str(stage / "%06d.png")]
     r = run_tool(cmd)
     if r.returncode:
-        err = (r.stderr or "").strip()
-        if "/vf" in err:
+        err = ffmpeg_error(r.stderr)
+        if "Unrecognized option '/vf'" in (r.stderr or ""):
             err += " — ffmpeg 7.0 vagy újabb kell"
-        raise Fail(f"ffmpeg hiba a képkockák kivágásánál: {err[-300:]}")
+        raise Fail(f"ffmpeg hiba a képkockák kivágásánál: {err}")
     # A kimenet sorban számozott (a k. kiírt kocka a k. kért sorszám); ha a
     # videó hamarabb véget ér, a végéről hiányoznak kockák — azok kimaradnak.
     for k, n in enumerate(nums):
@@ -383,7 +441,7 @@ def binarize(paths, out_dir, threshold):
             targets.append((p, dst))
         r = run_tool(cmd)
         if r.returncode:
-            raise Fail(f"ffmpeg hiba a binarizálásnál: {(r.stderr or '').strip()[-300:]}")
+            raise Fail(f"ffmpeg hiba a binarizálásnál: {ffmpeg_error(r.stderr)}")
         out.update({p: d for p, d in targets if d.exists()})
     return out
 
@@ -391,8 +449,13 @@ def binarize(paths, out_dir, threshold):
 # ── igazítás (motorfüggetlen mag) ──────────────────────────────────────────
 
 # Ha a motor a képek ennél nagyobb részét nem tudja beolvasni, az nem „nincs
-# felirat”, hanem motorhiba: a rész megáll, nem ír csupa `—` kimenetet.
+# felirat”, hanem motorhiba: a futás megáll, nem ír csupa `—` kimenetet.
 MAX_UNREADABLE = 0.5
+
+# Rávetített szöveg (vízjel, fansub-stáb, állandó reklámsor): ugyanaz a sor a
+# cue-k legalább ekkora hányadában (és legalább ennyi cue-ban) — kimarad.
+OVERLAY_SHARE = 0.3
+OVERLAY_MIN_CUES = 10
 
 
 class Recognizer:
@@ -408,7 +471,8 @@ class Recognizer:
 
     def reset(self):
         """Új rész előtt: az előző rész képkockái a temp-mappával együtt törlődtek."""
-        self.cache = {}
+        self.cache = {}       # kép → a megtartott sorok [(szöveg, conf)]
+        self.overlay = set()  # rávetített sorok (find_overlay), ezek nem számítanak
         self.read = 0
         self.unreadable = 0
 
@@ -420,20 +484,43 @@ class Recognizer:
                 self.read += 1
                 if lines is None:
                     self.unreadable += 1
-                self.cache[p] = candidate(self.filter(lines))
+                self.cache[p] = self.filter(lines)
             if self.progress:
                 self.progress(min(k + BATCH, len(todo)), len(todo))
 
+    def lines(self, path):
+        return self.cache.get(path) or []
+
     def get(self, path):
-        return self.cache.get(path)
+        """A kép jelöltje (szöveg, conf) a rávetített sorok nélkül; None, ha nincs."""
+        return candidate([l for l in self.lines(path) if l[0] not in self.overlay])
 
     def check(self):
-        """Fail, ha a képek többsége olvashatatlan volt — a motor romlott el."""
+        """EngineError, ha a képek többsége olvashatatlan volt — a motor romlott
+        el, a többi rész is ugyanígy járna (a futás megáll)."""
         if self.read and self.unreadable / self.read > MAX_UNREADABLE:
             last = getattr(self.engine, "last_error", None)
-            raise Fail(f"az OCR-motor a {self.read} képkockából {self.unreadable}-t nem tudott "
-                       f"beolvasni{f' (utolsó hiba: {last})' if last else ''} — kimenet nem "
-                       "készült; ellenőrizd a motor telepítését (--engine)")
+            raise engines.EngineError(
+                f"az OCR-motor a {self.read} képkockából {self.unreadable}-t nem tudott "
+                f"beolvasni{f' (utolsó hiba: {last})' if last else ''} — kimenet nem "
+                "készült; ellenőrizd a motor telepítését (--engine)")
+
+
+def find_overlay(plan, recognizer):
+    """A cue-k nagy részén visszatérő sorok (vízjel, állandó reklámsor)."""
+    per_cue = {}
+    for ps in plan:
+        for text in {t for p in ps for t, _ in recognizer.lines(p)}:
+            per_cue[text] = per_cue.get(text, 0) + 1
+    limit = max(OVERLAY_MIN_CUES, OVERLAY_SHARE * len(plan))
+    return {t for t, n in per_cue.items() if n >= limit}
+
+
+def pick(cands, min_conf, short_conf, script):
+    """A legjobb jelölt; az egyetlen írásjegyből álló (zajra gyanús: vízszintes
+    él → 一) csak legalább short_conf megbízhatósággal számít."""
+    return best_candidate([c for c in cands if c and (len(script.findall(c[0])) >= 2
+                                                       or c[1] >= short_conf)], min_conf)
 
 
 def align(cues, frames_dir, recognizer, cfg, binarizer=None, extractor=None, log=print):
@@ -442,9 +529,12 @@ def align(cues, frames_dir, recognizer, cfg, binarizer=None, extractor=None, log
     binarizer(paths) -> {eredeti: binarizált}; None = a pótló kör csak nyers képpel.
     extractor(sorszámok): kivágja ezeket a képkockákat a frames_dir-be; None =
     a képkockák már ott vannak (tesztek).
-    A végén Fail, ha a motor a képek többségét nem tudta beolvasni.
+    EngineError (a fő kör után és a végén is), ha a motor a képek többségét
+    nem tudta beolvasni — a pótló kör ilyenkor már el sem indul.
     """
     fps = cfg["fps"]
+    script = recognizer.filter.script
+    short_conf = cfg["retry_min_conf"]
     nums = [sample_frames(c["start"], c["end"], fps) for c in cues]
     done = {n for ns in nums for n in ns}
     if extractor:
@@ -452,9 +542,13 @@ def align(cues, frames_dir, recognizer, cfg, binarizer=None, extractor=None, log
     plan = [[frame_file(frames_dir, n) for n in ns] for ns in nums]
     log(f"  OCR: {len(done)} képkocka ({len(cues)} cue)")
     recognizer.run([p for ps in plan for p in ps])
+    recognizer.check()
+    recognizer.overlay = find_overlay(plan, recognizer)
+    if recognizer.overlay:
+        log(f"  rávetített szöveg, kihagyva: {' / '.join(sorted(recognizer.overlay))}")
     texts = []
     for ps in plan:
-        text, _ = best_candidate([recognizer.get(p) for p in ps], cfg["min_conf"])
+        text, _ = pick([recognizer.get(p) for p in ps], cfg["min_conf"], short_conf, script)
         texts.append(text)
 
     empty = [i for i, t in enumerate(texts) if not t]
@@ -465,14 +559,15 @@ def align(cues, frames_dir, recognizer, cfg, binarizer=None, extractor=None, log
         if extractor:
             extractor({n for ns in rnums.values() for n in ns} - done)
         rplan = {i: [frame_file(frames_dir, n) for n in ns] for i, ns in rnums.items()}
-        raw = [p for ps in rplan.values() for p in ps if p.exists()]
+        # dict.fromkeys: átfedő cue-knál ugyanaz a kocka egyszer menjen
+        raw = list(dict.fromkeys(p for ps in rplan.values() for p in ps if p.exists()))
         bins = binarizer(raw) if binarizer else {}
         log(f"  pótló kör: {len(empty)} üres cue, {len(raw)} képkocka nyersen"
             f"{f' + {len(bins)} binarizálva' if bins else ''}")
         recognizer.run(raw + list(bins.values()))
         for i, ps in rplan.items():
             cands = [recognizer.get(p) for p in ps] + [recognizer.get(bins[p]) for p in ps if p in bins]
-            text, _ = best_candidate(cands, cfg["retry_min_conf"])
+            text, _ = pick(cands, cfg["retry_min_conf"], short_conf, script)
             if text:
                 texts[i] = text
                 stats["retried"] += 1
@@ -525,9 +620,9 @@ SETTINGS = {
     "bin_threshold":  ("HARDSUB_OCR_BIN_THRESHOLD", 215, int,
                        "binarizálás küszöbe (0–255): e fölött számít a pixel fehér feliratnak", 0),
     "ad_extra":       ("HARDSUB_OCR_AD_EXTRA", "", str,
-                       "további reklám-minta (regex, pl. 'abc|xyz'), a nyelv alaplistája mellé", None),
+                       "további reklám-minta (regex, pl. 'abc|xyz'); egymagában is reklám", None),
     "drop_latin":     ("HARDSUB_OCR_DROP_LATIN", "auto", parse_bool_auto,
-                       "latin betűs / hosszú számsoros sor eldobása reklámként: auto (csak nem "
+                       "túlnyomóan latin betűs / hosszú számsoros sor eldobása: auto (csak nem "
                        "latin írású nyelvnél), 1, 0", None),
 }
 
@@ -685,7 +780,11 @@ def main(argv=None):
             except KeyboardInterrupt:
                 sys.stderr.write("\nMegszakítva — a már kész részek megmaradtak.\n")
                 return 1
-            except (Fail, engines.EngineError) as exc:
+            except engines.EngineError as exc:
+                # motorhiba: a többi rész is ugyanígy járna — a futás megáll
+                sys.stderr.write(f"  HIBA: {exc}\n")
+                return 1
+            except Fail as exc:
                 sys.stderr.write(f"  HIBA: {exc}\n")
                 errors += 1
             except Exception as exc:  # noqa: BLE001 — egy rész hibája ne állítsa le az évadot

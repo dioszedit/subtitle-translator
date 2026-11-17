@@ -44,7 +44,7 @@ Az OCR-motor:
 - **macOS: Vision** (a rendszer beépített szövegfelismerője) — nem kell
   telepíteni semmit, csak a Swift-fordítót, ami az Xcode Command Line Tools
   része: `xcode-select --install`. A kis segédprogramot (`vocr.swift`) az első
-  futáskor lefordítja (egyszer, néhány másodperc), és a felhasználói
+  futáskor lefordítja (egyszer, legfeljebb kb. 1 perc), és a felhasználói
   cache-mappába teszi (`~/Library/Caches/subtitle-translator/hardsub-ocr/`).
   Csak akkor fordítja újra, ha a forrás vagy a fordító változott. A helyet a
   `HARDSUB_OCR_CACHE_DIR` környezeti változó felülírja.
@@ -54,7 +54,11 @@ Az OCR-motor:
   pip install -e ".[ocr]"          # vagy: pip install rapidocr onnxruntime
   ```
 
-  A felismerő modellek az első futáskor töltődnek le.
+  A felismerő modellek az első futáskor töltődnek le (internet kell hozzá).
+  A RapidOCR 3.x alapmodellje csak néhány nyelvet ismer (kínai, japán,
+  angol); a koreaihoz, thaihoz, a latin betűs és cirill nyelvekhez az add-on
+  magától a régebbi, nyelvenkénti modellt választja. Ezt induláskor ellenőrzi:
+  ha egyik modell sem tölthető be, egyetlen képkocka előtt hibával megáll.
 
 Az `--engine auto` (alap) macOS-en a Visiont, máshol a RapidOCR-t választja.
 
@@ -103,7 +107,9 @@ felülírás: `--force`. Félkész fájl nem marad: a végén egyben írja ki.
 
 **Mennyi ideig tart:** egy 48 perces, 720p-s rész (~900 cue) Apple Silicon
 Macen, Visionnel kb. 2 perc. A RapidOCR processzoron lassabb (ugyanott kb.
-0,25 mp/képkocka, egy rész nagyjából 8–10 perc).
+0,25 mp/képkocka, egy rész nagyjából 8–10 perc). Ezek a számok a korábbi,
+minden képkockát kibontó változattal készültek; azóta az ffmpeg csak a kért
+kockákat írja ki, a gyorsulást még nem mértük.
 
 ## Hogyan dolgozik
 
@@ -113,29 +119,42 @@ Macen, Visionnel kb. 2 perc. A RapidOCR processzoron lassabb (ugyanott kb.
 2. Az ffmpeg a videóból csak **ezeket a képkockákat** vágja ki, és belőlük csak
    a **felirat-sávot** (alapból a kép magasságának 83,3%–98,6% közti része, ez
    1280×720-on a 600–710. pixelsor). Az arány miatt 1080p-n is ugyanazt a
-   sávot vágja. Ha az OCR-motor a képek többségét nem tudja beolvasni, a rész
-   hibával megáll — nem ír csupa `—` kimenetet, amit a következő futás késznek
-   hinne.
+   sávot vágja. A kockák a fájl idővonalához igazodnak: az n. kocka az n/4.
+   másodpercben látható kép, akkor is, ha a képsáv a hangnál később indul. Ha
+   az OCR-motor a képek többségét nem tudja beolvasni, a futás hibával megáll
+   (a további részek sem indulnak) — nem ír csupa `—` kimenetet, amit a
+   következő futás késznek hinne.
 3. **Szűrés:**
-   - reklám: webcímek (`.com`, `www.`…) és a nyelv kulcsszólistája (kínainál
-     fogadási/kaszinó-hirdetések szavai: 官方, 投注, 娱乐, 平台, 百家乐, 世界杯,
-     足球, 篮球…), bővíthető: `--ad-extra`;
-   - **nem latin írású** nyelvnél (kínai, koreai, japán, thai…) a latin betűs
-     sor és a legalább 5 jegyű számsor (telefonszám, QQ-szám, kód) is
-     reklámnak számít; a rövid szám nem (`3天后`, `10억` megmarad). Latin betűs
-     nyelvnél ez magától kikapcsol (`--drop-latin`);
+   - reklám: webcímek (`.com`, `www.`…) mindig, és a `--ad-extra` minta;
+   - a nyelv kulcsszólistája (kínainál a fogadási/kaszinó-hirdetések szavai:
+     官方, 扫码, 投注, 娱乐, 平台, 百家乐, 世界杯, 足球…) csak **két különböző
+     kulcsszóval**, vagy kulcsszó + szám / latin betű együtt számít reklámnak
+     (`官方娱乐平台`, `扫码领取88元`) — egymagában hétköznapi szó
+     (`他是娱乐公司的老板`, `我们结成联盟` megmarad);
+   - **nem latin írású** nyelvnél (kínai, koreai, japán, thai…) a legalább 5
+     jegyű számsor (telefonszám, QQ-szám, kód) és a túlnyomóan latin betűs sor
+     (legalább 4 latin betű, több, mint a nyelv saját írásjegye) is reklám; a
+     rövid szám és a rövid latin szó nem (`3天后`, `我是CEO`, `오늘 TV 봤어?`
+     megmarad). Latin betűs nyelvnél ez magától kikapcsol (`--drop-latin`);
+   - **rávetített szöveg**: a cue-k legalább 30%-ában (és legalább 10 cue-ban)
+     visszatérő sor (vízjel, fansub-stáb, állandó reklámsor) kimarad — a
+     kihagyott sorokat kiírja;
    - csak az a sor marad, amiben van **a nyelv írásrendszeréből** karakter
      (kínainál írásjegy, koreainál hangul, japánnál kana vagy kanji, thainál
      thai írás, latin betűs nyelvnél latin betű).
 4. A képkockák közül a legjobb jelölt nyer: a legnagyobb megbízhatóság (a
-   leggyengébb sora szerint), egyenlőnél a hosszabb.
+   leggyengébb sora szerint), egyenlőnél a hosszabb. Az egyetlen írásjegyből
+   álló jelölt (zajra gyanús: egy vízszintes él `一`-nek olvasva) csak legalább
+   0,5 megbízhatósággal számít (`--retry-min-conf`); a biztos `嗯`, `好` marad.
 5. **Pótló kör** az üresen maradt cue-kra: a cue több képkockája (legfeljebb
-   8, egyenletesen elosztva; ezeket egy második ffmpeg-menet vágja ki), nyersen és **binarizálva** is (a fehér felirat
+   8, egyenletesen elosztva, csak a cue belsejéből — a határon már a szomszéd
+   cue felirata látszhat; ezeket egy második ffmpeg-menet vágja ki), nyersen
+   és **binarizálva** is (a fehér felirat
    feketére, minden más fehérre — így a világos háttér előtti felirat is
    olvasható). Itt csak a legalább 0,5 megbízhatóságú találat számít.
 
-Mért eredmény (kínai beégetett felirat, 720p, Vision): kb. 890 cue-ból
-15–50 marad üres, főleg dalszöveg és képi felirat, aminek nincs kínai
+Mért eredmény (kínai beégetett felirat, 720p, Vision, a korábbi változattal):
+kb. 890 cue-ból 15–50 marad üres, főleg dalszöveg és képi felirat, aminek nincs kínai
 megfelelője.
 
 ## Beállítások
@@ -156,8 +175,8 @@ indításkor kiírja, melyik érték honnan jött. Mintát a `.env.example` ad.
 | `--retry-min-conf` | `HARDSUB_OCR_RETRY_MIN_CONF` | `0.5` | a pótló körben ugyanez |
 | `--retry-frames` | `HARDSUB_OCR_RETRY_FRAMES` | `8` | a pótló körben cue-nként legfeljebb ennyi képkocka; `0` = nincs pótló kör |
 | `--bin-threshold` | `HARDSUB_OCR_BIN_THRESHOLD` | `215` | a binarizálás küszöbe (0–255) |
-| `--ad-extra` | `HARDSUB_OCR_AD_EXTRA` | – | további reklám-minta (regex, pl. `abc\|xyz`) a nyelv alaplistája mellé |
-| `--drop-latin` | `HARDSUB_OCR_DROP_LATIN` | `auto` | latin betűs / hosszú számsoros sor eldobása: `auto` (csak nem latin írású nyelvnél), `1`, `0` |
+| `--ad-extra` | `HARDSUB_OCR_AD_EXTRA` | – | további reklám-minta (regex, pl. `abc\|xyz`); ez egymagában is reklám |
+| `--drop-latin` | `HARDSUB_OCR_DROP_LATIN` | `auto` | túlnyomóan latin betűs / hosszú számsoros sor eldobása: `auto` (csak nem latin írású nyelvnél), `1`, `0` |
 | `--ref`, `--ref-dir` | – | `input` | a forrás SRT, illetve hol keresse |
 | `--out-dir` | – | `input` | kimeneti mappa |
 | `--force` | – | – | kész kimenet felülírása |

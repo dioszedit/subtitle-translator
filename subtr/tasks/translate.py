@@ -710,6 +710,12 @@ def main(argv=None):
     if not os.path.isdir(args.blocks_dir):
         print(f"HIBA: Nem találom a mappát: {args.blocks_dir}")
         sys.exit(1)
+    if config.is_machine_path(args.blocks_dir):
+        # Gépi hang-átiratból (.asr) vagy OCR-kinyerésből (.ocr) készült blokkok
+        # (pl. kézi split vagy srt-preclean): ezekből nem fordítunk.
+        print(f"HIBA: {args.blocks_dir} gépi átiratból / OCR-kinyerésből készült "
+              "(.asr / .ocr), nem fordítási forrás.")
+        sys.exit(1)
 
 
     # Provider-előfeltételek

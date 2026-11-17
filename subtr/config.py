@@ -496,7 +496,8 @@ mondata is lehet, és a sorok nem jelölik, ki beszél."""
 OCR_SUFFIX = ".ocr"
 
 # A gépi úton készült „feliratok” jelölései (hang → .asr, kép → .ocr): a
-# nyelvfelismerés mindkettőt levágja, a split mindkettőn megáll.
+# nyelvfelismerés mindkettőt levágja, a split, a translate és az srt-preclean
+# mindkettőn megáll.
 MACHINE_SUFFIXES = (ASR_SUFFIX, OCR_SUFFIX)
 
 # Az OCR-kinyerés közös leírása a promptokhoz (register, glossary).
@@ -513,14 +514,23 @@ def _strip_srt(path) -> str:
     return name[: -len(".srt")] if name.lower().endswith(".srt") else name
 
 
+def _has_tag(path, suffix) -> bool:
+    """A név pontokkal elválasztott tagjai között (az első, a cím után) ott van-e
+    a jelölés — nem csak a végén: a gépi fájlból készült `X.chi.ocr.clean.srt`
+    (srt-preclean) is gépi marad."""
+    if not path:
+        return False
+    return suffix[1:] in _strip_srt(path).lower().split(".")[1:]
+
+
 def is_asr_path(path) -> bool:
-    """A fájl az audio-asr add-on gépi átirata-e (`….kor.asr.srt`)."""
-    return bool(path) and _strip_srt(path).lower().endswith(ASR_SUFFIX)
+    """A fájl az audio-asr add-on gépi átirata-e (`….kor.asr.srt`, `….asr.clean.srt`)."""
+    return _has_tag(path, ASR_SUFFIX)
 
 
 def is_ocr_path(path) -> bool:
-    """A fájl a hardsub-ocr add-on OCR-kinyerése-e (`….chi.ocr.srt`)."""
-    return bool(path) and _strip_srt(path).lower().endswith(OCR_SUFFIX)
+    """A fájl a hardsub-ocr add-on OCR-kinyerése-e (`….chi.ocr.srt`, `….ocr.clean.srt`)."""
+    return _has_tag(path, OCR_SUFFIX)
 
 
 def is_machine_path(path) -> bool:

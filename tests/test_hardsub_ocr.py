@@ -101,7 +101,12 @@ def test_sample_frames_dedupes():
 
 
 def test_retry_frames_all_when_few():
-    assert ocr.retry_frames(1.0, 2.0, 4, 8) == [5, 6, 7, 8]
+    # csak a cue belseje: 1,25–1,75 mp (a 4. és a 8. kocka a határon van)
+    assert ocr.retry_frames(1.0, 2.0, 4, 8) == [5, 6, 7]
+
+
+def test_retry_frames_short_cue_gets_middle():
+    assert ocr.retry_frames(4.0, 4.2, 4, 8) == [16]
 
 
 def test_retry_frames_capped_and_spread():
@@ -148,23 +153,30 @@ def test_chinese_filter_drops_ads_latin_and_non_cjk():
     lines = [("我已经找到线索了", 1.0),
              ("官方娱乐平台", 1.0),          # reklám-kulcsszó
              ("www.example.com", 0.9),        # URL
-             ("扫码领取88元", 1.0),           # reklám-kulcsszó (扫码)
-             ("客服电话13800138000", 1.0),    # hosszú számsor → reklám
-             ("VIP会员", 1.0),                # latin betű → reklám
+             ("扫码领取88元", 1.0),           # kulcsszó + szám
+             ("CSGO竞猜", 1.0),               # kulcsszó + latin betű
+             ("客服电话13800138000", 1.0),    # hosszú számsor
+             ("WWW BET CASINO 体育", 1.0),    # túlnyomóan latin betűs
              ("...", 0.5),                    # nincs benne írásjegy
              ("  你  再等等 ", 0.5),
              ("我等了你10年", 0.9),            # rövid szám: valódi párbeszéd
-             ("３天后见", 0.9)]                # teljes szélességű szám is
+             ("３天后见", 0.9),                # teljes szélességű szám is
+             ("我是CEO", 0.9),                 # rövid latin szó a mondatban
+             ("他是娱乐公司的老板", 0.9),       # egyetlen kulcsszó: hétköznapi szó
+             ("我们和他们结成联盟", 0.9)]
     assert f(lines) == [("我已经找到线索了", 1.0), ("你 再等等", 0.5),
-                        ("我等了你10年", 0.9), ("３天后见", 0.9)]
+                        ("我等了你10年", 0.9), ("３天后见", 0.9), ("我是CEO", 0.9),
+                        ("他是娱乐公司的老板", 0.9), ("我们和他们结成联盟", 0.9)]
 
 
 def test_korean_filter_wants_hangul():
     f = ocr.LineFilter("kor")
     lines = [("괜찮아요", 0.9), ("我已经", 1.0), ("ABC123", 1.0), ("지금 3시야", 1.0),
-             ("문의 010123456789", 1.0)]
-    # a kínai írásjegy nem koreai; a latin betű és a hosszú számsor reklám, a rövid szám nem
-    assert f(lines) == [("괜찮아요", 0.9), ("지금 3시야", 1.0)]
+             ("문의 010123456789", 1.0), ("오늘 TV 봤어?", 1.0), ("SNS에 올렸어", 1.0)]
+    # a kínai írásjegy nem koreai; a hosszú számsor reklám; a rövid szám és a
+    # rövid latin szó (TV, SNS) nem; az ABC123-ban nincs hangul
+    assert f(lines) == [("괜찮아요", 0.9), ("지금 3시야", 1.0), ("오늘 TV 봤어?", 1.0),
+                        ("SNS에 올렸어", 1.0)]
 
 
 def test_latin_language_keeps_latin_and_digits():
@@ -175,8 +187,11 @@ def test_latin_language_keeps_latin_and_digits():
 
 
 def test_drop_latin_override():
-    assert ocr.LineFilter("chi", drop_latin=False)([("VIP会员", 1.0)]) == [("VIP会员", 1.0)]
-    assert ocr.LineFilter("eng", drop_latin=True)([("Hello", 1.0)]) == []
+    heavy = [("WECHAT ID 欢迎", 1.0)]
+    assert ocr.LineFilter("chi")(heavy) == []
+    assert ocr.LineFilter("chi", drop_latin=False)(heavy) == heavy
+    assert ocr.LineFilter("eng")([("Call 0612345678", 1.0)]) == [("Call 0612345678", 1.0)]
+    assert ocr.LineFilter("eng", drop_latin=True)([("Call 0612345678", 1.0)]) == []
 
 
 def test_ad_extra_extends_list():
@@ -185,9 +200,9 @@ def test_ad_extra_extends_list():
 
 
 def test_ad_words_not_chinese_for_other_languages():
-    # a kínai kulcsszólista nem érvényes a koreaira
-    assert not ocr.ad_pattern("kor").search("平台")
-    assert ocr.ad_pattern("chi").search("平台")
+    # a kínai kulcsszólista nem érvényes a koreaira (ott a 平台 nem is hangul)
+    assert ocr.LineFilter("chi").is_ad("官方平台")
+    assert not ocr.LineFilter("kor").is_ad("官方平台")
 
 
 def test_every_lang_has_script():
@@ -284,12 +299,84 @@ class NoneEngine(FakeEngine):
 
 
 def test_align_fails_when_engine_reads_nothing(tmp_path, cfg):
-    """Ne legyen csupa `—` kimenet, amit a következő futás késznek hinne."""
+    """Ne legyen csupa `—` kimenet, amit a következő futás késznek hinne — és a
+    pótló kör (cue-nként 8 kocka + binarizálás) el se induljon."""
     cues = [{"num": "1", "timestamp": "", "start": 1.0, "end": 3.0}]
     make_frames(tmp_path, range(20))
-    rec = ocr.Recognizer(NoneEngine({}), ocr.LineFilter("chi"))
-    with pytest.raises(ocr.Fail, match="nincs modell"):
-        ocr.align(cues, tmp_path, rec, cfg, None, log=lambda *_: None)
+    eng = NoneEngine({})
+    rec = ocr.Recognizer(eng, ocr.LineFilter("chi"))
+    with pytest.raises(engines.EngineError, match="nincs modell"):
+        ocr.align(cues, tmp_path, rec, cfg, lambda ps: pytest.fail("pótló kör"),
+                  log=lambda *_: None)
+    assert len(eng.calls) == 1
+
+
+def test_engine_failure_stops_the_batch(tmp_path, monkeypatch, capsys):
+    """Motorhibánál a többi rész sem indul (ugyanígy járna)."""
+    videos = []
+    for i in (1, 2):
+        v = tmp_path / f"Sorozat - S01E0{i}.mp4"
+        v.write_bytes(b"")
+        (tmp_path / f"Sorozat - S01E0{i}.eng.srt").write_text(SRT, encoding="utf-8")
+        videos.append(str(v))
+    monkeypatch.setattr(ocr, "require_tools", lambda: None)
+    monkeypatch.setattr(ocr, "load_dotenv", lambda: None)
+    monkeypatch.setattr(ocr.engines, "create", lambda *a: NoneEngine({}))
+    seen = []
+
+    def fake_process(video, ref, dest, recognizer, cfg):
+        seen.append(video)
+        raise engines.EngineError("halott motor")
+    monkeypatch.setattr(ocr, "process", fake_process)
+    for env, *_ in ocr.SETTINGS.values():
+        monkeypatch.delenv(env, raising=False)
+    rc = ocr.main([*videos, "--ref-dir", str(tmp_path), "--out-dir", str(tmp_path)])
+    assert rc == 1 and seen == videos[:1]
+    assert "halott motor" in capsys.readouterr().err
+
+
+def test_overlay_line_is_dropped(tmp_path, cfg):
+    """A minden cue-ban ott lévő sor (vízjel) nem kerül a szövegbe."""
+    cues = [{"num": str(i), "timestamp": "", "start": 2.0 * i, "end": 2.0 * i + 1.5}
+            for i in range(12)]
+    make_frames(tmp_path, range(0, 100))
+    answers = {}
+    for c in cues:
+        for n in ocr.sample_frames(c["start"], c["end"], 4.0):
+            answers[ocr.frame_file(tmp_path, n).name] = [("字幕组出品", 1.0), (f"第{c['num']}句话", 0.9)]
+    rec = ocr.Recognizer(FakeEngine(answers), ocr.LineFilter("chi"))
+    texts, _ = ocr.align(cues, tmp_path, rec, cfg, None, log=lambda *_: None)
+    assert texts == [f"第{c['num']}句话" for c in cues]
+
+
+def test_single_char_noise_needs_confidence(tmp_path, cfg):
+    """Egy írásjegy gyenge megbízhatósággal (él → 一) nem tölti ki a cue-t; erősen igen (嗯)."""
+    cues = [{"num": "1", "timestamp": "", "start": 1.0, "end": 3.0},
+            {"num": "2", "timestamp": "", "start": 5.0, "end": 7.0}]
+    make_frames(tmp_path, range(40))
+    answers = {}
+    for n in ocr.sample_frames(1.0, 3.0, 4.0):
+        answers[ocr.frame_file(tmp_path, n).name] = [("一", 0.3)]
+    for n in ocr.sample_frames(5.0, 7.0, 4.0):
+        answers[ocr.frame_file(tmp_path, n).name] = [("嗯", 0.95)]
+    cfg["retry_frames"] = 0
+    rec = ocr.Recognizer(FakeEngine(answers), ocr.LineFilter("chi"))
+    texts, _ = ocr.align(cues, tmp_path, rec, cfg, None, log=lambda *_: None)
+    assert texts == ["", "嗯"]
+
+
+def test_retry_dedupes_overlapping_frames(tmp_path, cfg):
+    cues = [{"num": "1", "timestamp": "", "start": 1.0, "end": 3.0},
+            {"num": "2", "timestamp": "", "start": 1.5, "end": 3.5}]   # átfedő cue-k
+    make_frames(tmp_path, range(40))
+    got = []
+
+    def binarizer(paths):
+        got.extend(paths)
+        return {}
+    rec = ocr.Recognizer(FakeEngine({}), ocr.LineFilter("chi"))
+    ocr.align(cues, tmp_path, rec, cfg, binarizer, log=lambda *_: None)
+    assert len(got) == len(set(got)) > 0
 
 
 def test_recognizer_tolerates_few_unreadable(tmp_path):
@@ -326,9 +413,19 @@ def test_align_extracts_only_needed_frames(tmp_path, cfg):
     assert len(asked) == 2
 
 
-def test_select_expr_merges_runs():
+def test_select_expr_merges_runs_into_balanced_tree():
     assert ocr.select_expr([12, 3, 10, 11, 40, 3]) == \
-        "eq(n\\,3)+between(n\\,10\\,12)+eq(n\\,40)"
+        "(eq(n\\,3)+(between(n\\,10\\,12)+eq(n\\,40)))"
+    deep = ocr.select_expr(range(0, 40000, 2))   # 20 000 különálló tag
+    assert max(_depths(deep)) <= 20   # log2(20 000) ≈ 15 szint + az eq( zárójele
+
+
+def _depths(expr):
+    d = 0
+    for ch in expr:
+        d += ch == "("
+        d -= ch == ")"
+        yield d
 
 
 def _ffmpeg():
@@ -339,27 +436,44 @@ def _ffmpeg():
 
 
 @pytest.mark.skipif(not _ffmpeg(), reason="nincs ffmpeg")
-def test_extract_frames_matches_full_extraction(tmp_path):
-    """A kiválasztott kockák bájtra azonosak a teljes kibontás azonos sorszámú
-    kockáival; a videó vége utáni sorszám kimarad."""
+def test_extract_frames_maps_to_container_time(tmp_path):
+    """Az n. kocka a videó n/fps időpontjában látható kép — akkor is, ha a
+    képsáv 1 mp-cel a hang után indul —, és több száz különálló sorszám is
+    megy (az ffmpeg a lapos `eq+eq+…` láncot 100 tag fölött elutasítja).
+
+    A forrás minden képkockája más fényességű (Y = 2 × kockaszám), így a
+    kivágott kép középső pixeléből visszaolvasható, melyik forráskocka az."""
     import subprocess
     ff = _ffmpeg()
-    video = tmp_path / "v.mp4"
+    src_fps, offset = 25, 1.0
+    video = tmp_path / "v.mkv"
+    # A képsáv 1 mp-es késése: előbb a nyers kép, aztán a muxolás -itsoffset-tel
+    # a (0-ról induló) hang mellé.
+    raw = tmp_path / "raw.mkv"
     subprocess.run([ff, "-v", "error", "-y", "-f", "lavfi", "-i",
-                    "testsrc2=size=320x240:rate=25", "-t", "4", "-c:v", "libx264",
-                    "-pix_fmt", "yuv420p", str(video)], check=True)
-    full = tmp_path / "full"
-    full.mkdir()
-    subprocess.run([ff, "-nostdin", "-v", "error", "-i", str(video), "-an", "-sn",
-                    "-vf", "fps=4,crop=iw:60:0:100", "-start_number", "0",
-                    str(full / "%06d.png")], check=True)
+                    f"nullsrc=size=64x64:rate={src_fps},format=gray,geq=lum='2*N'",
+                    "-t", "4", "-c:v", "ffv1", str(raw)], check=True)
+    subprocess.run([ff, "-v", "error", "-y", "-itsoffset", str(offset), "-i", str(raw),
+                    "-f", "lavfi", "-t", "5", "-i", "anullsrc=r=8000:cl=mono",
+                    "-map", "0:v", "-map", "1:a", "-c", "copy", "-c:a", "pcm_s16le",
+                    str(video)], check=True)
+    fps = 4.0
+    wanted = list(range(4, 20)) + list(range(0, 2000, 3))   # sok különálló tag is
     sel = tmp_path / "sel"
     sel.mkdir()
-    ocr.extract_frames(video, sel, 4.0, 100, 60, [3, 5, 6, 7, 14, 400])
-    got = sorted(p.name for p in sel.glob("*.png"))
-    assert got == ["000003.png", "000005.png", "000006.png", "000007.png", "000014.png"]
-    for name in got:
-        assert (sel / name).read_bytes() == (full / name).read_bytes()
+    ocr.extract_frames(video, sel, fps, 16, 32, wanted)
+
+    def source_frame(png):
+        out = subprocess.run([ff, "-v", "error", "-i", str(png), "-vf", "format=gray,crop=1:1:32:16",
+                              "-f", "rawvideo", "-"], check=True, capture_output=True).stdout
+        return round(out[0] / 2)
+
+    # A forrás kockái 1,0 mp-től 5,0 mp-ig: 16 ≤ n < 20 (4–5 mp) a vége
+    for n in (4, 5, 7, 10, 13, 19):
+        t = n / fps
+        expected = int((t - offset) * src_fps + 1e-9)   # az n/fps-kor (vagy épp előtte) látható
+        assert source_frame(ocr.frame_file(sel, n)) == expected, n
+    assert not ocr.frame_file(sel, 1998).exists()   # a videó vége után nincs kocka
 
 
 def test_align_without_retry(tmp_path, cfg):
