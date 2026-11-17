@@ -192,19 +192,24 @@ class VisionEngine:
 RAPID_INSTALL = ('pip install -e ".[ocr]"   (vagy: pip install rapidocr onnxruntime)')
 
 
-# Pipeline-kód → RapidOCR felismerő-modell (LangRec értéke). A latin betűs
-# nyelvek közös „latin” modellt kapnak, az angol a sajátját.
+# Pipeline-kód → RapidOCR felismerő-nyelv: (a PP-OCRv6 alapmodell kódja,
+# tartalék a régebbi nyelvenkénti modellekhez). A v6 többnyelvű alapmodell
+# saját kóddal ismeri a kínait (hagyományosat is: chinese_cht), japánt, angolt
+# és a latin betűs nyelvek többségét (de, fr, es, it, pl, pt, tr, vi, id, ms —
+# a vietnámi ékezeteket jóval pontosabban, mint a régi közös latin modell);
+# a koreai, thai, cirill, arab, hindi modell csak a PP-OCRv5-ben van.
 RAPID_LANGS = {
-    "chi": "ch", "jpn": "japan", "kor": "korean", "tha": "th", "eng": "en",
-    "ger": "latin", "fre": "latin", "spa": "latin", "por": "latin", "ita": "latin",
-    "pol": "latin", "tur": "latin", "vie": "latin", "ind": "latin", "may": "latin",
-    "rus": "cyrillic", "ara": "arabic", "hin": "devanagari",
+    "chi": ("ch", None), "jpn": ("japan", None), "eng": ("en", None),
+    "kor": ("korean", None), "tha": ("th", None), "rus": ("cyrillic", None),
+    "ara": ("arabic", None), "hin": ("devanagari", None),
+    "ger": ("de", "latin"), "fre": ("fr", "latin"), "spa": ("es", "latin"),
+    "por": ("pt", "latin"), "ita": ("it", "latin"), "pol": ("pl", "latin"),
+    "tur": ("tr", "latin"), "vie": ("vi", "latin"), "ind": ("id", "latin"),
+    "may": ("ms", "latin"),
 }
 
-# A RapidOCR 3.x alapmodellje (PP-OCRv6) egy többnyelvű modell, ami csak
-# néhány nyelvet ismer (ch, en, japan…); a korean, th, latin, cyrillic… modell
-# csak a PP-OCRv5-ben, a chinese_cht, ka csak a v4-ben van, mindkettő `mobile`
-# típussal. Ebben a sorrendben próbáljuk: (ocr_version, model_type), None = alap.
+# A próbálkozás sorrendje: (ocr_version, model_type), None = az alapmodell
+# (PP-OCRv6 small). A régebbi verziókban csak `mobile` típus van nyelvenként.
 RAPID_MODEL_ORDER = ((None, None), ("PP-OCRv5", "mobile"), ("PP-OCRv4", "mobile"))
 
 
@@ -214,18 +219,19 @@ class RapidOcrEngine:
     A mai csomag a `rapidocr` (3.x). A régi `rapidocr_onnxruntime` is megy, de
     az csak a kínai (+angol) modellt ismeri.
 
-    A RapidOCR a modellt lustán, az első képnél tölti be — a konstruktor akkor
-    sem hibázik, ha a nyelvhez nincs modell, vagy a letöltés nem megy. Ezért
-    induláskor egy üres képpel „bemelegítjük” a felismerőt: ami itt elbukik,
-    az a következő modellverzióval próbálkozik, a végén EngineError — még
-    mielőtt egyetlen képkocka elkészülne.
+    A RapidOCR a modelleket lustán, az első képnél tölti be — a konstruktor
+    akkor sem hibázik, ha a nyelvhez nincs modell, vagy a letöltés nem megy.
+    Ezért induláskor mindhárom modellt (szövegkeresés, orientáció, felismerés)
+    betöltjük: ami itt elbukik, az a következő modellverzióval próbálkozik, a
+    végén EngineError — még mielőtt egyetlen képkocka elkészülne.
     """
     name = "rapidocr"
     last_error = None   # az utolsó olvasási hiba (a Recognizer hibaüzenetéhez)
 
     def __init__(self, lang, engine_lang=None):
-        code = (engine_lang or "").strip() or RAPID_LANGS.get(lang)
-        if not code:
+        override = (engine_lang or "").strip()
+        primary, fallback = (override, None) if override else RAPID_LANGS.get(lang, (None, None))
+        if not primary:
             raise EngineError(f"a RapidOCR-motorhoz nincs modell ehhez a nyelvhez: {lang}")
         try:
             from rapidocr import LangRec, ModelType, OCRVersion, RapidOCR
@@ -236,24 +242,29 @@ class RapidOcrEngine:
             except ImportError:
                 raise EngineError(f"nincs telepítve a RapidOCR — {RAPID_INSTALL}") from None
         if LangRec is None:
-            if code != "ch":
+            if primary != "ch":
                 raise EngineError("a régi rapidocr_onnxruntime csak kínait tud — "
                                   "telepítsd az új csomagot: pip install rapidocr onnxruntime")
             self._ocr, self._new = RapidOCR(), False
             return
-        try:
-            rec = LangRec(code)
-        except ValueError:
-            raise EngineError(f"a RapidOCR nem ismeri ezt a modellnyelvet: {code} "
-                              f"(lehet: {', '.join(m.value for m in LangRec)})") from None
+
+        def lang_value(code):
+            # A LangRec csak a régi, nyelvenkénti modellek kódjait sorolja fel;
+            # a v6 alapmodell nyelvkódjait (de, vi…) szövegként kéri.
+            try:
+                return LangRec(code)
+            except ValueError:
+                return code
+
         errors = []
         for version, model_type in RAPID_MODEL_ORDER:
-            params = {"Rec.lang_type": rec, "Global.log_level": "error"}
-            label = "alap"
+            code = primary if version is None else (fallback or primary)
+            params = {"Rec.lang_type": lang_value(code), "Global.log_level": "error"}
+            label = f"alap/{code}"
             if version is not None:
                 params["Rec.ocr_version"] = OCRVersion(version)
                 params["Rec.model_type"] = ModelType(model_type)
-                label = f"{version} {model_type}"
+                label = f"{version} {model_type}/{code}"
             try:
                 ocr = RapidOCR(params=params)
                 self._warm_up(ocr)
@@ -264,13 +275,17 @@ class RapidOcrEngine:
                 continue
             self._ocr, self._new = ocr, True
             return
-        raise EngineError(f"a RapidOCR „{code}” felismerő modellje nem indult el — vagy nincs "
+        raise EngineError(f"a RapidOCR „{primary}” felismerő modellje nem indult el — vagy nincs "
                           "ilyen modell, vagy az első futáskori letöltés nem sikerült (internet "
                           "kell hozzá). Próbálkozások: " + "; ".join(errors))
 
     def _warm_up(self, ocr):
-        """A felismerő modell betöltése most (csak felismerés, keresés nélkül —
-        különben üres képen a felismerő sosem futna le).
+        """Mindhárom modell betöltése most.
+
+        A felismerőt egy csak-felismerés hívás tölti be (üres képen a keresés
+        semmit sem találna, és a felismerő sosem futna le); a keresőt és az
+        orientáció-modellt a RapidOCR saját betöltője (ha van ilyen — régebbi
+        3.x-ben egy keresős hívás az üres képen).
 
         A RapidOCR a hívásnál megadott use_det/use_cls/use_rec kapcsolót
         MEGJEGYZI; ezért az eredeti értékeket elmentjük, és minden képnél
@@ -279,6 +294,14 @@ class RapidOcrEngine:
         import numpy as np
         self._steps = {"use_det": ocr.use_det, "use_cls": ocr.use_cls, "use_rec": ocr.use_rec}
         ocr(np.zeros((48, 320, 3), np.uint8), use_det=False, use_cls=False, use_rec=True)
+        loaders = [getattr(ocr, n, None) for n in ("_load_det_model", "_load_cls_model")]
+        if all(callable(f) for f in loaders):
+            if self._steps["use_det"]:
+                loaders[0]()
+            if self._steps["use_cls"]:
+                loaders[1]()
+        else:
+            ocr(np.zeros((64, 320, 3), np.uint8), **self._steps)
 
     def _one(self, path):
         if self._new:

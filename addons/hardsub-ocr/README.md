@@ -55,10 +55,13 @@ Az OCR-motor:
   ```
 
   A felismerő modellek az első futáskor töltődnek le (internet kell hozzá).
-  A RapidOCR 3.x alapmodellje csak néhány nyelvet ismer (kínai, japán,
-  angol); a koreaihoz, thaihoz, a latin betűs és cirill nyelvekhez az add-on
-  magától a régebbi, nyelvenkénti modellt választja. Ezt induláskor ellenőrzi:
-  ha egyik modell sem tölthető be, egyetlen képkocka előtt hibával megáll.
+  A RapidOCR 3.x többnyelvű alapmodellje (PP-OCRv6) ismeri a kínait (a
+  hagyományosat is: `--engine-lang chinese_cht`), a japánt, az angolt és a
+  latin betűs nyelvek többségét (német, francia, spanyol, vietnámi…); a
+  koreaihoz, thaihoz, orosz (cirill), arab és hindi írásához az add-on magától
+  a régebbi, nyelvenkénti modellt választja. Induláskor mindhárom modellt
+  (szövegkeresés, orientáció, felismerés) betölti: ha egyik változat sem megy,
+  egyetlen képkocka előtt hibával megáll.
 
 Az `--engine auto` (alap) macOS-en a Visiont, máshol a RapidOCR-t választja.
 
@@ -120,25 +123,37 @@ kockákat írja ki, a gyorsulást még nem mértük.
    a **felirat-sávot** (alapból a kép magasságának 83,3%–98,6% közti része, ez
    1280×720-on a 600–710. pixelsor). Az arány miatt 1080p-n is ugyanazt a
    sávot vágja. A kockák a fájl idővonalához igazodnak: az n. kocka az n/4.
-   másodpercben látható kép, akkor is, ha a képsáv a hangnál később indul. Ha
-   az OCR-motor a képek többségét nem tudja beolvasni, a futás hibával megáll
-   (a további részek sem indulnak) — nem ír csupa `—` kimenetet, amit a
-   következő futás késznek hinne.
+   másodpercben látható kép, akkor is, ha a képsáv a hangnál később indul; a
+   kiválasztott kocka mindig a cue-n belülre esik, rövid cue-nál is. Csupa `—`
+   kimenetet, amit a következő futás késznek hinne, sosem ír:
+   - ha az OCR-motor a képek többségét nem tudja beolvasni, a futás hibával
+     megáll (a további részek sem indulnak);
+   - ha a kért kockák fele sem jön ki a videóból (a videó rövidebb a forrás
+     SRT-nél: más vágás, rossz `--ref`), az a rész hibával megáll.
 3. **Szűrés:**
    - reklám: webcímek (`.com`, `www.`…) mindig, és a `--ad-extra` minta;
-   - a nyelv kulcsszólistája (kínainál a fogadási/kaszinó-hirdetések szavai:
-     官方, 扫码, 投注, 娱乐, 平台, 百家乐, 世界杯, 足球…) csak **két különböző
-     kulcsszóval**, vagy kulcsszó + szám / latin betű együtt számít reklámnak
-     (`官方娱乐平台`, `扫码领取88元`) — egymagában hétköznapi szó
-     (`他是娱乐公司的老板`, `我们结成联盟` megmarad);
-   - **nem latin írású** nyelvnél (kínai, koreai, japán, thai…) a legalább 5
-     jegyű számsor (telefonszám, QQ-szám, kód) és a túlnyomóan latin betűs sor
-     (legalább 4 latin betű, több, mint a nyelv saját írásjegye) is reklám; a
-     rövid szám és a rövid latin szó nem (`3天后`, `我是CEO`, `오늘 TV 봤어?`
-     megmarad). Latin betűs nyelvnél ez magától kikapcsol (`--drop-latin`);
+   - a nyelv kulcsszólistája (kínainál) két csoportban:
+     - szinte csak hirdetésben előforduló szó (扫码, 投注, 提现, 百家乐, 博彩…):
+       reklám, ha mellette bármilyen más jel is van — még egy kulcsszó, szám,
+       latin betű (`扫码领取88元`, `CSGO竞猜`, `投注提现`);
+     - hétköznapi szó is (官方, 娱乐, 平台, 联盟, 足球, 篮球, 彩票…): csak ha
+       legalább három különböző kulcsszó áll egy sorban (`官方娱乐平台`).
+       Egymagában, párban, számmal vagy névvel együtt megmarad
+       (`他是星辰娱乐的CEO`, `你喜欢足球还是篮球`, `这个平台有3000万用户`);
+   - **nem latin írású** nyelvnél (kínai, koreai, japán, thai…) reklám még:
+     - a legalább 7 jegyű számsor (telefonszám, QQ-szám), hacsak pénznem vagy
+       mértékegység nem követi (`1000000元` megmarad);
+     - a túlnyomóan latin betűs sor: legalább 4 latin betű mellett legfeljebb
+       egy saját írásjegy, vagy legalább 8 latin betű, a saját írásjegyek
+       háromszorosánál több (`WWW BET CASINO 体育`).
+
+     A mondatba kevert név, márka, összeg megmarad (`Linda来了`, `你的iPhone呢`,
+     `我给你10000块`, `Instagram에 올려`, `50000원만 줘`). Latin betűs nyelvnél
+     ez a két szabály magától kikapcsol (`--drop-latin`);
    - **rávetített szöveg**: a cue-k legalább 30%-ában (és legalább 10 cue-ban)
-     visszatérő sor (vízjel, fansub-stáb, állandó reklámsor) kimarad — a
-     kihagyott sorokat kiírja;
+     visszatérő sor (vízjel, fansub-stáb, állandó reklámsor) kimarad, a kissé
+     eltérő kiolvasása is (`腾讯视` a `腾讯视频` helyett) — a kihagyott sorokat
+     kiírja;
    - csak az a sor marad, amiben van **a nyelv írásrendszeréből** karakter
      (kínainál írásjegy, koreainál hangul, japánnál kana vagy kanji, thainál
      thai írás, latin betűs nyelvnél latin betű).
@@ -151,7 +166,9 @@ kockákat írja ki, a gyorsulást még nem mértük.
    cue felirata látszhat; ezeket egy második ffmpeg-menet vágja ki), nyersen
    és **binarizálva** is (a fehér felirat
    feketére, minden más fehérre — így a világos háttér előtti felirat is
-   olvasható). Itt csak a legalább 0,5 megbízhatóságú találat számít.
+   olvasható). Itt csak a legalább 0,5 megbízhatóságú találat számít. Ha
+   ugyanaz a „találat” a pótolt cue-k sokában (legalább 10-ben és 30%-ukban)
+   nyer, az a felirat nélküli képeken látszó rávetített szöveg — kimarad.
 
 Mért eredmény (kínai beégetett felirat, 720p, Vision, a korábbi változattal):
 kb. 890 cue-ból 15–50 marad üres, főleg dalszöveg és képi felirat, aminek nincs kínai

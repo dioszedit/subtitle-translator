@@ -105,8 +105,18 @@ def test_retry_frames_all_when_few():
     assert ocr.retry_frames(1.0, 2.0, 4, 8) == [5, 6, 7]
 
 
-def test_retry_frames_short_cue_gets_middle():
-    assert ocr.retry_frames(4.0, 4.2, 4, 8) == [16]
+def test_retry_frames_short_cue_stays_inside():
+    assert ocr.retry_frames(4.0, 4.2, 4, 8) == [16]      # 4,0 mp: épp a cue eleje
+    assert ocr.retry_frames(4.05, 4.2, 4, 8) == []       # nincs rácspont a cue-ban
+    assert ocr.retry_frames(4.0, 4.0, 4, 8) == []
+
+
+def test_sample_frames_never_before_or_after_short_cue():
+    """0,3 mp-es cue a 4,1–4,4 mp-ben: a felénél (4,25) → 17. kocka; a kerekítés
+    nem viheti a cue elé (16 = 4,0 mp) vagy utána (18 = 4,5 mp)."""
+    for start, end in ((4.1, 4.4), (4.01, 4.3), (4.2, 4.49)):
+        for n in ocr.sample_frames(start, end, 4):
+            assert start <= n / 4 < end, (start, end, n)
 
 
 def test_retry_frames_capped_and_spread():
@@ -169,10 +179,32 @@ def test_chinese_filter_drops_ads_latin_and_non_cjk():
                         ("他是娱乐公司的老板", 0.9), ("我们和他们结成联盟", 0.9)]
 
 
+@pytest.mark.parametrize("line", [
+    "他是星辰娱乐的CEO", "娱乐圈混了10年", "这个平台有3000万用户", "你喜欢足球还是篮球",
+    "Linda来了", "你的iPhone呢", "我给你10000块", "他欠了我1000000元", "全部投注",
+])
+def test_chinese_everyday_lines_are_kept(line):
+    """Név, márka, pénzösszeg, hétköznapi „kulcsszó” — valódi párbeszéd."""
+    assert ocr.LineFilter("chi")([(line, 0.9)]) == [(line, 0.9)]
+
+
+@pytest.mark.parametrize("line", ["50000원만 줘", "Instagram에 올려", "YouTube 봤어?"])
+def test_korean_everyday_lines_are_kept(line):
+    assert ocr.LineFilter("kor")([(line, 0.9)]) == [(line, 0.9)]
+
+
+@pytest.mark.parametrize("line", [
+    "官方娱乐平台", "扫码领取88元", "CSGO竞猜", "加微信13812345678", "WECHAT 欢",
+    "WWW BET CASINO 体育", "投注提现",
+])
+def test_chinese_ads_are_dropped(line):
+    assert ocr.LineFilter("chi")([(line, 1.0)]) == []
+
+
 def test_korean_filter_wants_hangul():
     f = ocr.LineFilter("kor")
     lines = [("괜찮아요", 0.9), ("我已经", 1.0), ("ABC123", 1.0), ("지금 3시야", 1.0),
-             ("문의 010123456789", 1.0), ("오늘 TV 봤어?", 1.0), ("SNS에 올렸어", 1.0)]
+             ("문의 01012345678", 1.0), ("오늘 TV 봤어?", 1.0), ("SNS에 올렸어", 1.0)]
     # a kínai írásjegy nem koreai; a hosszú számsor reklám; a rövid szám és a
     # rövid latin szó (TV, SNS) nem; az ABC123-ban nincs hangul
     assert f(lines) == [("괜찮아요", 0.9), ("지금 3시야", 1.0), ("오늘 TV 봤어?", 1.0),
@@ -187,7 +219,7 @@ def test_latin_language_keeps_latin_and_digits():
 
 
 def test_drop_latin_override():
-    heavy = [("WECHAT ID 欢迎", 1.0)]
+    heavy = [("WECHAT ID 欢迎", 1.0)]   # 8 latin betű, 2 írásjegy
     assert ocr.LineFilter("chi")(heavy) == []
     assert ocr.LineFilter("chi", drop_latin=False)(heavy) == heavy
     assert ocr.LineFilter("eng")([("Call 0612345678", 1.0)]) == [("Call 0612345678", 1.0)]
@@ -201,8 +233,8 @@ def test_ad_extra_extends_list():
 
 def test_ad_words_not_chinese_for_other_languages():
     # a kínai kulcsszólista nem érvényes a koreaira (ott a 平台 nem is hangul)
-    assert ocr.LineFilter("chi").is_ad("官方平台")
-    assert not ocr.LineFilter("kor").is_ad("官方平台")
+    assert ocr.LineFilter("chi").is_ad("官方娱乐平台")
+    assert not ocr.LineFilter("kor").is_ad("官方娱乐平台")
 
 
 def test_every_lang_has_script():
@@ -255,7 +287,7 @@ def test_align_main_pass_and_retry(tmp_path, cfg):
     answers = {
         # 1. cue: 35% → 1,7 mp → 7. kocka, 70% → 2,4 mp → 10. kocka
         "000007.png": [("你好", 0.5)],
-        "000010.png": [("你好吗", 1.0), ("官方平台", 1.0)],
+        "000010.png": [("你好吗", 1.0), ("官方娱乐平台", 1.0)],
         # 2. cue: semmi a fő körben, a pótlásban csak a binarizált kocka ad biztos találatot
         "000017.png": [("快", 0.3)],
         "bin_000017.png": [("很快", 1.0)],
@@ -363,6 +395,42 @@ def test_single_char_noise_needs_confidence(tmp_path, cfg):
     rec = ocr.Recognizer(FakeEngine(answers), ocr.LineFilter("chi"))
     texts, _ = ocr.align(cues, tmp_path, rec, cfg, None, log=lambda *_: None)
     assert texts == ["", "嗯"]
+
+
+def test_overlay_variant_reading_is_dropped(tmp_path, cfg):
+    """A vízjel kissé eltérő kiolvasása (rész-szöveg, egy betű eltérés) is kimarad."""
+    rec = ocr.Recognizer(FakeEngine({}), ocr.LineFilter("chi"))
+    rec.overlay = {"腾讯视频独播"}
+    assert ocr.is_overlay("腾讯视频", rec.overlay)            # rész-szöveg
+    assert ocr.is_overlay("腾讯視频独播", rec.overlay)        # egy írásjegy eltér
+    assert not ocr.is_overlay("我们走吧", rec.overlay)
+    assert not ocr.is_overlay("好", {"好的"})                # rövid vízjelnél csak pontos
+
+
+def test_retry_winner_repeated_in_many_cues_is_dropped(tmp_path, cfg):
+    """Felirat nélküli cue-kban csak a vízjel látszik: ha a pótló körben sok üres
+    cue-ban ugyanaz „nyer”, az nem felirat."""
+    cues = [{"num": str(i), "timestamp": "", "start": 3.0 * i, "end": 3.0 * i + 2.0}
+            for i in range(30)]
+    make_frames(tmp_path, range(0, 400))
+    main = {ocr.frame_file(tmp_path, n).name
+            for c in cues for n in ocr.sample_frames(c["start"], c["end"], 4.0)}
+    answers = {f"{n:06d}.png": [("腾讯视", 0.9)] for n in range(400)
+               if f"{n:06d}.png" not in main}
+    answers[ocr.frame_file(tmp_path, 1).name] = [("你好", 0.9)]
+    rec = ocr.Recognizer(FakeEngine(answers), ocr.LineFilter("chi"))
+    texts, stats = ocr.align(cues, tmp_path, rec, cfg, None, log=lambda *_: None)
+    assert "腾讯视" not in texts and stats["retried"] == 0
+
+
+def test_too_few_frames_is_fail(tmp_path, cfg):
+    """A videó rövidebb a forrás SRT-nél: ne legyen csupa `—` kimenet."""
+    cues = [{"num": str(i), "timestamp": "", "start": 3.0 * i, "end": 3.0 * i + 2.0}
+            for i in range(10)]
+    rec = ocr.Recognizer(FakeEngine({}), ocr.LineFilter("chi"))
+    with pytest.raises(ocr.Fail, match="rövidebb"):
+        ocr.align(cues, tmp_path, rec, cfg, None, extractor=lambda ns: make_frames(tmp_path, [0, 1]),
+                  log=lambda *_: None)
 
 
 def test_retry_dedupes_overlapping_frames(tmp_path, cfg):
@@ -653,6 +721,83 @@ def test_engine_lang_maps_cover_filter_langs():
     """Minden nyelvhez, amit a szűrő ismer, legyen legalább az egyik motorban leképezés."""
     for lang in ocr.LANG_SCRIPT:
         assert lang in engines.VISION_LANGS or lang in engines.RAPID_LANGS
+
+
+def _fake_rapidocr(monkeypatch, fail_on, calls):
+    """Hamis `rapidocr` modul: a konstruktor mindig sikerül (mint a valódi, lusta
+    betöltésnél), a bemelegítő hívás a `fail_on` modellnél hibázik (ocr_version
+    neve, None = alapmodell)."""
+    import enum
+    import types
+    mod = types.ModuleType("rapidocr")
+
+    class LangRec(enum.Enum):
+        CH, KOREAN, LATIN = "ch", "korean", "latin"
+
+    class OCRVersion(enum.Enum):
+        V4, V5, V6 = "PP-OCRv4", "PP-OCRv5", "PP-OCRv6"
+
+    class ModelType(enum.Enum):
+        MOBILE, SMALL = "mobile", "small"
+
+    class Out:
+        txts, scores = ("안녕",), (0.9,)
+
+    class RapidOCR:
+        def __init__(self, params):
+            self.params = params
+            self.use_det = self.use_cls = self.use_rec = True
+
+        def _load_det_model(self):
+            calls.append(("det", self.params.get("Rec.ocr_version")))
+
+        def _load_cls_model(self):
+            calls.append(("cls", self.params.get("Rec.ocr_version")))
+
+        def __call__(self, img, use_det=None, use_cls=None, use_rec=None):
+            ver = self.params.get("Rec.ocr_version")
+            if not isinstance(img, str) and (ver.value if ver else None) in fail_on:
+                raise ValueError(f"Unsupported rec.lang_type for {ver}")
+            for k, v in (("use_det", use_det), ("use_cls", use_cls), ("use_rec", use_rec)):
+                if v is not None:
+                    setattr(self, k, v)   # a valódi RapidOCR is megjegyzi
+            calls.append(("call", ver, self.use_det, self.use_cls, self.use_rec))
+            return Out()
+
+    mod.LangRec, mod.OCRVersion, mod.ModelType, mod.RapidOCR = LangRec, OCRVersion, ModelType, RapidOCR
+    monkeypatch.setitem(sys.modules, "rapidocr", mod)
+    np = types.ModuleType("numpy")
+    np.zeros = lambda shape, dtype=None: ("zeros", shape)
+    np.uint8 = "uint8"
+    monkeypatch.setitem(sys.modules, "numpy", np)
+    return mod
+
+
+def test_rapidocr_falls_back_to_older_model_and_restores_steps(monkeypatch):
+    calls = []
+    mod = _fake_rapidocr(monkeypatch, fail_on={None}, calls=calls)   # az alapmodell nem tud koreaiul
+    eng = engines.RapidOcrEngine("kor")
+    assert eng._ocr.params["Rec.ocr_version"] == mod.OCRVersion("PP-OCRv5")
+    assert ("det", mod.OCRVersion("PP-OCRv5")) in calls and ("cls", mod.OCRVersion("PP-OCRv5")) in calls
+    calls.clear()
+    assert eng.recognize(["a.png"]) == [[("안녕", 0.9)]]
+    # a bemelegítés use_det=False-a nem marad meg: a képet kereséssel olvassa
+    assert calls == [("call", mod.OCRVersion("PP-OCRv5"), True, True, True)]
+
+
+def test_rapidocr_native_v6_code_then_latin_fallback(monkeypatch):
+    calls = []
+    _fake_rapidocr(monkeypatch, fail_on={None}, calls=calls)
+    eng = engines.RapidOcrEngine("ger")
+    # az alapmodell a „de” kódot kapta (szövegként), a tartalék a közös latin modellt
+    assert eng._ocr.params["Rec.lang_type"].value == "latin"
+
+
+def test_rapidocr_all_models_fail_is_engine_error(monkeypatch):
+    calls = []
+    _fake_rapidocr(monkeypatch, fail_on={None, "PP-OCRv4", "PP-OCRv5", "PP-OCRv6"}, calls=calls)
+    with pytest.raises(engines.EngineError, match="Próbálkozások"):
+        engines.RapidOcrEngine("kor")
 
 
 def test_rapidocr_missing_package_message(monkeypatch):

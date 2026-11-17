@@ -121,29 +121,36 @@ LANG_SCRIPT = {
     "may": "latin",
 }
 
-# Nem latin írású feliratban (ha a latin-szűrés be van kapcsolva):
-# - a latin betű önmagában nem gyanús („我是CEO”, „오늘 TV 봤어?”), csak a
-#   túlnyomóan latin betűs sor (legalább 4 latin betű, és több, mint a nyelv
-#   saját írásjegye) — ez a képre tett reklám, kód, stáblista;
-# - a szám önmagában sem („3天后”, „10억”), csak a hosszú számsor (telefonszám,
-#   QQ-szám, kód). A teljes és félszélességű alak is számít.
+# Nem latin írású feliratban (ha a latin-szűrés be van kapcsolva) reklámnak
+# számít (a képre tett weboldal, kód, telefonszám, stáblista):
+# - a túlnyomóan latin betűs sor: legalább 4 latin betű mellett legfeljebb 1
+#   saját írásjegy („WECHAT 欢”), vagy legalább 8 latin betű, a saját írásjegyek
+#   háromszorosánál több („WWW BET CASINO 体育”). A mondatba kevert név, márka,
+#   rövidítés megmarad: „Linda来了”, „你的iPhone呢”, „Instagram에 올려”;
+# - a legalább 7 jegyű számsor (telefonszám, QQ-szám), kivéve ha pénznem vagy
+#   mértékegység követi („1000000元”). A rövidebb szám — „3天后”, „10억”,
+#   „我给你10000块” — megmarad. A teljes és félszélességű alak is számít.
 LATIN_LETTER = r"[A-Za-zＡ-Ｚａ-ｚ]"
-LATIN_HEAVY_MIN = 4
-LONG_NUMBER = r"[0-9０-９]{5,}"
+LONG_NUMBER = r"[0-9０-９]{7,}"
+NUMBER_UNITS = "元块圆万亿千百円원만억달불"
 ANY_DIGIT = r"[0-9０-９]"
 
 # Minden nyelvre: webcím-minták (mindig reklám).
 AD_COMMON = [r"\.(?:com|net|cc|tv|vip|top|xyz|io)\b", r"www\.", r"https?://"]
 
 # Nyelvenkénti reklám-kulcsszavak (szerencsejáték-/fogadási hirdetések, ezek
-# kerülnek a kalóz-kiadások képére). Ezek hétköznapi szavak is (娱乐公司,
-# 平台, 联盟, 足球比赛), ezért egy kulcsszó egymagában nem elég: reklám csak
-# két különböző kulcsszóval, vagy kulcsszó + szám / latin betű együtt
-# („官方娱乐平台”, „扫码领取88元”, „CSGO竞猜”). A felhasználói minta
-# (HARDSUB_OCR_AD_EXTRA / --ad-extra) viszont egymagában is reklám.
+# kerülnek a kalóz-kiadások képére), két csoportban:
+# - "ad": szinte csak hirdetésben (扫码, 投注, 百家乐…) — reklám, ha mellette
+#   bármilyen más jel is van (még egy kulcsszó, szám, latin betű):
+#   „扫码领取88元”, „CSGO竞猜”;
+# - "common": hétköznapi szó is (娱乐公司, 平台, 联盟, 足球比赛) — egymagában,
+#   párban, számmal, névvel sem reklám („你喜欢足球还是篮球”, „他是星辰娱乐的CEO”),
+#   csak ha legalább három különböző kulcsszó áll egy sorban („官方娱乐平台”).
+# A felhasználói minta (HARDSUB_OCR_AD_EXTRA / --ad-extra) egymagában is reklám.
 AD_WORDS = {
-    "chi": ["官方", "扫码", "投注", "娱乐", "提现", "平台", "CSGO", "天下会", "百家乐", "联盟",
-            "世界杯", "锦标赛", "足球", "篮球", "彩票", "博彩"],
+    "chi": {"ad": ["扫码", "投注", "提现", "百家乐", "博彩", "天下会", "CSGO"],
+            "common": ["官方", "娱乐", "平台", "联盟", "世界杯", "锦标赛", "足球", "篮球",
+                       "彩票"]},
 }
 
 
@@ -166,12 +173,14 @@ class LineFilter:
     def __init__(self, lang, ad_extra="", drop_latin=None):
         self.script = re.compile(SCRIPTS[script_of(lang)])
         self.ads = ad_pattern(lang, ad_extra)
-        self.words = [w.lower() for w in AD_WORDS.get(lang, [])]
+        words = AD_WORDS.get(lang, {})
+        self.ad_words = [w.lower() for w in words.get("ad", [])]
+        self.common_words = [w.lower() for w in words.get("common", [])]
         if drop_latin is None:   # auto: csak nem latin írású nyelvnél
             drop_latin = script_of(lang) != "latin"
         self.drop_latin = drop_latin
         self.letter = re.compile(LATIN_LETTER)
-        self.long_number = re.compile(LONG_NUMBER)
+        self.long_number = re.compile(LONG_NUMBER)   # finditer: a mögötte álló egység is számít
         self.digit = re.compile(ANY_DIGIT)
 
     def is_ad(self, text):
@@ -179,13 +188,18 @@ class LineFilter:
             return True
         letters = len(self.letter.findall(text))
         if self.drop_latin:
-            if self.long_number.search(text):
-                return True
-            if letters >= LATIN_HEAVY_MIN and letters > len(self.script.findall(text)):
+            for m in self.long_number.finditer(text):
+                if text[m.end():m.end() + 1] not in NUMBER_UNITS or m.end() == len(text):
+                    return True
+            own = len(self.script.findall(text))
+            if (letters >= 4 and own <= 1) or (letters >= 8 and letters > 3 * own):
                 return True
         low = text.lower()
-        hits = sum(1 for w in self.words if w in low)
-        return hits >= 2 or (hits == 1 and (letters > 0 or bool(self.digit.search(text))))
+        ad = sum(1 for w in self.ad_words if w in low)
+        common = sum(1 for w in self.common_words if w in low)
+        if ad and (ad + common >= 2 or letters > 0 or self.digit.search(text)):
+            return True
+        return ad + common >= 3
 
     def keep(self, text):
         text = " ".join(text.split())
@@ -291,12 +305,26 @@ def find_ref(video, lang, ref_dir):
 
 # ── képkockák ──────────────────────────────────────────────────────────────
 
+def cue_frame_range(start, end, fps):
+    """A cue-n belüli képkockák (lo, hi): az n. kocka az n/fps-kor látható kép,
+    ezért start ≤ n/fps < end. Üres (lo > hi), ha a cue rövidebb egy lépésnél
+    és egyetlen rácspont sem esik bele."""
+    return math.ceil(start * fps - 1e-9), math.ceil(end * fps - 1e-9) - 1
+
+
 def sample_frames(start, end, fps):
     """A fő kör mintavételi képkockái (sorszám = round(idő × fps)):
-    a cue 35%-ánál és 70%-ánál, 0,8 mp-nél rövidebb cue-nál a felénél."""
+    a cue 35%-ánál és 70%-ánál, 0,8 mp-nél rövidebb cue-nál a felénél — a cue
+    határain belülre szorítva, hogy rövid cue-nál se a szomszéd cue (előtte
+    vagy utána látszó) képe kerüljön sorra."""
     d = end - start
     points = (0.35, 0.7) if d > 0.8 else (0.5,)
-    return list(dict.fromkeys(int(round((start + d * p) * fps)) for p in points))
+    lo, hi = cue_frame_range(start, end, fps)
+    out = []
+    for p in points:
+        n = int(round((start + d * p) * fps))
+        out.append(min(max(n, lo), hi) if lo <= hi else n)
+    return list(dict.fromkeys(out))
 
 
 def retry_frames(start, end, fps, limit):
@@ -309,8 +337,9 @@ def retry_frames(start, end, fps, limit):
     first = math.ceil(start * fps + 0.5)
     last = math.floor(end * fps - 0.5)
     frames = list(range(first, last + 1))
-    if not frames and end > start:
-        frames = [int(round((start + end) / 2 * fps))]
+    if not frames:   # rövid cue: a határ közelében is, de a cue-n belül
+        lo, hi = cue_frame_range(start, end, fps)
+        frames = list(range(lo, hi + 1))
     if len(frames) <= limit:
         return frames
     step = len(frames) / limit
@@ -457,6 +486,10 @@ MAX_UNREADABLE = 0.5
 OVERLAY_SHARE = 0.3
 OVERLAY_MIN_CUES = 10
 
+# A fő kör kért képkockáiból legalább ennyi legyen meg, különben a videó és a
+# forrás SRT nem illik össze (a kimenet csupa `—` lenne).
+MIN_FRAMES_PRESENT = 0.5
+
 
 class Recognizer:
     """Az OCR-motor köré: képenként egyszer olvas (a pótló kör újrahasznosítja
@@ -493,7 +526,7 @@ class Recognizer:
 
     def get(self, path):
         """A kép jelöltje (szöveg, conf) a rávetített sorok nélkül; None, ha nincs."""
-        return candidate([l for l in self.lines(path) if l[0] not in self.overlay])
+        return candidate([l for l in self.lines(path) if not is_overlay(l[0], self.overlay)])
 
     def check(self):
         """EngineError, ha a képek többsége olvashatatlan volt — a motor romlott
@@ -504,6 +537,29 @@ class Recognizer:
                 f"az OCR-motor a {self.read} képkockából {self.unreadable}-t nem tudott "
                 f"beolvasni{f' (utolsó hiba: {last})' if last else ''} — kimenet nem "
                 "készült; ellenőrizd a motor telepítését (--engine)")
+
+
+def edit_distance(a, b):
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        cur = [i]
+        for j, cb in enumerate(b, 1):
+            cur.append(min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (ca != cb)))
+        prev = cur
+    return prev[-1]
+
+
+def is_overlay(text, overlay):
+    """A sor a rávetített szövegek egyike — pontosan, vagy (legalább 3 karakteres
+    vízjelnél) annak kissé eltérő kiolvasása: rész-szöveg („腾讯视” a „腾讯视频”
+    helyett) vagy legfeljebb hossz/4 karakternyi eltérés."""
+    for o in overlay:
+        if text == o:
+            return True
+        if len(o) >= 3 and ((len(text) >= 2 and text in o) or o in text
+                            or edit_distance(text, o) <= max(1, len(o) // 4)):
+            return True
+    return False
 
 
 def find_overlay(plan, recognizer):
@@ -540,6 +596,12 @@ def align(cues, frames_dir, recognizer, cfg, binarizer=None, extractor=None, log
     if extractor:
         extractor(done)
     plan = [[frame_file(frames_dir, n) for n in ns] for ns in nums]
+    have = sum(1 for n in done if frame_file(frames_dir, n).exists())
+    if done and have < MIN_FRAMES_PRESENT * len(done):
+        # A videó rövidebb a forrás SRT-nél (rossz --ref / más vágás), vagy az
+        # ffmpeg hiba nélkül sem adott kockát: csupa `—` lenne a kimenet.
+        raise Fail(f"a kért {len(done)} képkockából csak {have} van meg — a videó rövidebb a "
+                   "forrás SRT-nél (más vágás, rossz --ref?), vagy az ffmpeg nem adott képet")
     log(f"  OCR: {len(done)} képkocka ({len(cues)} cue)")
     recognizer.run([p for ps in plan for p in ps])
     recognizer.check()
@@ -565,11 +627,24 @@ def align(cues, frames_dir, recognizer, cfg, binarizer=None, extractor=None, log
         log(f"  pótló kör: {len(empty)} üres cue, {len(raw)} képkocka nyersen"
             f"{f' + {len(bins)} binarizálva' if bins else ''}")
         recognizer.run(raw + list(bins.values()))
+        won = {}
         for i, ps in rplan.items():
             cands = [recognizer.get(p) for p in ps] + [recognizer.get(bins[p]) for p in ps if p in bins]
             text, _ = pick(cands, cfg["retry_min_conf"], short_conf, script)
             if text:
-                texts[i] = text
+                won[i] = text
+        # Ugyanaz a „találat” sok üres cue-ban: a feliratnélküli képeken csak a
+        # rávetített szöveg (vízjel) látszik, és az nyert — nem felirat.
+        counts = {}
+        for t in won.values():
+            counts[t] = counts.get(t, 0) + 1
+        limit = max(OVERLAY_MIN_CUES, OVERLAY_SHARE * len(empty))
+        repeated = {t for t, n in counts.items() if n >= limit}
+        if repeated:
+            log(f"  pótló kör: sok üres cue-ban ugyanaz, kihagyva: {' / '.join(sorted(repeated))}")
+        for i, t in won.items():
+            if t not in repeated:
+                texts[i] = t
                 stats["retried"] += 1
     recognizer.check()
     stats["empty"] = sum(1 for t in texts if not t)
