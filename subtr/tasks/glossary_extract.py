@@ -538,7 +538,7 @@ def _run_gemini(prompt: str, existing_terms: set, model: str | None,
     gemini_prompt = (prompt + "\n\nKIMENET: kizárólag egy JSON objektum "
                      '`suggestions` tömbbel: {"suggestions":[...]}.')
     try:
-        client = gemini_provider.make_client()
+        client = gemini_provider.make_client(task="glossary")
     except RuntimeError as e:
         print(f"HIBA: {e}")
         return []

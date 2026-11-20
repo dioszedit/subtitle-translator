@@ -387,7 +387,7 @@ def run_gemini(prompt: str, model: str) -> list[dict]:
     gemini_provider.preflight(model, needed=1)
     print(f"Gemini elemzi a feliratot... ({model})")
     try:
-        client = gemini_provider.make_client()
+        client = gemini_provider.make_client(task="register")
     except RuntimeError as e:
         print(f"HIBA: {e}")
         return []

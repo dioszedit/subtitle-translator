@@ -87,7 +87,18 @@ def test_non_retryable_api_error_returns_immediately(quota_log):
     assert client.calls == 1 and quota_log == []
 
 
-def test_retries_exhausted_reports_last_api_error():
+@pytest.fixture
+def no_overload_fallback(monkeypatch):
+    """Nincs tartalékmodell: a túlterhelés-váltás nem talál helyettesítőt."""
+    from subtr import gemini_models
+    monkeypatch.setattr(gemini_models, "fallback_candidates",
+                        lambda model, tried=(), skipped=None: [])
+    gemini.reset_switches()
+    yield
+    gemini.reset_switches()
+
+
+def test_retries_exhausted_reports_last_api_error(no_overload_fallback):
     client = _Client(_api_error(503), _api_error(503))
     parsed, err = gemini.call_json(client, "m", "p", schema={}, max_retries=2)
     assert parsed is None and "API hiba" in err and "503" in err
@@ -235,3 +246,114 @@ def test_ledger_exhaustion_without_fallback_still_tries_model(ledger_says_exhaus
     assert client.models_used == ["m"]
     # a napló csak egyszer kerül elő: a második hívás nem kérdez újra
     assert gemini.call_json(_ModelClient(_Resp(text="{}")), "m", "p", schema={}) == ({}, None)
+
+
+# --- tartós túlterhelés (5xx): váltás a tartaléklistára, kérdés nélkül ---------
+
+def _server_error(code, message="x"):
+    return gemini.genai_errors.APIError(code, {"error": {"message": message, "status": "s"}})
+
+
+@pytest.fixture
+def overload(monkeypatch, quota_log):
+    """A tartaléklista az „m” helyett „m2”-t ad; a napi-limit kérdés nem fut."""
+    from subtr import gemini_models
+    monkeypatch.setattr(gemini_models, "on_quota_mode", lambda: "ask")
+    monkeypatch.setattr(gemini_models, "fallback_candidates",
+                        lambda model, tried=(), skipped=None:
+                        [{"model": "m2"}] if model == "m" else [])
+    monkeypatch.setattr(gemini_models, "choose_fallback",
+                        lambda *a, **k: pytest.fail("a túlterhelés nem kérdezhet"))
+    gemini.reset_switches()
+    yield
+    gemini.reset_switches()
+
+
+def test_high_demand_503_switches_immediately(overload):
+    """A „high demand” 503 tartós túlterhelés: a várakozás nem segít, azonnal vált."""
+    client = _ModelClient(_server_error(503, "This model is currently experiencing high demand."),
+                          _Resp(text='{"ok": 1}'), _Resp(text='{"ok": 2}'))
+    meta = {}
+    assert gemini.call_json(client, "m", "p", schema={}, meta=meta) == ({"ok": 1}, None)
+    assert client.models_used == ["m", "m2"] and meta == {"model": "m2"}
+    # a futás hátralévő hívásai is a tartalékkal mennek
+    assert gemini.call_json(client, "m", "p", schema={}) == ({"ok": 2}, None)
+    assert client.models_used[-1] == "m2" and gemini.switches() == {"m": "m2"}
+
+
+def test_two_consecutive_5xx_switch(overload):
+    client = _ModelClient(_server_error(504), _server_error(500), _Resp(text="{}"))
+    assert gemini.call_json(client, "m", "p", schema={}) == ({}, None)
+    assert client.models_used == ["m", "m", "m2"]
+
+
+def test_single_5xx_is_retried_on_same_model(overload):
+    client = _ModelClient(_server_error(500), _Resp(text="{}"))
+    assert gemini.call_json(client, "m", "p", schema={}) == ({}, None)
+    assert client.models_used == ["m", "m"] and gemini.switches() == {}
+
+
+def test_429_between_5xx_resets_the_count(overload):
+    client = _ModelClient(_server_error(500), _server_error(429), _server_error(503),
+                          _Resp(text="{}"))
+    assert gemini.call_json(client, "m", "p", schema={}) == ({}, None)
+    assert client.models_used == ["m"] * 4 and gemini.switches() == {}
+
+
+def test_overload_off_mode_does_not_switch(overload, monkeypatch):
+    from subtr import gemini_models
+    monkeypatch.setattr(gemini_models, "on_quota_mode", lambda: "off")
+    client = _ModelClient(_server_error(503, "overloaded"), _server_error(503, "overloaded"))
+    parsed, err = gemini.call_json(client, "m", "p", schema={}, max_retries=2)
+    assert parsed is None and "503" in err and client.models_used == ["m", "m"]
+
+
+def test_overload_is_not_marked_exhausted(overload):
+    """A túlterhelés átmeneti: a modell nem kerül a kimerültek (_DECLINED) közé."""
+    client = _ModelClient(_server_error(503, "high demand"), _Resp(text="{}"))
+    gemini.call_json(client, "m", "p", schema={})
+    assert "m" not in gemini._DECLINED
+
+
+def test_transient_errors_exhausted_switch(overload):
+    client = _ModelClient(TimeoutError(), TimeoutError(), _Resp(text="{}"))
+    assert gemini.call_json(client, "m", "p", schema={}, max_retries=2) == ({}, None)
+    assert client.models_used == ["m", "m", "m2"]
+
+
+# --- kérésenkénti időkorlát -----------------------------------------------------
+
+@pytest.fixture
+def no_timeout_env(monkeypatch):
+    for key in ("SUBTR_GEMINI_TIMEOUT", "SUBTR_REGISTER_GEMINI_TIMEOUT",
+                "SUBTR_GLOSSARY_GEMINI_TIMEOUT"):
+        monkeypatch.delenv(key, raising=False)
+    from subtr import config
+    monkeypatch.setattr(config, "_DEFAULTS", {}, raising=False)
+
+
+def test_request_timeout_defaults_per_task(no_timeout_env):
+    assert gemini.request_timeout("register") == 120
+    assert gemini.request_timeout("glossary") == 120
+    assert gemini.request_timeout() == gemini.DEFAULT_TIMEOUT == 600
+
+
+def test_request_timeout_resolution_order(no_timeout_env, monkeypatch):
+    monkeypatch.setenv("SUBTR_GEMINI_TIMEOUT", "300")
+    assert gemini.request_timeout("register") == 300 and gemini.request_timeout() == 300
+    monkeypatch.setenv("SUBTR_REGISTER_GEMINI_TIMEOUT", "90")
+    assert gemini.request_timeout("register") == 90
+    assert gemini.request_timeout("glossary") == 300
+
+
+def test_request_timeout_invalid_value_falls_back(no_timeout_env, monkeypatch, capsys):
+    monkeypatch.setenv("SUBTR_REGISTER_GEMINI_TIMEOUT", "abc")
+    assert gemini.request_timeout("register") == 120
+    assert "érvénytelen SUBTR_REGISTER_GEMINI_TIMEOUT" in capsys.readouterr().out
+
+
+def test_make_client_sets_timeout_in_ms(no_timeout_env, monkeypatch):
+    seen = {}
+    monkeypatch.setattr(gemini.genai, "Client", lambda **kw: seen.update(kw) or "client")
+    assert gemini.make_client(api_key="k", task="register") == "client"
+    assert seen["api_key"] == "k" and seen["http_options"].timeout == 120_000

@@ -22,6 +22,7 @@ A séma kétféle lehet:
 """
 
 import json
+import re
 import threading
 import time
 
@@ -48,6 +49,9 @@ except ImportError as _e:
     DEPS_ERROR = str(_e)
 
 RETRY_BASE_DELAY = 5   # másodperc — exponential backoff alapja
+# A Gemini 503 túlterhelés-üzenete („This model is currently experiencing high
+# demand…”, „overloaded”) — ilyenkor nem érdemes ugyanazt a modellt újrapróbálni.
+_OVERLOAD_RE = re.compile(r"high demand|overloaded", re.I)
 MAX_RETRIES_DEFAULT = 4
 MAX_SWITCHES = 5       # egy hívás legfeljebb ennyiszer válthat modellt
 
@@ -144,12 +148,73 @@ def _switch_after_exhaustion(model: str, preemptive: bool = False):
         return None
 
 
-def make_client(api_key: str | None = None):
-    """Gemini kliens. api_key nélkül a config-ból (env/.env) jön."""
+def _switch_after_overload(model: str, reason: str):
+    """Tartósan túlterhelt (5xx / időtúllépés minden próbálkozás után) modell
+    helyettesítője, vagy None. Ugyanaz a tartaléklista és SUBTR_GEMINI_ON_QUOTA
+    szabály, mint a napi limitnél (off → nem vált), de nem kérdez: a túlterhelés
+    átmeneti, nem a kvóta fogyott el — ezért a modellt NEM jelöljük kimerültnek
+    (_DECLINED), csak ennek a futásnak a hátralévő hívásai mennek a tartalékkal."""
+    with _SWITCH_LOCK:
+        if model in _SWITCHED:
+            return effective_model(model)
+        try:
+            from subtr import gemini_models
+            if gemini_models.on_quota_mode() == "off":
+                print(f"  A {model} tartósan nem válaszol ({reason}); automatikus "
+                      f"modellváltáshoz: {gemini_models.ON_QUOTA_KEY}=ask vagy auto (.env).")
+                return None
+            cands = gemini_models.fallback_candidates(model, tried=set(_SWITCHED))
+        except Exception as e:
+            print(f"  [!] Modellváltás sikertelen ({e}) — nem váltok.")
+            return None
+        if not cands:
+            return None
+        new = cands[0]["model"]
+        _SWITCHED[model] = new
+        print(f"  >>> MODELLVÁLTÁS: {model} → {new} ({model}: {reason}) — a futás "
+              f"hátralévő hívásai ezzel mennek.")
+        return new
+
+
+DEFAULT_TIMEOUT = 600  # másodperc / kérés — hosszú kimenet (translate, review)
+# Rövid válaszú funkciók: egy kérés percen belül kész, a hosszú várakozás csak
+# túlterhelést jelez (2026-11-20: 504-ek ~5–10 perc után).
+TASK_DEFAULT_TIMEOUT = {"register": 120, "glossary": 120, "models": 120}
+
+
+def request_timeout(task: str | None = None) -> int:
+    """Egy Gemini API kérés időkorlátja másodpercben. Feloldás:
+    SUBTR_<TASK>_GEMINI_TIMEOUT > SUBTR_GEMINI_TIMEOUT > funkció-alapérték > 600."""
+    default = TASK_DEFAULT_TIMEOUT.get(task or "", DEFAULT_TIMEOUT)
+    keys = ([f"SUBTR_{task.upper()}_GEMINI_TIMEOUT"] if task else []) + ["SUBTR_GEMINI_TIMEOUT"]
+    for key in keys:
+        raw = config.setting(key, "")
+        if not raw:
+            continue
+        try:
+            value = int(raw)
+        except ValueError:
+            value = 0
+        if value > 0:
+            return value
+        print(f"FIGYELEM: érvénytelen {key}={raw!r} — {default} s.")
+        return default
+    return default
+
+
+def make_client(api_key: str | None = None, timeout: int | None = None,
+                task: str | None = None):
+    """Gemini kliens. api_key nélkül a config-ból (env/.env) jön.
+    Időkorlát nélkül egy választ nem adó szerver a hívást a végtelenségig
+    blokkolná (2026-11-19: 20 perc nyitott kapcsolat a register-ben) —
+    a túllépés hálózati hiba, a retry/modellváltás kezeli. `task` a
+    funkciónkénti időkorlátot választja (lásd request_timeout)."""
     key = api_key or config.api_key("GEMINI_API_KEY")
     if not key:
         raise RuntimeError("GEMINI_API_KEY nincs beállítva. Tedd a .env fájlba.")
-    return genai.Client(api_key=key)
+    seconds = timeout or request_timeout(task)
+    return genai.Client(api_key=key,
+                        http_options=types.HttpOptions(timeout=seconds * 1000))
 
 
 def is_transient_error(e: Exception) -> bool:
@@ -211,7 +276,7 @@ def call_json(client, model: str, prompt: str, *, schema,
     if model in _DECLINED:
         return None, _DECLINED[model]
     last_err = None
-    attempt = switched = 0
+    attempt = switched = fails_5xx = 0
     while attempt < max_retries:
         attempt += 1
         try:
@@ -269,11 +334,38 @@ def call_json(client, model: str, prompt: str, *, schema,
                 # további hívások kérés nélkül ugyanezt kapják.
                 _DECLINED[model] = f"[API hiba: {e}]"
                 return None, _DECLINED[model]
+            # Túlterhelés jele: a 503 „high demand / overloaded” üzenete, vagy két
+            # egymást követő 5xx. Ilyenkor a további várakozás nem segít (a 3.8
+            # napokig így állt) → azonnal tartalékmodell, ha van; ha nincs, a
+            # szokásos retry megy tovább.
+            if status in (500, 502, 503, 504):
+                fails_5xx += 1
+                high_demand = status == 503 and bool(_OVERLOAD_RE.search(str(e)))
+                if (high_demand or fails_5xx >= 2) and switched < MAX_SWITCHES:
+                    why = ("503 high demand" if high_demand
+                           else f"{fails_5xx} egymást követő 5xx, utolsó {status}")
+                    new = _switch_after_overload(model, why)
+                    if new and new != model:
+                        model, switched, attempt, fails_5xx = new, switched + 1, 0, 0
+                        if meta is not None:
+                            meta["model"] = model
+                        continue
+            else:
+                fails_5xx = 0
             if status in (429, 500, 502, 503, 504) and attempt < max_retries:
                 delay = RETRY_BASE_DELAY * (2 ** (attempt - 1))
                 print(f"  API hiba ({status}), újrapróbálás {delay}s múlva... ({attempt}/{max_retries})")
                 time.sleep(delay)
                 continue
+            # Minden próbálkozás 5xx → a modell tartósan túlterhelt (2026-11-19/20:
+            # gemini-3.8-flash 503 „high demand” napokig) → tartalékmodell.
+            if status in (500, 502, 503, 504) and switched < MAX_SWITCHES:
+                new = _switch_after_overload(model, f"{status} {max_retries}×")
+                if new and new != model:
+                    model, switched, attempt = new, switched + 1, 0
+                    if meta is not None:
+                        meta["model"] = model
+                    continue
             return None, f"[API hiba: {e}]"
         except Exception as e:
             last_err = e
@@ -282,5 +374,12 @@ def call_json(client, model: str, prompt: str, *, schema,
                 print(f"  Hálózati hiba ({type(e).__name__}), újrapróbálás {delay}s múlva... ({attempt}/{max_retries})")
                 time.sleep(delay)
                 continue
+            if is_transient_error(e) and switched < MAX_SWITCHES:
+                new = _switch_after_overload(model, f"{type(e).__name__} {max_retries}×")
+                if new and new != model:
+                    model, switched, attempt = new, switched + 1, 0
+                    if meta is not None:
+                        meta["model"] = model
+                    continue
             return None, f"[Váratlan hiba: {e}]"
     return None, f"[{max_retries} próbálkozás után sem sikerült: {last_err}]"
