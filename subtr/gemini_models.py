@@ -664,7 +664,7 @@ def fetch_api_models() -> dict:
     from subtr.providers import gemini
     if not gemini.DEPS_OK:
         raise RuntimeError(f"google-genai nincs telepítve ({gemini.DEPS_ERROR})")
-    client = gemini.make_client()
+    client = gemini.make_client(task="models")
     out = {}
     for m in client.models.list(config={"page_size": 1000}):
         actions = getattr(m, "supported_actions", None) or []
