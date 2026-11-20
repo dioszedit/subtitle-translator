@@ -390,6 +390,13 @@ py subtr.py resegment reflow "output\Sorozat - S01E01.hun.srt" -o "output\Soroza
 #   --split                        2 sorba nem férő cue-k idő-arányos bontása (cue-számot változtat)
 #   --max-chars 42 --target-cps 17 plafonok (más csatorna = más érték)
 #   --lang hu                      nyelvi töréslogika (kötőszavak, névelők)
+# 7c. Gyors cue-k összevonása (újraszámoz; a riport-sorszámok utána elavulnak) —
+#     --ref NÉLKÜL, ha az eredeti nyelvű sáv csak gépi átirat (több beszélő egy sorban):
+py subtr.py resegment merge "output\Sorozat - S01E01.hun.reflow.srt" -o "output\Sorozat - S01E01.hun.merge.srt"
+# 7d. Merge utáni utómunka (helyben, a .merge.srt-n): a képernyőfelirattal összevont
+#     cue-k visszabontása + a ≤42 karakteres kétsoros cue-k egy sorba vonása
+#     (kivétel: dal ♪, két mondat, párbeszéd, címkártya). Végleges: .hun.merge.srt
+py addons\resegment-post\postmerge.py "output\Sorozat - S01E01.hun"
 
 
 # Tippek:
