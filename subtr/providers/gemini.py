@@ -67,6 +67,9 @@ _DECLINED = {}
 # Modellek, amelyeknél a napló mai „exhausted” jelzését már megnéztük ebben a
 # folyamatban (hívásonként nem olvassuk újra a naplót).
 _LEDGER_CHECKED = set()
+# Túlterhelt modellek, amelyeknél a váltás elmaradt (ON_QUOTA=off / nincs
+# tartalék) — a „tartósan nem válaszol” üzenet modellenként egyszer jelenik meg.
+_OVERLOAD_NOTED = set()
 
 
 def effective_model(model: str) -> str:
@@ -104,6 +107,7 @@ def reset_switches() -> None:
         _SWITCHED.clear()
         _DECLINED.clear()
         _LEDGER_CHECKED.clear()
+        _OVERLOAD_NOTED.clear()
 
 
 def _exhausted_in_ledger(model: str) -> bool:
@@ -160,14 +164,22 @@ def _switch_after_overload(model: str, reason: str):
         try:
             from subtr import gemini_models
             if gemini_models.on_quota_mode() == "off":
-                print(f"  A {model} tartósan nem válaszol ({reason}); automatikus "
-                      f"modellváltáshoz: {gemini_models.ON_QUOTA_KEY}=ask vagy auto (.env).")
+                if model not in _OVERLOAD_NOTED:
+                    _OVERLOAD_NOTED.add(model)
+                    print(f"  A {model} túlterhelt ({reason}); automatikus "
+                          f"modellváltáshoz: {gemini_models.ON_QUOTA_KEY}=ask vagy auto (.env).")
                 return None
-            cands = gemini_models.fallback_candidates(model, tried=set(_SWITCHED))
+            # A napi limit miatt elutasított modellre sem váltunk: aznap 429-et adna.
+            cands = gemini_models.fallback_candidates(
+                model, tried=set(_SWITCHED) | set(_DECLINED))
         except Exception as e:
             print(f"  [!] Modellváltás sikertelen ({e}) — nem váltok.")
             return None
         if not cands:
+            if model not in _OVERLOAD_NOTED:
+                _OVERLOAD_NOTED.add(model)
+                print(f"  A {model} túlterhelt ({reason}), és nincs tartalékmodell — "
+                      f"a hívás ugyanezzel próbálkozik tovább.")
             return None
         new = cands[0]["model"]
         _SWITCHED[model] = new
@@ -176,7 +188,10 @@ def _switch_after_overload(model: str, reason: str):
         return new
 
 
-DEFAULT_TIMEOUT = 600  # másodperc / kérés — hosszú kimenet (translate, review)
+# másodperc / kérés — hosszú kimenet (translate, review). Bőkezű: a magas
+# effortú, nagy darabos fordítás 10 percen túl is tarthat, és a sorozatos
+# időtúllépés tartalékmodellre vált — egy lassú, de jó válasz ne váltson.
+DEFAULT_TIMEOUT = 1200
 # Rövid válaszú funkciók: egy kérés percen belül kész, a hosszú várakozás csak
 # túlterhelést jelez (2026-11-20: 504-ek ~5–10 perc után).
 TASK_DEFAULT_TIMEOUT = {"register": 120, "glossary": 120, "models": 120}
@@ -184,7 +199,8 @@ TASK_DEFAULT_TIMEOUT = {"register": 120, "glossary": 120, "models": 120}
 
 def request_timeout(task: str | None = None) -> int:
     """Egy Gemini API kérés időkorlátja másodpercben. Feloldás:
-    SUBTR_<TASK>_GEMINI_TIMEOUT > SUBTR_GEMINI_TIMEOUT > funkció-alapérték > 600."""
+    SUBTR_<TASK>_GEMINI_TIMEOUT > SUBTR_GEMINI_TIMEOUT > funkció-alapérték > 1200.
+    Érvénytelen érték: figyelmeztetés, és a következő szint dönt."""
     default = TASK_DEFAULT_TIMEOUT.get(task or "", DEFAULT_TIMEOUT)
     keys = ([f"SUBTR_{task.upper()}_GEMINI_TIMEOUT"] if task else []) + ["SUBTR_GEMINI_TIMEOUT"]
     for key in keys:
@@ -197,8 +213,7 @@ def request_timeout(task: str | None = None) -> int:
             value = 0
         if value > 0:
             return value
-        print(f"FIGYELEM: érvénytelen {key}={raw!r} — {default} s.")
-        return default
+        print(f"FIGYELEM: érvénytelen {key}={raw!r} — nem veszem figyelembe.")
     return default
 
 

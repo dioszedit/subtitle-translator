@@ -735,7 +735,7 @@ def main(argv=None):
             print(f"  https://ai.google.dev/gemini-api/docs/rate-limits")
             print()
         try:
-            client = gemini_provider.make_client()
+            client = gemini_provider.make_client(task="translate")
         except RuntimeError as e:
             print(f"HIBA: {e}")
             sys.exit(1)

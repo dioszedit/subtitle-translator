@@ -615,7 +615,7 @@ def main(argv=None):
             print(f"      Telepítés: pip install google-genai python-dotenv pydantic")
             sys.exit(1)
         try:
-            client = gemini_provider.make_client()
+            client = gemini_provider.make_client(task="review")
         except RuntimeError as e:
             print(f"HIBA: {e}")
             sys.exit(1)

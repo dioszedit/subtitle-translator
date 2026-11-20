@@ -321,6 +321,25 @@ def test_transient_errors_exhausted_switch(overload):
     assert client.models_used == ["m", "m", "m2"]
 
 
+def test_overload_off_mode_notes_once(overload, monkeypatch, capsys):
+    from subtr import gemini_models
+    monkeypatch.setattr(gemini_models, "on_quota_mode", lambda: "off")
+    monkeypatch.setattr(gemini.time, "sleep", lambda s: None)
+    client = _ModelClient(*[_server_error(503, "overloaded")] * 4)
+    gemini.call_json(client, "m", "p", schema={}, max_retries=4)
+    assert capsys.readouterr().out.count("túlterhelt") == 1
+
+
+def test_overload_skips_quota_declined_model(overload, monkeypatch):
+    from subtr import gemini_models
+    seen = {}
+    monkeypatch.setattr(gemini_models, "fallback_candidates",
+                        lambda model, tried=(), skipped=None: seen.update(tried=set(tried)) or [])
+    gemini._DECLINED["m2"] = "[kimerült]"
+    gemini._switch_after_overload("m", "503 high demand")
+    assert "m2" in seen["tried"]
+
+
 # --- kérésenkénti időkorlát -----------------------------------------------------
 
 @pytest.fixture
@@ -335,7 +354,7 @@ def no_timeout_env(monkeypatch):
 def test_request_timeout_defaults_per_task(no_timeout_env):
     assert gemini.request_timeout("register") == 120
     assert gemini.request_timeout("glossary") == 120
-    assert gemini.request_timeout() == gemini.DEFAULT_TIMEOUT == 600
+    assert gemini.request_timeout() == gemini.DEFAULT_TIMEOUT == 1200
 
 
 def test_request_timeout_resolution_order(no_timeout_env, monkeypatch):
@@ -350,6 +369,19 @@ def test_request_timeout_invalid_value_falls_back(no_timeout_env, monkeypatch, c
     monkeypatch.setenv("SUBTR_REGISTER_GEMINI_TIMEOUT", "abc")
     assert gemini.request_timeout("register") == 120
     assert "érvénytelen SUBTR_REGISTER_GEMINI_TIMEOUT" in capsys.readouterr().out
+
+
+def test_request_timeout_invalid_task_value_uses_general(no_timeout_env, monkeypatch):
+    monkeypatch.setenv("SUBTR_GEMINI_TIMEOUT", "300")
+    monkeypatch.setenv("SUBTR_REGISTER_GEMINI_TIMEOUT", "abc")
+    assert gemini.request_timeout("register") == 300
+
+
+def test_translate_and_review_pass_their_task():
+    from pathlib import Path
+    root = Path(gemini.__file__).resolve().parent.parent / "tasks"
+    assert 'make_client(task="translate")' in (root / "translate.py").read_text(encoding="utf-8")
+    assert 'make_client(task="review")' in (root / "review.py").read_text(encoding="utf-8")
 
 
 def test_make_client_sets_timeout_in_ms(no_timeout_env, monkeypatch):
