@@ -91,3 +91,54 @@ def test_load_tolerates_extra_blank_lines(tmp_path, monkeypatch):
     raw = ("1\r\n00:00:01,000 --> 00:00:02,000\r\nEgy\r\n\r\n \r\n\r\n"
            "2\n00:00:03,000 --> 00:00:04,000\nKettő\n\n\n")
     assert _run(tmp_path, monkeypatch, reflow, None, raw_merge=raw) == _srt(reflow)
+
+
+def T(a, b):
+    """Kitalált teszt-időzítés másodpercből (nem valós felirat)."""
+    f = lambda s: f"00:00:{int(s):02},{round(s % 1 * 1000):03}"
+    return f"{f(a)} --> {f(b)}"
+
+
+@pytest.mark.parametrize("lines, ok", [
+    (["{\\an8}[A császárné alattvalója]", "[Her Willing Subject]"], False),  # tag-es címkártya
+    (["[Jáde-csúcs]", "Ne gyere közelebb"], False),                          # kártya + beszéd
+])
+def test_can_unbreak_cards(lines, ok):
+    assert pm.can_unbreak(lines, 42) is ok
+
+
+def test_preexisting_overlap_does_not_block(tmp_path, monkeypatch):
+    """A forrásból örökölt átfedés nem állítja meg a többi javítást."""
+    reflow = [(T(1, 3), ["Ki az?"]),
+              (T(2.5, 4), ["Kérjük, küldjenek át", "egy udvari orvost."])]
+    out = _run(tmp_path, monkeypatch, reflow, reflow)
+    assert out == _srt([reflow[0], (T(2.5, 4),
+                                    ["Kérjük, küldjenek át egy udvari orvost."])])
+
+
+def test_tagged_card_is_unmerged(tmp_path, monkeypatch):
+    reflow = [(T(1, 2), ["<i>[Jáde-csúcs]</i>"]),
+              (T(2.1, 3), ["Megérkeztünk."])]
+    merged = [(T(1, 3), ["<i>[Jáde-csúcs]</i>", "Megérkeztünk."])]
+    assert _run(tmp_path, monkeypatch, reflow, merged, args=["--no-unbreak"]) == _srt(reflow)
+
+
+def test_sentence_pieces_stay_merged_next_to_card(tmp_path, monkeypatch):
+    reflow = [(T(1, 2), ["[Lu Qingcang, régens]"]),
+              (T(2.1, 2.6), ["Üdvözöllek,"]),
+              (T(2.7, 3.5), ["nagyuram."])]
+    merged = [(T(1, 3.5), ["[Lu Qingcang, régens]", "Üdvözöllek, nagyuram."])]
+    out = _run(tmp_path, monkeypatch, reflow, merged, args=["--no-unbreak"])
+    assert out == _srt([reflow[0], (T(2.1, 3.5), ["Üdvözöllek, nagyuram."])])
+
+
+def test_accepts_merge_file_path(tmp_path, monkeypatch):
+    reflow = [(T(1, 2), ["Egy"])]
+    stem = tmp_path / "S - S01E01.hun"
+    Path(f"{stem}.reflow.srt").write_text(_srt(reflow), encoding="utf-8")
+    Path(f"{stem}.merge.srt").write_text(_srt(reflow), encoding="utf-8")
+    monkeypatch.setattr(sys, "argv", ["postmerge.py", f"{stem}.merge.srt"])
+    pm.main()
+    with pytest.raises(SystemExit, match="nincs"):
+        monkeypatch.setattr(sys, "argv", ["postmerge.py", str(tmp_path / "nincs.hun")])
+        pm.main()

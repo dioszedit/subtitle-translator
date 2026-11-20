@@ -391,9 +391,11 @@ def run_gemini(prompt: str, model: str) -> list[dict]:
     except RuntimeError as e:
         print(f"HIBA: {e}")
         return []
+    meta = {}
     parsed, err = gemini_provider.call_json(client, model, prompt,
                                             schema=RESULT_SCHEMA,
-                                            temperature=0.2)
+                                            temperature=0.2, meta=meta)
+    print(f"Gemini válaszidő: {meta.get('seconds', 0):.0f} s ({meta.get('model', model)})")
     if err:
         print(f"HIBA: Gemini API hiba: {err}")
         return []

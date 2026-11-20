@@ -205,7 +205,7 @@ def test_meta_reports_model_actually_used(switching):
     client = _ModelClient(_daily_429(), _Resp(text="{}"))
     meta = {}
     gemini.call_json(client, "m", "p", schema={}, meta=meta)
-    assert meta == {"model": "m2"}
+    assert meta["model"] == "m2"
 
 
 def test_declined_model_is_not_called_again(switching):
@@ -233,7 +233,7 @@ def test_ledger_exhaustion_switches_before_first_request(ledger_says_exhausted, 
     client = _ModelClient(_Resp(text='{"ok": 1}'))
     meta = {}
     assert gemini.call_json(client, "m", "p", schema={}, meta=meta) == ({"ok": 1}, None)
-    assert client.models_used == ["m2"] and meta == {"model": "m2"}
+    assert client.models_used == ["m2"] and meta["model"] == "m2"
     assert ledger_says_exhausted == ["m"] and gemini.switches() == {"m": "m2"}
 
 
@@ -275,29 +275,40 @@ def test_high_demand_503_switches_immediately(overload):
                           _Resp(text='{"ok": 1}'), _Resp(text='{"ok": 2}'))
     meta = {}
     assert gemini.call_json(client, "m", "p", schema={}, meta=meta) == ({"ok": 1}, None)
-    assert client.models_used == ["m", "m2"] and meta == {"model": "m2"}
+    assert client.models_used == ["m", "m2"] and meta["model"] == "m2"
     # a futás hátralévő hívásai is a tartalékkal mennek
     assert gemini.call_json(client, "m", "p", schema={}) == ({"ok": 2}, None)
     assert client.models_used[-1] == "m2" and gemini.switches() == {"m": "m2"}
 
 
-def test_two_consecutive_5xx_switch(overload):
-    client = _ModelClient(_server_error(504), _server_error(500), _Resp(text="{}"))
-    assert gemini.call_json(client, "m", "p", schema={}) == ({}, None)
-    assert client.models_used == ["m", "m", "m2"]
+def test_other_5xx_never_switch(overload, monkeypatch):
+    """Saját időkorlát miatti 504, promptfüggő 500: csak ez a hívás hiúsul meg."""
+    monkeypatch.setattr(gemini.time, "sleep", lambda s: None)
+    client = _ModelClient(_server_error(504), _server_error(500), _server_error(504))
+    parsed, err = gemini.call_json(client, "m", "p", schema={}, max_retries=3)
+    assert parsed is None and "504" in err
+    assert client.models_used == ["m"] * 3 and gemini.switches() == {}
+
+
+def test_deadline_504_and_read_timeout_are_counted_in_ledger(overload, monkeypatch):
+    monkeypatch.setattr(gemini.time, "sleep", lambda s: None)
+    recorded = []
+    monkeypatch.setattr(gemini._gq, "record", lambda m: recorded.append(m))
+    client = _ModelClient(_server_error(504), TimeoutError(), _Resp(text="{}"))
+    gemini.call_json(client, "m", "p", schema={}, max_retries=3)
+    assert recorded == ["m", "m", "m"]
+
+
+def test_meta_reports_seconds(overload):
+    meta = {}
+    gemini.call_json(_ModelClient(_Resp(text="{}")), "m", "p", schema={}, meta=meta)
+    assert meta["seconds"] >= 0 and meta["model"] == "m"
 
 
 def test_single_5xx_is_retried_on_same_model(overload):
     client = _ModelClient(_server_error(500), _Resp(text="{}"))
     assert gemini.call_json(client, "m", "p", schema={}) == ({}, None)
     assert client.models_used == ["m", "m"] and gemini.switches() == {}
-
-
-def test_429_between_5xx_resets_the_count(overload):
-    client = _ModelClient(_server_error(500), _server_error(429), _server_error(503),
-                          _Resp(text="{}"))
-    assert gemini.call_json(client, "m", "p", schema={}) == ({}, None)
-    assert client.models_used == ["m"] * 4 and gemini.switches() == {}
 
 
 def test_overload_off_mode_does_not_switch(overload, monkeypatch):
@@ -315,10 +326,12 @@ def test_overload_is_not_marked_exhausted(overload):
     assert "m" not in gemini._DECLINED
 
 
-def test_transient_errors_exhausted_switch(overload):
-    client = _ModelClient(TimeoutError(), TimeoutError(), _Resp(text="{}"))
-    assert gemini.call_json(client, "m", "p", schema={}, max_retries=2) == ({}, None)
-    assert client.models_used == ["m", "m", "m2"]
+def test_network_errors_never_switch(overload, monkeypatch):
+    """Helyi hálózati kimaradás nem modellhiba: nincs futásszintű váltás."""
+    monkeypatch.setattr(gemini.time, "sleep", lambda s: None)
+    client = _ModelClient(ConnectionError(), ConnectionError())
+    parsed, err = gemini.call_json(client, "m", "p", schema={}, max_retries=2)
+    assert parsed is None and client.models_used == ["m", "m"] and gemini.switches() == {}
 
 
 def test_overload_off_mode_notes_once(overload, monkeypatch, capsys):
@@ -352,8 +365,8 @@ def no_timeout_env(monkeypatch):
 
 
 def test_request_timeout_defaults_per_task(no_timeout_env):
-    assert gemini.request_timeout("register") == 120
-    assert gemini.request_timeout("glossary") == 120
+    assert gemini.request_timeout("register") == 180
+    assert gemini.request_timeout("glossary") == 180
     assert gemini.request_timeout() == gemini.DEFAULT_TIMEOUT == 1200
 
 
@@ -367,7 +380,7 @@ def test_request_timeout_resolution_order(no_timeout_env, monkeypatch):
 
 def test_request_timeout_invalid_value_falls_back(no_timeout_env, monkeypatch, capsys):
     monkeypatch.setenv("SUBTR_REGISTER_GEMINI_TIMEOUT", "abc")
-    assert gemini.request_timeout("register") == 120
+    assert gemini.request_timeout("register") == 180
     assert "érvénytelen SUBTR_REGISTER_GEMINI_TIMEOUT" in capsys.readouterr().out
 
 
@@ -388,4 +401,4 @@ def test_make_client_sets_timeout_in_ms(no_timeout_env, monkeypatch):
     seen = {}
     monkeypatch.setattr(gemini.genai, "Client", lambda **kw: seen.update(kw) or "client")
     assert gemini.make_client(api_key="k", task="register") == "client"
-    assert seen["api_key"] == "k" and seen["http_options"].timeout == 120_000
+    assert seen["api_key"] == "k" and seen["http_options"].timeout == 180_000

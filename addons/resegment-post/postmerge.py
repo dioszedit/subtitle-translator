@@ -15,6 +15,7 @@ Használat:  python addons/resegment-post/postmerge.py "output/Sorozat - S01E07.
             (stem: a .reflow.srt és .merge.srt közös eleje)
 """
 import argparse
+import os
 import re
 import sys
 
@@ -49,14 +50,37 @@ def words(lines):
     return ' '.join(' '.join(lines).split())
 
 
+TAGS = re.compile(r'<[^>]+>|\{[^}]*\}')
+
+
 def is_card(lines):
-    """Egész cue egy szögletes zárójeles képernyőfelirat (címkártya, névtábla) —
-    nem egy mondatba ékelt hangjelzés ([nevet])."""
-    t = words(lines)
+    """Egész cue (vagy sor) egy szögletes zárójeles képernyőfelirat (címkártya,
+    névtábla) — nem egy mondatba ékelt hangjelzés ([nevet]). A formázó tag
+    ({\\an8}, <i>) nem számít."""
+    t = words([TAGS.sub('', l) for l in lines])
     return t.startswith('[') and t.endswith(']')
 
 
-TAGS = re.compile(r'<[^>]+>|\{[^}]*\}')
+def fmt_ts(sec):
+    ms = round(sec * 1000)
+    return f'{ms // 3600000:02}:{ms // 60000 % 60:02}:{ms // 1000 % 60:02},{ms % 1000:03}'
+
+
+def rejoin(pieces, max_chars):
+    """Szomszédos nem-kártya darabok újra egy cue-ba (a merge döntése marad):
+    egy sor, ha belefér, különben két sor a középhez legközelebbi szóköznél."""
+    text = words(sum((x[3] for x in pieces), []))
+    lines = [text]
+    if len(text) > max_chars and ' ' in text:
+        cut = min((k for k, ch in enumerate(text) if ch == ' '), key=lambda k: abs(k - len(text) / 2))
+        lines = [text[:cut], text[cut + 1:]]
+    a, z = pieces[0][0], pieces[-1][1]
+    return [a, z, f'{fmt_ts(a)} --> {fmt_ts(z)}', lines]
+
+
+def overlaps(cues):
+    tl = [c for c in cues if c[0] is not None]
+    return {(round(a[0], 3), round(b[0], 3)) for a, b in zip(tl, tl[1:]) if b[0] < a[1]}
 
 
 SENT_INSIDE = re.compile(r'[.!?…]["”»)]?\s+\S')
@@ -72,8 +96,7 @@ def can_unbreak(lines, max_chars):
         return False
     if any(TAGS.sub('', l).lstrip().startswith(('-', '–', '—')) for l in lines):
         return False
-    if lines[0].strip().startswith('[') and lines[0].strip().endswith(']') \
-            and lines[1].strip().startswith('['):
+    if is_card(lines[:1]) or is_card(lines[1:]):   # kártya sor + bármi: két sor marad
         return False
     if SENT_INSIDE.search(joined):
         return False
@@ -87,8 +110,12 @@ def main():
     ap.add_argument('--no-unbreak', action='store_true', help='csak a kártya-visszabontás')
     args = ap.parse_args()
 
-    reflow = load(args.stem + '.reflow.srt')
-    merged = load(args.stem + '.merge.srt')
+    stem = re.sub(r'\.(merge|reflow)\.srt$|\.srt$', '', args.stem)
+    for ext in ('.reflow.srt', '.merge.srt'):
+        if not os.path.isfile(stem + ext):
+            sys.exit(f'HIBA: nincs {stem}{ext} — a stem a .reflow.srt és a .merge.srt közös eleje')
+    reflow = load(stem + '.reflow.srt')
+    merged = load(stem + '.merge.srt')
     timed = [x for x in reflow if x[0] is not None]
     single = {(round(x[0], 3), words(x[3])) for x in timed}
 
@@ -107,14 +134,26 @@ def main():
             kept.append(c[2])
             res.append(c)
             continue
-        res += [list(x) for x in parts]
+        # A kártyák külön cue-k; a köztük lévő mondatdarabok összevonása marad.
+        run = []
+        for x in parts + [None]:
+            if x is not None and not is_card(x[3]):
+                run.append(x)
+                continue
+            if run:
+                res.append(list(run[0]) if len(run) == 1 else rejoin(run, args.max_chars))
+                run = []
+            if x is not None:
+                res.append(list(x))
         unmerged += 1
     for t in kept:
         print(f'FIGYELEM: {t} — a kártyás cue szövege/időzítése eltér a .reflow.srt-től '
               f'(kézi javítás?), változatlanul hagyom.')
-    tl = [c for c in res if c[0] is not None]
-    if any(b[0] < a[1] for a, b in zip(tl, tl[1:])):
-        sys.exit('HIBA: átfedő időzítés a visszabontás után — a fájl nem módosult')
+    # Csak az új átfedés hiba: a forrásból örökölt (merge-ben, reflow-ban is
+    # meglévő) átfedő cue-pár változatlanul marad.
+    new = overlaps(res) - overlaps(merged) - overlaps(reflow)
+    if new:
+        sys.exit(f'HIBA: {len(new)} új átfedő időzítés a visszabontás után — a fájl nem módosult')
 
     unbroken = 0
     if not args.no_unbreak:
@@ -123,7 +162,7 @@ def main():
                 c[3] = [f'{c[3][0].rstrip()} {c[3][1].lstrip()}']
                 unbroken += 1
 
-    with open(args.stem + '.merge.srt', 'w', encoding='utf-8') as f:
+    with open(stem + '.merge.srt', 'w', encoding='utf-8') as f:
         blocks, i = [], 0
         for c in res:
             if c[0] is None:
@@ -132,7 +171,7 @@ def main():
                 i += 1
                 blocks.append(f'{i}\n{c[2]}\n' + '\n'.join(c[3]))
         f.write('\n\n'.join(blocks) + '\n')
-    print(f'{args.stem}.merge.srt: {unmerged} kártya-összevonás visszabontva, '
+    print(f'{stem}.merge.srt: {unmerged} kártya-összevonás visszabontva, '
           f'{unbroken} cue egy sorba vonva, {len(res)} cue')
 
 

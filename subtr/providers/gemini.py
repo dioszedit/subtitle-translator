@@ -153,9 +153,8 @@ def _switch_after_exhaustion(model: str, preemptive: bool = False):
 
 
 def _switch_after_overload(model: str, reason: str):
-    """Tartósan túlterhelt (5xx / időtúllépés minden próbálkozás után) modell
-    helyettesítője, vagy None. Ugyanaz a tartaléklista és SUBTR_GEMINI_ON_QUOTA
-    szabály, mint a napi limitnél (off → nem vált), de nem kérdez: a túlterhelés
+    """A 503 „high demand / overloaded” jelű modell helyettesítője, vagy None.
+    Ugyanaz a tartaléklista és SUBTR_GEMINI_ON_QUOTA szabály, mint a napi limitnél (off → nem vált), de nem kérdez: a túlterhelés
     átmeneti, nem a kvóta fogyott el — ezért a modellt NEM jelöljük kimerültnek
     (_DECLINED), csak ennek a futásnak a hátralévő hívásai mennek a tartalékkal."""
     with _SWITCH_LOCK:
@@ -192,9 +191,11 @@ def _switch_after_overload(model: str, reason: str):
 # effortú, nagy darabos fordítás 10 percen túl is tarthat, és a sorozatos
 # időtúllépés tartalékmodellre vált — egy lassú, de jó válasz ne váltson.
 DEFAULT_TIMEOUT = 1200
-# Rövid válaszú funkciók: egy kérés percen belül kész, a hosszú várakozás csak
-# túlterhelést jelez (2026-11-20: 504-ek ~5–10 perc után).
-TASK_DEFAULT_TIMEOUT = {"register": 120, "glossary": 120, "models": 120}
+# Rövid válaszú funkciók: egy kérés 1–2 perc (egész epizód be, rövid válasz ki);
+# a hosszú várakozás csak túlterhelést jelez (2026-11-20: 504-ek ~5–10 perc után).
+# A google-genai az időkorlátot X-Server-Timeout fejlécként a szervernek is
+# elküldi → túllépésnél a szerver 504-et ad; ez a hívás hibája, nem túlterhelés.
+TASK_DEFAULT_TIMEOUT = {"register": 180, "glossary": 180, "models": 120}
 
 
 def request_timeout(task: str | None = None) -> int:
@@ -269,8 +270,29 @@ def call_json(client, model: str, prompt: str, *, schema,
     Visszaad: (parsed | None, err_msg | None). A parsed pydantic objektum
     (ha a schema BaseModel osztály) vagy dict (ha a schema JSON-séma dict).
     `meta` (opcionális dict): a hívás után meta["model"] az a modell, amellyel
-    a hívás ténylegesen ment (napi limit miatti váltás után más, mint a kért).
+    a hívás ténylegesen ment (napi limit miatti váltás után más, mint a kért),
+    meta["seconds"] a hívás teljes ideje (újrapróbálásokkal együtt).
     """
+    started = time.monotonic()
+    try:
+        return _call_json(client, model, prompt, schema=schema, system=system,
+                          temperature=temperature, max_retries=max_retries, meta=meta)
+    finally:
+        if meta is not None:
+            meta["seconds"] = time.monotonic() - started
+
+
+def _record_request(model: str) -> None:
+    """A kérés a szerveren lefutott → fogyasztotta a napi kvótát."""
+    if _gq:
+        try:
+            _gq.record(model)
+        except Exception:
+            pass
+
+
+def _call_json(client, model, prompt, *, schema, system, temperature,
+               max_retries, meta):
     dict_schema = isinstance(schema, dict)
     cfg = types.GenerateContentConfig(
         system_instruction=system,
@@ -291,7 +313,7 @@ def call_json(client, model: str, prompt: str, *, schema,
     if model in _DECLINED:
         return None, _DECLINED[model]
     last_err = None
-    attempt = switched = fails_5xx = 0
+    attempt = switched = 0
     while attempt < max_retries:
         attempt += 1
         try:
@@ -300,11 +322,7 @@ def call_json(client, model: str, prompt: str, *, schema,
             )
             # A hívás lefutott a modellen → fogyasztotta a napi kvótát.
             # (Az üres/blokkolt válasz is, ezért a parse ELŐTT könyvelünk.)
-            if _gq:
-                try:
-                    _gq.record(model)
-                except Exception:
-                    pass
+            _record_request(model)
             if dict_schema:
                 try:
                     parsed = json.loads(response.text)
@@ -349,52 +367,36 @@ def call_json(client, model: str, prompt: str, *, schema,
                 # további hívások kérés nélkül ugyanezt kapják.
                 _DECLINED[model] = f"[API hiba: {e}]"
                 return None, _DECLINED[model]
-            # Túlterhelés jele: a 503 „high demand / overloaded” üzenete, vagy két
-            # egymást követő 5xx. Ilyenkor a további várakozás nem segít (a 3.8
-            # napokig így állt) → azonnal tartalékmodell, ha van; ha nincs, a
-            # szokásos retry megy tovább.
-            if status in (500, 502, 503, 504):
-                fails_5xx += 1
-                high_demand = status == 503 and bool(_OVERLOAD_RE.search(str(e)))
-                if (high_demand or fails_5xx >= 2) and switched < MAX_SWITCHES:
-                    why = ("503 high demand" if high_demand
-                           else f"{fails_5xx} egymást követő 5xx, utolsó {status}")
-                    new = _switch_after_overload(model, why)
-                    if new and new != model:
-                        model, switched, attempt, fails_5xx = new, switched + 1, 0, 0
-                        if meta is not None:
-                            meta["model"] = model
-                        continue
-            else:
-                fails_5xx = 0
+            # Egész futásra szóló váltás CSAK a 503 „high demand / overloaded”
+            # jelre: ilyenkor a várakozás nem segít (a 3.8 napokig így állt). Más
+            # 5xx — a saját időkorlátunk miatti 504 DEADLINE, egy promptfüggő 500 —
+            # csak ezt a hívást érinti: újrapróbálás, végül hiba, modellváltás nélkül.
+            if status == 504:
+                _record_request(model)   # a szerver dolgozott rajta (kvóta)
+            if (status == 503 and _OVERLOAD_RE.search(str(e))
+                    and switched < MAX_SWITCHES):
+                new = _switch_after_overload(model, "503 high demand")
+                if new and new != model:
+                    model, switched, attempt = new, switched + 1, 0
+                    if meta is not None:
+                        meta["model"] = model
+                    continue
             if status in (429, 500, 502, 503, 504) and attempt < max_retries:
                 delay = RETRY_BASE_DELAY * (2 ** (attempt - 1))
                 print(f"  API hiba ({status}), újrapróbálás {delay}s múlva... ({attempt}/{max_retries})")
                 time.sleep(delay)
                 continue
-            # Minden próbálkozás 5xx → a modell tartósan túlterhelt (2026-11-19/20:
-            # gemini-3.8-flash 503 „high demand” napokig) → tartalékmodell.
-            if status in (500, 502, 503, 504) and switched < MAX_SWITCHES:
-                new = _switch_after_overload(model, f"{status} {max_retries}×")
-                if new and new != model:
-                    model, switched, attempt = new, switched + 1, 0
-                    if meta is not None:
-                        meta["model"] = model
-                    continue
             return None, f"[API hiba: {e}]"
         except Exception as e:
             last_err = e
+            # Olvasási időtúllépés: a kérés elment, a szerver dolgozott rajta.
+            # (Hálózati / kapcsolódási hiba nem modellhiba → nincs modellváltás.)
+            if "ReadTimeout" in type(e).__name__ or isinstance(e, TimeoutError):
+                _record_request(model)
             if is_transient_error(e) and attempt < max_retries:
                 delay = RETRY_BASE_DELAY * (2 ** (attempt - 1))
                 print(f"  Hálózati hiba ({type(e).__name__}), újrapróbálás {delay}s múlva... ({attempt}/{max_retries})")
                 time.sleep(delay)
                 continue
-            if is_transient_error(e) and switched < MAX_SWITCHES:
-                new = _switch_after_overload(model, f"{type(e).__name__} {max_retries}×")
-                if new and new != model:
-                    model, switched, attempt = new, switched + 1, 0
-                    if meta is not None:
-                        meta["model"] = model
-                    continue
             return None, f"[Váratlan hiba: {e}]"
     return None, f"[{max_retries} próbálkozás után sem sikerült: {last_err}]"
