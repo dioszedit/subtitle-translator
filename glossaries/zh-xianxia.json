@@ -734,6 +734,36 @@
       "en": "disguise spell",
       "hu": "álcavarázslat",
       "context": "易容术/障眼法 — álcát fenntartó varázslat"
+    },
+    {
+      "en": "portal",
+      "hu": "kapu",
+      "context": "传送门 — varázslatos átjáró két hely vagy kor között"
+    },
+    {
+      "en": "blindfold",
+      "hu": "szemkötő",
+      "context": "蒙眼布 — a szemet eltakaró kendő"
+    },
+    {
+      "en": "calamity",
+      "hu": "csapás",
+      "context": "大劫 — sorsszerű nagy csapás (kultivációs próbatétel is)"
+    },
+    {
+      "en": "aura",
+      "hu": "kisugárzás",
+      "context": "气息 — lény vagy tárgy érzékelhető szellemi jelenléte"
+    },
+    {
+      "en": "New Year's Eve",
+      "hu": "óév estéje",
+      "context": "除夕/除岁夜 — a holdújév előestéje; nem „szilveszter”"
+    },
+    {
+      "en": "spirit fields",
+      "hu": "szellemi földek",
+      "context": "灵田 — szellemi energiával átjárt szántóföldek"
     }
   ],
   "phrases": [
