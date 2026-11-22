@@ -14,6 +14,7 @@ Mindegyiknek saját README-je van a részletekkel.
 | [`mkv-subs/`](mkv-subs/README.md) | Ha a felirat a videóban van, vagy kell az **eredeti nyelvű sáv a regiszterhez**; a végén, ha a kész felirat az **mkv-ba** kell | Feliratsávok listázása és kicsomagolása **nyelvcímke szerint** (a sávsorrend fájlonként változik); `embed_subs.py`: a kész felirat beágyazása — bármilyen nyelvű, a nyelv a fájlnévből (opcionálisan alapértelmezettként) — `ffmpeg` kell hozzá |
 | [`audio-asr/`](audio-asr/README.md) | Ha a hang koreai, japán, kínai…, de **nincs eredeti nyelvű feliratsáv** | A hangsáv gépi átirata Whisperrel (`input/asr/…kor.asr.srt`) — regiszter-támpontnak, nem fordítási forrásnak; `faster-whisper` és `ffmpeg` kell hozzá |
 | [`hardsub-ocr/`](hardsub-ocr/README.md) | Ha az eredeti nyelvű (pl. kínai) felirat **a képbe van égetve**, és nincs külön sávja | OCR-rel kiolvassa, és a forrás SRT cue-ihoz igazítja (`input/…chi.ocr.srt`, üres cue-nál `—`) — regiszter-támpontnak, nem fordítási forrásnak; macOS-en a beépített Vision, máshol RapidOCR (`pip install -e ".[ocr]"`), `ffmpeg` kell hozzá |
+| [`align-source/`](align-source/README.md) | **Csak külső (kész, máshonnan származó) magyar fordítás lektorálásánál**, a review előtt | A forrás-SRT-t időzítés alapján a magyar fájl sorszámaihoz igazítja (`input/aligned/…`), mert a külső fordítás gyakran összevont feliratokkal dolgozik; a magyarból kimaradt forrássorokat külön listázza |
 | [`resegment-post/`](resegment-post/README.md) | Epizódonként a `resegment merge` után | A merge által képernyőfelirattal összevont cue-kat visszabontja, és a ≤42 karakteres kétsoros cue-kat egy sorba vonja (dal, két mondat, párbeszéd, kártya kivétel) — helyben, a `.merge.srt`-n; időzítést nem változtat |
 | [`hardsub-cover/`](hardsub-cover/README.md) | Epizódonként a végén, **csak ha a videóban beégetett idegen felirat van** | A kész `.hun.srt`-ből fekete, szöveghez igazodó dobozos ASS-t készít a beégetett felirat fölé; `--mux`-szal alapértelmezett sávként az `.mkv`-ba teszi |
 
@@ -39,6 +40,10 @@ python subtr.py register "input/asr/Sorozat - S01E01.kor.asr.srt"
 python addons/hardsub-ocr/ocr_subs.py "Season 01"/*.mp4                      # kínai (alap), forrás: input/…eng.srt
 python addons/hardsub-ocr/ocr_subs.py "Season 01"/*.mkv --lang kor           # koreai
 python subtr.py register "input/Sorozat - S01E01.chi.ocr.srt"
+
+# külső magyar fordítás lektorálása előtt — a forrás igazítása a magyar sorszámaihoz
+python addons/align-source/align_source.py "output/Sorozat - S01E03.hun.srt"           # → input/aligned/…
+python subtr.py review "output/Sorozat - S01E03.hun.srt" --source "input/aligned/Sorozat - S01E03.eng.srt"
 
 # utómunka után — a kész felirat beágyazása az mkv-ba (opcionális; a nyelv a fájlnévből)
 python addons/mkv-subs/embed_subs.py "Season 01/Sorozat - S01E01.hun.srt" --dry-run        # mi történne (nem ír semmit)

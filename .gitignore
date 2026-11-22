@@ -31,6 +31,8 @@ dist/
 # Munkamenet-fájlok — projektenként / epizódonként mások
 input/*.srt
 input/asr/
+# addons/align-source kimenete: igazított forrás-felirat és a kimaradt sorok listája
+input/aligned/
 output/*.srt
 output/*.txt
 output/*.json

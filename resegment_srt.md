@@ -44,13 +44,18 @@ Paraméterek (alapérték): `--max-chars 42`, `--max-lines 2`, `--target-cps 17`
 ## Módok
 
 - **report** — cue-nkénti CPS/sorhossz/rés metrika + flag-ek (`CPS`, `LINE`,
-  `LINES`, `SHORT`, `LONG`, `GAP`) és összegzés. Ez a QA-kapu és a verifikáció
+  `LINES`, `SHORT`, `LONG`, `GAP`, `DASH`) és összegzés. A `DASH` a szóköz nélküli
+  párbeszéd-gondolatjel (`-Gyere!`), ezt a reflow és a merge magától javítja. Ez a QA-kapu és a verifikáció
   alapja is. A ~0-s (láncolt, érintkező) réseket NEM jelzi hibának, csak a
   villódzás-kockázatos kis réseket és az átfedéseket.
 - **reflow** (biztonságos alapművelet) — a plafont sértő cue-kat
   kiegyensúlyozott ≤`max-lines` sorra tördeli, mondat-/tagmondat-határon.
   Idempotens; a már megfelelő cue-kat érintetlenül hagyja; a `szám + időbélyeg`
   sorok **bitre változatlanok**; `<i>…</i>` és `- ` párbeszédjelek megőrizve.
+  A sor eleji párbeszéd-gondolatjel után mindig egy szóközt tesz
+  (`-Gyere!` → `- Gyere!`, a `–`/`—` jel fajtája marad; számot, `--`-t és szó
+  belsejében álló kötőjelet nem érint). A szóköz nélküli `-Gyere!` sort is
+  párbeszédnek ismeri fel, így két szereplő sorát nem vonja egy mondatba.
   Amit ≤`max-lines` sorba nem lehet betördelni, azt **flag-eli** (nem rontja el).
 - **--split** (opcionális) — a flag-elt, egyszereplős, túl hosszú cue-kat több
   egymást követő cue-ra bontja, az időt a karakterszámmal arányosan osztva

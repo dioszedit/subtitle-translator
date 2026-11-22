@@ -1,0 +1,227 @@
+# Fordítási memória és triage-döntési memória
+
+> Állapot: **a 0. és az 1. fázis megvalósult** (2026-11-22: `addons/align-source`,
+> `subtr/timing.py`, `subtr.py consistency`); a 2–4. fázis terv.
+> Előzmény: a külső fordítások lektorálásánál (2026-11) sok kézi munka ment el
+> olyan hibák javítására, amelyeket egy sorozatszintű memória megelőzött volna.
+> Az első változatot egy független review vetette össze a kóddal. Ennek
+> eredményeként kikerült az SQLite-adatbázis és az automatikus tiltólista, a
+> sorrend pedig megfordult: előbb determinisztikus ellenőrzés, és csak mérés
+> után következik a keresés-alapú referencia.
+
+## A probléma
+
+A pipeline ma minden fordítási blokkot és lektorált chunkot **önmagában** kezel.
+A sorozat egészéről csak a `glossary.json`-t (szűrve: `subtr/glossary.py` →
+`filter_for_source`) és a `TRANSLATION.local.md`-t ismeri. Ebből két, egymástól
+független hiány következik.
+
+### 1. Nincs fordítási memória
+
+A jóváhagyott fordítások nem jutnak vissza a következő részekbe. Tipikus
+következmények:
+
+- **Visszatérő dalszövegek.** A főcím- és záródal minden részben kicsit más
+  fordítást kap, utólag kézzel kell egységesíteni.
+- **Képernyőn megjelenő szöveg** (táblák, névkártyák, helyszínek): ugyanaz a
+  tábla részenként másképp szerepel.
+- **Írásmód-ingadozás** a szójegyzékben nem szereplő neveknél (ugyanaz a pinyin
+  név ékezettel és anélkül, vagy sh/s eltéréssel).
+- **Ismétlődő fordulatok** (jelmondatok, eskük) részenként eltérnek.
+
+A szójegyzék kifejezéseket tart, nem mondatokat, és minden bejegyzést kézzel
+kell felvenni.
+
+### 2. Nincs triage-döntési memória
+
+A `decisions.json` (`subtr/tasks/apply_review_auto.py`) **csak az elfogadott**
+javításokat tartalmazza. Az elvetett javaslat és az elvetés oka nem marad meg,
+ezért a review-modell részről részre ugyanazokat a téves javaslatokat ismétli:
+
+- szójegyzék-ütközés: az alap-szótár alakja ott, ahol a sorozat szójegyzéke
+  felülírja (`Lord` = „nagyúr” ↔ a sorozatban „X úr”);
+- a címkártya átformázása, amit a felhasználó már eldöntött;
+- tegezés/magázás „javítása” egy rögzített regiszter-kivétel ellenére;
+- a fordító szándékos, saját táblafelirat-sorainak törlése;
+- no-op (a javaslat megegyezik az aktuális szöveggel).
+
+Egy 10 részes lektorálásnál ez részenként kb. 3–10 elvetendő javaslat volt,
+mindig ugyanazok.
+
+## Célok és korlátok
+
+1. Konzisztencia a sorozaton belül.
+2. A meghozott triage-döntéseket ne kelljen újra meghozni.
+3. A felhasználó munkamenete ne bonyolódjon. Windows, csak standard könyvtár,
+   nem technikai felhasználó: minden állapot **ember által olvasható és kézzel
+   javítható** fájlban legyen.
+4. A repó nyilvános: feliratszöveg csak a sorozat-mappában lehet.
+
+## Kiinduló tények a kódból
+
+- **Mi a „kész” felirat?** Az `apply-auto` az `output/…hun.srt`-t írja, de a
+  végleges szöveg a resegment (`.merge.srt`), a `postmerge.py`, a postclean és
+  a kézi Subtitle Edit-javítás után a `Season 01/`-ben áll. A
+  `subtr/tasks/bases.py` `_translated_pairs` függvénye már mindkét helyet nézi.
+- **A cue-számok nem stabilak.** A `resegment reflow --split` 1..N-re
+  újraszámoz (`write_renumber`), a merge és a `postmerge.py` összevon. Ezért a
+  `bases check` is kihagyja azt a fájlt, ahol a sorszámhalmazok nem egyeznek.
+  **Párosítani időbélyeg-átfedéssel kell**, nem sorszámmal.
+- **Külső fordításnál** a forrás igazítását ma egy repón kívüli segédszkript
+  végzi (`sandbox/tools/align_source.py`), amit a ZIP-es felhasználó nem kap
+  meg. A kimenete n:1 (több forrássor egy magyar cue alatt), és helykitöltőt
+  ír a forrás nélküli cue-khoz.
+- **A felülírt alap-bejegyzések** nincsenek benne a `load_merged` eredményében
+  (a `with_bases` eldobja őket). Ami kell, megvan:
+  `subtr/tasks/bases.py` → `check()["overridden"]`.
+- **Review részeredmény:** a `chunk_hashes` a forrással kiegészített chunk
+  szövegét hash-eli, a fejléc-ujjlenyomat (`instruction`) pedig a
+  `TRANSLATION.local.md`-t is tartalmazza. Bármi, ami a promptba kerül,
+  érvényteleníti a félkész review-kat. Ezt tudatosan kell kezelni.
+- **Claude-út a fordításnál:** a `_make_claude_translator` a per-blokk promptot
+  parancssori argumentumként adja át (`-p`). Hosszabb referencia ott nem fér
+  el biztonságosan (Windows parancssor-limit, idézés), csak fájlon keresztül.
+
+## Javasolt megoldás
+
+Adatbázis nincs. Minden futáskor újraszámolódik a meglévő fájlokból. Egy
+sorozat kb. 15–20 ezer cue, ennek beolvasása (`_translated_pairs` +
+`parse_by_index`) másodperc alatti. Pontos egyezéshez dict kell, közelítőhöz
+`difflib`. Így nincs `memory add` lépés, nincs elavult állapot, nincs séma.
+
+### 0. Előfeltétel: a forrás-igazítás addonná emelése
+
+Az `align_source.py` kerüljön be a repóba addonként (pl. `addons/align-source/`),
+dokumentálva. Egyrészt a külső fordítások lektorálása enélkül nem
+reprodukálható. Másrészt a konzisztencia-ellenőrzés ugyanezt az
+időbélyeg-párosítást használja.
+
+### 1. fázis: konzisztencia-riport (`subtr.py consistency`)
+
+A `bases check` mintájára épülő, csak riportáló parancs, LLM nélkül.
+
+- **Bemenet:** a végleges fájlok (`Season 01/` elsőbbséggel, különben
+  `output/`), párosítva a forrással **időbélyeg-átfedés** alapján.
+- **Azonos forrássor, eltérő magyar:** ugyanaz a normalizált forrássor más
+  részben másképp lett lefordítva. A riport kiírja a változatokat a
+  gyakoriságukkal, és javasolja a leggyakoribbat.
+  - Elsősorban képernyőszövegre (`[…]`) és dalra (`♪`/`♫`), ahol az egyezés
+    valóban azonos szöveget jelent.
+  - Párbeszédnél csak hosszabb sorokra (pl. 25+ karakter), mert a rövid
+    mondatok („Igen.”) jogosan térnek el.
+  - SDH-forrásnál a `[…]` beszélőcímke vagy hangjegyzet, nem tábla, ezért ott
+    a tábla-ág kikapcsol.
+- **Írásmód-változatok:** a magyar szövegben ugyanannak a tulajdonnévnek több
+  alakja él. Nagybetűs szóalakok klaszterezése kis szerkesztési távolsággal,
+  a ragok levágása után.
+- **Normalizálás:** a `normalize_for_match` mellé HTML-tag, `♪`/`♫`, írásjel
+  és kötőjel eltávolítása az összevetéshez.
+- **Kimenet:** szöveges riport, plusz opcionálisan egy
+  `decisions.json`-kompatibilis javaslatfájl. A meglévő `apply-auto`
+  szárazfuttatással és jóváhagyással vezeti át.
+- Rokon a v3 #1 ötletével (szójegyzék-ellenőrzés a `verify`-ban), érdemes a
+  kettőt együtt tervezni.
+
+### 2. fázis: triage-előszűrés és kézi döntés-szakasz
+
+**2a. Determinisztikus előszűrés** (kb. 50 sor; a `review-triage` skill hívja,
+vagy `subtr.py triage-prefilter <REVIEW.json>`):
+
+- **no-op:** a javaslat whitespace-normalizálva megegyezik az aktuális
+  szöveggel;
+- **drift:** a riport `eredeti` mezője eltér az aktuális szövegtől;
+- **szójegyzék-ütközés:** a javaslat egy olyan alap-szótári `hu` alakot hoz
+  be, amelyet a sorozat ugyanarra az `en` kulcsra felülír (forrás:
+  `bases.check()["overridden"]`).
+
+A kimenet a találatok jelölése. A triage ezeket egy sorban, összesítve látja,
+és felülbírálhatja őket.
+
+**2b. „Lektori döntések” szakasz a `TRANSLATION.local.md`-ben**, kézzel írva.
+Példák: „a címkártya alakja marad”, „a fordító saját táblafeliratai
+maradnak”, „Lord + név = X úr”. A review és a triage ezt ma is megkapja, új
+kód nem kell hozzá. A skill javasolhat új sort, de a felhasználó veszi fel.
+Mivel a fájl a review-ujjlenyomat része, egy új sor a félkész review-kat
+újraindítja. Ez elfogadható, mert ritkán változik.
+
+**2c. Triage-napló: `output/<stem>.hun_triage.json`**, sima JSON-fájl.
+
+- A `review-triage` skill a `decisions.json` mellé írja: minden találat,
+  verdikttel (`accepted` / `rewritten` / `dropped`) és okkóddal.
+- Az okkód **zárt lista**, és a skill validálja, mert LLM-ként írva
+  sodródna. Kódok: `no_op`, `drift`, `glossary_conflict`, `decision_rule`,
+  `register_exception`, `less_faithful`, `unclear_speaker`, `invalid_form`,
+  `other`.
+- Egyelőre csak a nyomon követhetőséget szolgálja. Ha később kiderül, hogy a
+  kézi szakasz kevés, ebből lehet statisztikát vagy precedens-keresést
+  építeni.
+
+### 3. fázis: rögzített sorok
+
+A legnagyobb haszon (dal, tábla) **retrieval nélkül** is elérhető.
+
+- A sorozat `glossary.json`-jának `phrases` kategóriájában rögzített sorok:
+  forrás → jóváhagyott magyar. A `filter_for_source` ezeket már ma is csak
+  akkor engedi a promptba, ha a szövegben előfordulnak. Így a system promptba
+  kerülnek, a cache-t alig érintik, és a review is kötelezőként kezeli őket.
+- **Csak kézi megerősítéssel kerülnek be.** Az 1. fázis riportja javasolja
+  őket („ez a dalsor 12 részben szerepel, 3 változatban”), a felhasználó
+  hagyja jóvá. Így egy rossz első fordítás nem rögzül csendben 30 részre.
+- Ha a végleges szöveg eltér a rögzített sortól, az 1. fázis riportja jelzi.
+  A rendszer nem írja felül csendben.
+
+### 4. fázis: keresés-alapú referencia, csak mérés után
+
+Ha az 1–3. fázis után is marad számottevő inkonzisztencia a párbeszédben:
+
+- **Fordítás:** blokkonként a korábbi részek hasonló forrássorai és a
+  jóváhagyott fordításuk, **referenciaként** (nem kötelezőként).
+  - A Claude-úton csak a blokk mellé írt fájlként (`<block>.tm.txt`), amit az
+    agent `Read`-del olvas. A parancssori prompt nem bírja el.
+  - A kikeresés a worker-pool indítása előtt, a főszálon történik.
+  - Ismert korlát: párhuzamos fordításnál csak a már kész részekből merít,
+    ezért a sorrendtől függ.
+- **Review:** `[KORÁBBAN]` sor az érintett szekciók alatt. Fejléc-ujjlenyomat
+  nem kell hozzá, mert a chunk-hash a kiegészített szöveget hash-eli, így
+  csak az érintett chunk fut újra.
+- A tárolásról (fájl vagy SQLite) csak ekkor kell dönteni. Vektoros keresés a
+  mostani mérettel nem indokolt.
+
+## Bevezetési sorrend
+
+| Fázis | Tartalom | Haszon | Kockázat |
+|---|---|---|---|
+| 0 | `align_source` addonná emelése | külső fordítás lektorálása reprodukálható | alacsony |
+| 1 | `consistency` riport | dal-, tábla- és írásmód-eltérés LLM nélkül | alacsony: csak riportál |
+| 2 | triage-előszűrés + kézi döntés-szakasz + napló | kevesebb ismétlődő kézi elvetés | alacsony: csak jelöl |
+| 3 | rögzített sorok a `phrases`-ben, kézi jóváhagyással | konzisztencia már fordításkor | alacsony–közepes: rossz sor rögzülése, ezért kézi kapu |
+| 4 | keresés-alapú referencia (csak mérés után) | párbeszéd-konzisztencia | közepes: prompt-méret, sorrend-függés |
+
+## Érintett kód
+
+- új: `addons/align-source/`; `subtr/tasks/consistency.py`; a prefilter vagy a
+  `subtr/tasks/` alatt, vagy a skill segédszkriptjeként;
+- `subtr/cli.py`: az új alparancsok;
+- `subtr/glossary.py`: a megerősítő normalizálás (tag, daljel, írásjel);
+- `subtr/tasks/bases.py`: a `_translated_pairs` és az `overridden` újrahasznosítása;
+- `.claude/skills/review-triage/SKILL.md`: előszűrés, `hun_triage.json` zárt
+  okkódokkal, „Lektori döntések” javaslata;
+- `TRANSLATION.md` és a sablon: a „Lektori döntések” szakasz leírása;
+- a 4. fázisban `subtr/tasks/translate.py` és `subtr/tasks/review.py`;
+- `docs/`: a `consistency` parancs és a döntés-szakasz.
+
+## Tesztelés
+
+- Egységtesztek: időbélyeg-párosítás (1:1, n:1, átszámozott merge), normalizálás,
+  SDH-felismerés, írásmód-klaszterezés, prefilter (no-op, drift, felülírt
+  alap-alak).
+- Szintetikus 3 részes minta, tudatosan elrontott dalsorral és tábla-írásmóddal.
+- Valódi próba a `sandbox/` teszt-sorozaton, nem éles mappán.
+
+## Nyitott kérdések
+
+1. Ki vegye fel a rögzített sorokat: a felhasználó kézzel, vagy egy
+   `consistency --promote` parancs jóváhagyás után?
+2. A párbeszéd-egyezés minimális hossza (a 25 karakter csak kiinduló érték).
+3. Kell-e a 4. fázis egyáltalán? Ez az 1–3. fázis után egy valódi sorozaton
+   mérhető.

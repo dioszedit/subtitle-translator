@@ -43,6 +43,7 @@ A fejezetek sorban olvasva végigvezetnek a telepítéstől az utómunkáig; min
       - [Grok review (subtr.py review --provider grok)](05-review.md#grok-review-subtrpy-review---provider-grok)
       - [Codex review (subtr.py review --provider codex)](05-review.md#codex-review-subtrpy-review---provider-codex)
       - [Megszakadt vagy hiányos review](05-review.md#megszakadt-vagy-hiányos-review)
+      - [Kész, külső fordítás lektorálása](05-review.md#kész-külső-fordítás-lektorálása)
       - [Review-javaslatok alkalmazása (subtr.py apply)](05-review.md#review-javaslatok-alkalmazása-subtrpy-apply)
       - [Nem interaktív alkalmazás (subtr.py apply-auto)](05-review.md#nem-interaktív-alkalmazás-subtrpy-apply-auto)
 6. **[Provider, modell és effort](06-providerek.md)** — melyik funkció melyik modellel fusson, .env-beállítások
@@ -62,6 +63,7 @@ A fejezetek sorban olvasva végigvezetnek a telepítéstől az utómunkáig; min
       - [2. Automatikus szegmentálás — subtr.py resegment](08-utomunka.md#2-automatikus-szegmentálás--subtrpy-resegment)
       - [3. Technikai javítás Subtitle Edit-tel](08-utomunka.md#3-technikai-javítás-subtitle-edit-tel)
       - [4. Végső kézi lektorálás](08-utomunka.md#4-végső-kézi-lektorálás)
+      - [Opcionális: egységesség a részek között — subtr.py consistency](08-utomunka.md#opcionális-egységesség-a-részek-között--subtrpy-consistency)
       - [Opcionális: a kész felirat az MKV-ba](08-utomunka.md#opcionális-a-kész-felirat-az-mkv-ba)
 9. **[Tippek](09-tippek.md)** — gyakorlati tanácsok
    - [Tippek](09-tippek.md#tippek)

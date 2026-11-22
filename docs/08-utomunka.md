@@ -47,7 +47,9 @@ python subtr.py resegment reflow "output\Sorozat - S01E01.hun.srt" --split -o ".
 
 A `reflow` kiegyensúlyozott ≤2 sorra tördel, mondat-/tagmondat-határon; a
 `szám+időbélyeg` sorokat **bitre változatlanul** hagyja, a `<i>` és `- `
-párbeszéd-jelöléseket megőrzi; **idempotens**. Részletes leírás (töréspont-
+párbeszéd-jelöléseket megőrzi; **idempotens**. A szóköz nélküli párbeszéd-
+gondolatjelet egységesíti: `-Gyere!` → `- Gyere!` (a `merge` is; a `report`
+`DASH` flaggel jelzi). Részletes leírás (töréspont-
 logika, plafonok, más nyelvhez igazítás): **`resegment_srt.md`**.
 
 ### 3. Technikai javítás Subtitle Edit-tel
@@ -81,6 +83,57 @@ párok, az epizódon belüli váltások, ha a regiszter nem jelöli meg a helyü
 
 Ez a négy utómunka-lépés teszi teljessé a folyamatot — nélkülük a fordítás
 nyelvileg jó lehet, de a néző-élmény nem lesz az.
+
+### Opcionális: egységesség a részek között — `subtr.py consistency`
+
+A review részenként dolgozik, ezért nem veszi észre, ha ugyanaz a tábla, dalsor
+vagy név az egyik részben másképp szerepel, mint a másikban. Ezt a parancs
+nézi meg a sorozat **összes kész feliratán** egyszerre. Nem hív modellt, csak
+riportál, és pár másodperc alatt lefut:
+
+```bash
+python subtr.py consistency                    # a munkakönyvtár sorozata
+python subtr.py consistency --no-dialogue      # csak tábla, dal és nevek
+python subtr.py consistency --decisions        # + javaslatfájl részenként
+```
+
+Kész feliratnak a `Season 01/…hun.srt` (vagy `Season 02/…`) számít, ha van;
+különben az `output/…hun.merge.srt`, ha az sincs, az `output/…hun.srt`. A forrás
+az `input/…eng.srt` (vagy más nyelv, `--source-lang`, ugyanúgy, mint a review-nál).
+A magyar feliratot a forrással **időzítés** alapján párosítja, ezért a
+resegment utáni, átszámozott fájlon is működik. Ahol a magyar felirat és a
+forrássor időben nem esik egybe (kettévágott dalsor, a dal mellé került
+párbeszédsor), azt kihagyja, mert ott az összevetés félrevezető lenne.
+
+Amit keres:
+
+- **Azonos forrás, eltérő fordítás:**
+  - képernyőszöveg (`[Old Mill Inn]` → egyszer `[Malom-fogadó]`, máskor `[Malom Fogadó]`),
+  - dalszöveg (a főcím- vagy betétdal egy sora részenként másképp),
+  - hosszabb párbeszédsor (alapból 25 karaktertől, `--min-chars`). Itt az
+    eltérés sokszor jogos, mert a jelenet más, ezért ezt csak tájékoztatásnak
+    vedd.
+- **Írásmód-változatok:** ugyanannak a névnek több alakja (`Taolu` ↔ `Taolú`,
+  `Nagy Zen` ↔ `Nagy Zhen`). A ragozás kötőjellel vagy anélkül (`Fang-ot` ↔
+  `Fangot`) külön listában szerepel.
+
+A `--decisions` kapcsolóval a tábla- és dal-eltérésekhez, ahol van egyértelmű
+többségi változat, részenként egy javaslatfájl készül az `output/` mappába
+(`<név>.hun_consistency.json`; ami egy korábbi futásból maradt, de már nem
+érvényes, azt törli). Ugyanolyan formátumú, mint a review-triage
+döntésfájlja, tehát az `apply-auto` vezeti át. **Mindig előbb `--dry-run`-nal**
+nézd meg, mert a többség nem mindig a jó változat:
+
+```bash
+python subtr.py apply-auto "Season 01/Sorozat - S01E05.hun.srt" "output/Sorozat - S01E05.hun_consistency.json" --dry-run
+```
+
+A dalsoroknál csak a szöveg cserélődik, a felirat saját jelölése (`♫ … ♫`,
+`<i> … </i>`, sor eleji gondolatjel) marad. Párbeszédhez és írásmódhoz nem készül automatikus
+javaslat, azokról te döntesz.
+
+SDH-forrásnál a `[…]` beszélőcímke vagy hangjegyzet, nem tábla: ilyenkor add
+meg a `--sdh` kapcsolót.
 
 ### Opcionális: a kész felirat az MKV-ba
 

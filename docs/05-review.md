@@ -164,6 +164,22 @@ olvasható, nem írható vagy nem törölhető (megtelt lemez, zárolt fájl), a
 figyelmeztet és végigfut, legfeljebb nem lesz folytatható. A `.partial` és a
 `.partial.stale` feliratszöveget tartalmaz, ezért a commit előtti szűrő tiltja.
 
+### Kész, külső fordítás lektorálása
+
+Ha nem a pipeline fordított, hanem egy máshonnan kapott magyar feliratot
+lektorálsz, annak a feliratai gyakran **össze vannak vonva**: a magyarban 450
+felirat van, az angolban 750. A review a magyar és a forrás feliratait
+sorszám szerint párosítja, ezért ilyenkor rossz forrássort látna. Előbb
+igazítsd a forrást a magyar sorszámaihoz, időzítés alapján:
+
+```bash
+python addons/align-source/align_source.py "output/Sorozat - S01E03.hun.srt"
+python subtr.py review "output/Sorozat - S01E03.hun.srt" --source "input/aligned/Sorozat - S01E03.eng.srt"
+```
+
+A részletek az add-on leírásában vannak: [`addons/align-source`](../addons/align-source/README.md).
+Ha a magyar fájlba utólag feliratot szúrsz be, futtasd újra az igazítást.
+
 ### Review-javaslatok alkalmazása (`subtr.py apply`)
 ```powershell
 # A hun.srt melletti összes riport összefésülése + interaktív alkalmazás

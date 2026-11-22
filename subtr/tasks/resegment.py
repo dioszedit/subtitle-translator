@@ -16,7 +16,9 @@ Módok:
                    összevonhatók. Párbeszédet (- A / - B) nem képez.
 
 Csak Python stdlib. Nyelvfüggetlen (--lang), a plafonok CLI-ből állíthatók.
-Nem módosít fordítást/szót — kizárólag tördel és (opcionálisan) időt oszt.
+Nem módosít fordítást/szót — tördel, (opcionálisan) időt oszt, és egyetlen
+írásjel-egységesítést végez: a reflow és a merge a sor eleji párbeszéd-
+gondolatjel után szóközt tesz („-Gyere!” → „- Gyere!”).
 """
 import re, sys, argparse
 
@@ -98,8 +100,29 @@ def write_renumber(cues):
 def visible(s): return re.sub(r'<[^>]+>', '', s)
 def vlen(s): return len(visible(s))
 
+# Sor eleji formázás: HTML-tag és bármilyen ASS-blokk ({\an8}, {\i1} …).
+_LEAD_FMT = r'(?:\s*(?:<[^>]+>|\{\\[^}]*\}))*\s*'
+# Párbeszéd-kötőjel („- Gyere!” / „-Gyere!”); számot (-5 fok) és „--”-t nem.
+HYPHEN_DIALOGUE_RE = re.compile(r'^' + _LEAD_FMT + r'-(?=\s|[^\s\d\-–—])')
+# Nagykötőjeles sorkezdet (– / —): párbeszéd is lehet, de egy tördelt mondat
+# közbevetése is („– mondta halkan –”), ezért csak az első sorban, vagy ha több
+# sor is így kezdődik, számít beszélőjelnek.
+LONG_DASH_RE = re.compile(r'^' + _LEAD_FMT + r'[–—](?=\s?[^\s\d\-–—])')
+# A javítandó eset: gondolatjel után nincs szóköz („-Gyere!”).
+DASH_NO_SPACE_RE = re.compile(r'^(' + _LEAD_FMT + r')([-–—])(?=[^\s\d\-–—])')
+
 def is_dialogue(lines):
-    return any(re.match(r'^-\s', l) for l in lines)
+    """Párbeszéd-cue: valamelyik sora kötőjellel kezdődik („- Gyere!” vagy
+    „-Gyere!”), vagy nagykötőjellel az első sor / legalább két sor."""
+    if any(HYPHEN_DIALOGUE_RE.match(l) for l in lines):
+        return True
+    long_dash = [bool(LONG_DASH_RE.match(l)) for l in lines]
+    return bool(lines) and (long_dash[0] or sum(long_dash) >= 2)
+
+def fix_dialogue_dash(text):
+    """A sor eleji párbeszéd-gondolatjel után mindig egy szóköz: „-Gyere!” → „- Gyere!”.
+    A gondolatjel fajtája (-, –, —) és a formázó tagek maradnak. Idempotens."""
+    return '\n'.join(DASH_NO_SPACE_RE.sub(r'\1\2 ', l) for l in text.split('\n'))
 
 def _strip_outer_tag(text):
     """Ha az egész (akár többsoros) szöveg egyetlen tagpárba van csomagolva
@@ -292,7 +315,7 @@ def _proper_nouns(cues):
             continue
         words = visible(c['text']).replace('\n', ' ').split()
         for prev, w in zip(words, words[1:]):
-            if w[:1].isupper() and not SENTENCE_END.search(prev) and not prev.startswith('-'):
+            if w[:1].isupper() and not SENTENCE_END.search(prev) and prev[:1] not in '-–—':
                 names.add(re.sub(r'\W+$', '', w))
     return names
 
@@ -393,6 +416,8 @@ def report(cues, cfg):
         if m['gap'] is not None and (m['gap'] < -0.005 or
                                      0.005 < m['gap'] < cfg['min_gap']):
             fl.append('GAP')
+        if fix_dialogue_dash(cues[i]['text']) != cues[i]['text']:
+            fl.append('DASH')                 # „-Gyere!”: a reflow javítja
         for f in fl:
             flags_total[f] = flags_total.get(f, 0) + 1
         if fl:
@@ -422,6 +447,17 @@ def report(cues, cfg):
     return rows
 
 # ---- fő -----------------------------------------------------------------------
+def _fix_dashes(cues):
+    """(új cue-lista, javított cue-k száma) — „-Gyere!” → „- Gyere!” minden cue-ban."""
+    out, n = [], 0
+    for c in cues:
+        if 'raw' not in c:
+            fixed = fix_dialogue_dash(c['text'])
+            if fixed != c['text']:
+                c = dict(c); c['text'] = fixed; n += 1
+        out.append(c)
+    return out, n
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Felirat-újraszegmentáló és QA eszköz.")
     ap.add_argument('mode', choices=['report', 'reflow', 'merge'])
@@ -460,6 +496,7 @@ def main(argv=None):
         if a.ref:
             ref = [c for c in parse(open(a.ref, encoding='utf-8-sig').read()) if 'raw' not in c]
         before = len([c for c in cues if 'raw' not in c])
+        cues, n_dash = _fix_dashes(cues)
         new_cues, n_merged = merge_cues(cues, cfg, lang, ref)
         n_ext = 0 if a.no_extend else extend_cues(new_cues, cfg)
         out_text = write_renumber(new_cues)
@@ -473,11 +510,14 @@ def main(argv=None):
             open(dest, 'w', encoding='utf-8').write(out_text)
         after = len([c for c in new_cues if 'raw' not in c])
         print(f"merge: {before} -> {after} cue ({n_merged} összevonás), "
-              f"{n_ext} cue nyújtva -> {dest or '(stdout)'}", file=sys.stderr)
+              f"{n_ext} cue nyújtva"
+              + (f", {n_dash} cue-ban szóköz a gondolatjel után" if n_dash else "")
+              + f" -> {dest or '(stdout)'}", file=sys.stderr)
         return
 
     # reflow
     changed = flagged = split_n = 0
+    cues, n_dash = _fix_dashes(cues)
     new_cues = []
     for c in cues:
         if 'raw' in c:
@@ -505,6 +545,8 @@ def main(argv=None):
     else:
         sys.stdout.write(out_text); dest = '(stdout)'
     msg = f"reflow: {changed} cue újratördelve, {flagged} flag-elve"
+    if n_dash:
+        msg += f", {n_dash} cue-ban szóköz a gondolatjel után"
     if a.split:
         msg += f", {split_n} cue bontva"
     print(f"{msg} -> {dest}", file=sys.stderr)

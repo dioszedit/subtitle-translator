@@ -1,5 +1,7 @@
 """subtr.tasks.resegment — tördelés, idő-arányos bontás, riport."""
 
+import pytest
+
 from subtr.tasks import resegment as rs
 
 HU = rs.LANG["hu"]
@@ -189,3 +191,84 @@ def test_merge_does_not_join_new_capitalized_sentence_but_allows_names():
              _cue(9.0, 12.0, "Azt mondják, Cui Shao'ant látták.")]
     out, n = rs.merge_cues(names, CFG, HU)
     assert n == 1 and out[0]["text"].startswith("Végül a vagyonukat elkobozták,")
+
+
+# ── Párbeszéd-gondolatjel szóköz nélkül („-Gyere!”) ──────────────────────
+
+@pytest.mark.parametrize("text, expected", [
+    ("-Gyere!\n-Megyek.", "- Gyere!\n- Megyek."),
+    ("–Gyere!", "– Gyere!"),                               # nagykötőjel marad
+    ("<i>-Gyere!</i>", "<i>- Gyere!</i>"),                  # tag után is
+    ("{\\an8}-Gyere!", "{\\an8}- Gyere!"),
+    ("- Gyere!\n- Megyek.", "- Gyere!\n- Megyek."),          # már jó: változatlan
+    ("-5 fok van.", "-5 fok van."),                         # negatív szám
+    ("--Mi?", "--Mi?"),                                     # dupla kötőjel
+    ("Észak-Kun", "Észak-Kun"),                             # szó belsejében
+])
+def test_fix_dialogue_dash(text, expected):
+    assert rs.fix_dialogue_dash(text) == expected
+    assert rs.fix_dialogue_dash(expected) == expected       # idempotens
+
+
+def test_dash_without_space_is_still_dialogue():
+    # különben a reflow két szereplő sorát egy mondatként tördelné újra
+    assert rs.is_dialogue(["-Ez egy nagyon hosszú mondat, ami nem fér ki egy sorban.", "-Igen."])
+    newtext, _, _ = rs.reflow_cue("-Ez egy nagyon hosszú mondat, ami nem fér ki egy sorban.\n-Igen.",
+                                  42, 2, HU, False)
+    assert newtext is None
+
+
+def test_reflow_and_merge_add_space_after_dash(tmp_path, capsys):
+    src = tmp_path / "x.srt"
+    src.write_text("1\n00:00:01,000 --> 00:00:03,000\n-Gyere!\n-Megyek.\n", encoding="utf-8")
+    rs.main(["reflow", str(src), "-o", str(tmp_path / "r.srt")])
+    assert "- Gyere!\n- Megyek." in (tmp_path / "r.srt").read_text(encoding="utf-8")
+    assert "1 cue-ban szóköz a gondolatjel után" in capsys.readouterr().err
+    rs.main(["merge", str(src), "-o", str(tmp_path / "m.srt")])
+    assert "- Gyere!\n- Megyek." in (tmp_path / "m.srt").read_text(encoding="utf-8")
+
+
+def test_report_flags_dash_without_space(capsys):
+    cues = rs.parse("1\n00:00:01,000 --> 00:00:03,000\n-Gyere!\n")
+    rs.report(cues, dict(max_chars=42, max_lines=2, target_cps=17, min_dur=1, max_dur=7, min_gap=0.08))
+    assert "DASH" in capsys.readouterr().out
+
+
+# ── Célzott review: a párbeszéd-felismerés ne legyen túl tág ──────────────
+
+@pytest.mark.parametrize("lines, expected", [
+    (["- Gyere!", "- Megyek."], True),
+    (["-Gyere!", "-Megyek."], True),
+    (["Kész vagy?", "- Igen."], True),                     # csak a második sor kötőjeles
+    (["– Gyere!", "– Megyek."], True),                     # nagykötőjeles párbeszéd
+    (["– Gyere ide!"], True),                              # első sor nagykötőjellel
+    (["{\\i1}-Gyere!"], True),                             # tetszőleges ASS-blokk után
+    (["Azt hittem, holnap indulunk", "– mondta halkan – de már ma kell."], False),
+    (["-5 fok van odakint, vegyél kabátot."], False),      # negatív szám
+    (["--Mi?"], False),
+])
+def test_is_dialogue_is_not_too_broad(lines, expected):
+    assert rs.is_dialogue(lines) is expected
+
+
+def test_wrapped_aside_and_negative_number_are_rewrapped():
+    long_aside = "Azt hittem, hogy holnap reggel indulunk\n– mondta halkan – de ma este már menni kell, gyorsan."
+    _, flags, need_split = rs.reflow_cue(long_aside, 42, 2, HU, False)
+    # túl hosszú két sorra, de NEM párbeszédként: a --split bonthatja
+    assert "dialog-too-long" not in flags and need_split
+    short_aside = "Azt hittem, holnap indulunk\n– mondta – de ma kell, gyorsan."
+    newtext, flags, _ = rs.reflow_cue(short_aside + " Most rögtön.", 42, 2, HU, False)
+    assert newtext is not None and "dialog-too-long" not in flags
+    newtext, flags, _ = rs.reflow_cue("-5 fok van odakint, úgyhogy vegyél fel egy vastag kabátot is, kérlek.",
+                                      42, 2, HU, False)
+    assert newtext is not None and "dialog-too-long" not in flags
+
+
+def test_any_ass_block_before_dash():
+    assert rs.fix_dialogue_dash("{\\i1}-Gyere!") == "{\\i1}- Gyere!"
+
+
+def test_word_after_long_dash_is_not_a_proper_noun():
+    cues = rs.parse("1\n00:00:01,000 --> 00:00:02,000\n– Gyere ide, Fang!\n")
+    names = rs._proper_nouns(cues)
+    assert "Gyere" not in names and "Fang" in names

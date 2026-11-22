@@ -13,6 +13,7 @@ research jegyzetek, alternatív megoldások, tervezési dokumentumok.
 | Fájl | Téma | Státusz |
 |------|------|---------|
 | [deep_review_otletek_v3.md](deep_review_otletek_v3.md) | A még nyitott fejlesztési ötletek: szójegyzék-ellenőrzés a `verify`-ban, költség-kimutatás, hiányzó alap-szótárak (`ja-common`, `ko-sageuk`), GUI-újratervezés | Fontolgatott opciók, javasolt sorrenddel |
+| [forditasi_memoria.md](forditasi_memoria.md) | Sorozatszintű konzisztencia: `consistency` riport, rögzített dal- és táblasorok, triage-előszűrés és kézi „Lektori döntések” szakasz; keresés-alapú referencia csak mérés után | 0–1. fázis kész (`align-source`, `consistency`), 2–4. terv |
 
 ## Archívum
 
