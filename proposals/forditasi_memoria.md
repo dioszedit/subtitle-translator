@@ -1,7 +1,17 @@
 # Fordítási memória és triage-döntési memória
 
-> Állapot: **a 0. és az 1. fázis megvalósult** (2026-11-22: `addons/align-source`,
-> `subtr/timing.py`, `subtr.py consistency`); a 2–4. fázis terv.
+> **Állapot (2026-11-22):**
+>
+> | Fázis | Állapot |
+> |---|---|
+> | 0. Forrás-igazítás addon | ✅ **kész** — `addons/align-source/` (`fe1744d`) |
+> | 1. Konzisztencia-riport | ✅ **kész** — `subtr.py consistency`, `subtr/timing.py` (`fe1744d`) |
+> | +  Párbeszéd-gondolatjel a resegmentben | ✅ **kész** — a tervben nem szerepelt, menet közben jött (`fe1744d`) |
+> | 2. Triage-előszűrés, döntés-szakasz, napló | ⏳ terv |
+> | 3. Rögzített sorok | ⏳ terv |
+> | 4. Keresés-alapú referencia | ⏳ terv, csak mérés után |
+>
+> A megvalósítás részletei és a tervtől való eltérések: [Megvalósítás](#megvalósítás-0-és-1-fázis).
 > Előzmény: a külső fordítások lektorálásánál (2026-11) sok kézi munka ment el
 > olyan hibák javítására, amelyeket egy sorozatszintű memória megelőzött volna.
 > Az első változatot egy független review vetette össze a kóddal. Ennek
@@ -89,14 +99,14 @@ sorozat kb. 15–20 ezer cue, ennek beolvasása (`_translated_pairs` +
 `parse_by_index`) másodperc alatti. Pontos egyezéshez dict kell, közelítőhöz
 `difflib`. Így nincs `memory add` lépés, nincs elavult állapot, nincs séma.
 
-### 0. Előfeltétel: a forrás-igazítás addonná emelése
+### 0. Előfeltétel: a forrás-igazítás addonná emelése — ✅ kész
 
 Az `align_source.py` kerüljön be a repóba addonként (pl. `addons/align-source/`),
 dokumentálva. Egyrészt a külső fordítások lektorálása enélkül nem
 reprodukálható. Másrészt a konzisztencia-ellenőrzés ugyanezt az
 időbélyeg-párosítást használja.
 
-### 1. fázis: konzisztencia-riport (`subtr.py consistency`)
+### 1. fázis: konzisztencia-riport (`subtr.py consistency`) — ✅ kész
 
 A `bases check` mintájára épülő, csak riportáló parancs, LLM nélkül.
 
@@ -122,7 +132,7 @@ A `bases check` mintájára épülő, csak riportáló parancs, LLM nélkül.
 - Rokon a v3 #1 ötletével (szójegyzék-ellenőrzés a `verify`-ban), érdemes a
   kettőt együtt tervezni.
 
-### 2. fázis: triage-előszűrés és kézi döntés-szakasz
+### 2. fázis: triage-előszűrés és kézi döntés-szakasz — ⏳ terv
 
 **2a. Determinisztikus előszűrés** (kb. 50 sor; a `review-triage` skill hívja,
 vagy `subtr.py triage-prefilter <REVIEW.json>`):
@@ -156,7 +166,7 @@ Mivel a fájl a review-ujjlenyomat része, egy új sor a félkész review-kat
   kézi szakasz kevés, ebből lehet statisztikát vagy precedens-keresést
   építeni.
 
-### 3. fázis: rögzített sorok
+### 3. fázis: rögzített sorok — ⏳ terv
 
 A legnagyobb haszon (dal, tábla) **retrieval nélkül** is elérhető.
 
@@ -170,7 +180,7 @@ A legnagyobb haszon (dal, tábla) **retrieval nélkül** is elérhető.
 - Ha a végleges szöveg eltér a rögzített sortól, az 1. fázis riportja jelzi.
   A rendszer nem írja felül csendben.
 
-### 4. fázis: keresés-alapú referencia, csak mérés után
+### 4. fázis: keresés-alapú referencia, csak mérés után — ⏳ terv
 
 Ha az 1–3. fázis után is marad számottevő inkonzisztencia a párbeszédben:
 
@@ -189,39 +199,95 @@ Ha az 1–3. fázis után is marad számottevő inkonzisztencia a párbeszédben
 
 ## Bevezetési sorrend
 
-| Fázis | Tartalom | Haszon | Kockázat |
-|---|---|---|---|
-| 0 | `align_source` addonná emelése | külső fordítás lektorálása reprodukálható | alacsony |
-| 1 | `consistency` riport | dal-, tábla- és írásmód-eltérés LLM nélkül | alacsony: csak riportál |
-| 2 | triage-előszűrés + kézi döntés-szakasz + napló | kevesebb ismétlődő kézi elvetés | alacsony: csak jelöl |
-| 3 | rögzített sorok a `phrases`-ben, kézi jóváhagyással | konzisztencia már fordításkor | alacsony–közepes: rossz sor rögzülése, ezért kézi kapu |
-| 4 | keresés-alapú referencia (csak mérés után) | párbeszéd-konzisztencia | közepes: prompt-méret, sorrend-függés |
+| Fázis | Tartalom | Haszon | Kockázat | Állapot |
+|---|---|---|---|---|
+| 0 | `align_source` addonná emelése | külső fordítás lektorálása reprodukálható | alacsony | ✅ kész |
+| 1 | `consistency` riport | dal-, tábla- és írásmód-eltérés LLM nélkül | alacsony: csak riportál | ✅ kész |
+| 2 | triage-előszűrés + kézi döntés-szakasz + napló | kevesebb ismétlődő kézi elvetés | alacsony: csak jelöl | ⏳ |
+| 3 | rögzített sorok a `phrases`-ben, kézi jóváhagyással | konzisztencia már fordításkor | alacsony–közepes: rossz sor rögzülése, ezért kézi kapu | ⏳ |
+| 4 | keresés-alapú referencia (csak mérés után) | párbeszéd-konzisztencia | közepes: prompt-méret, sorrend-függés | ⏳ |
+
+## Megvalósítás (0. és 1. fázis)
+
+Commit: `fe1744d` (2026-11-22), mind a 8 élő sorozat-mappába szinkronizálva.
+Három kódreview-kör előzte meg (14, 10 és 9 találat, mind javítva).
+
+**Elkészült:**
+
+- `subtr/timing.py` — közös időbélyeg-párosítás: `parse_timed`, `overlap`,
+  `overlap_map` (rendezett söprés), `assign`. Egy forrás-cue ahhoz a magyar
+  cue-hoz kerül, amelyik a nagyobb részét lefedi; egyenlőségnél ahhoz, amelyik
+  pontosabban egybeesik vele (így egy hosszú stáblista- vagy tábla-cue nem viszi
+  el a párbeszéd forrássorát). A bemenet sorrendje tetszőleges.
+- `addons/align-source/` — a sandbox-eszköz utódja, ugyanazzal a kimenettel,
+  plusz: több rész és nyelv egyszerre, `.hun.merge.srt` bemenet, a kettévágott
+  forrásmondat a második magyar cue-ba is bekerül, a fordító saját táblája
+  „saját kiírás” marad.
+- `subtr.py consistency` — riport a tábla-, dal- és párbeszéd-eltérésekről,
+  a névírás-változatokról és a kötőjeles ragozásról; `--decisions` javaslatfájl
+  (`output/<név>.hun_consistency.json`) a tábla- és dal-eltérésekre, `apply-auto`
+  formátumban.
+- Dokumentáció: `docs/05-review.md` (külső fordítás lektorálása),
+  `docs/08-utomunka.md` (egységesség a részek között), `addons/align-source/README.md`.
+- Tesztek: `tests/test_timing.py`, `tests/test_consistency.py`,
+  `tests/test_align_source.py`, kiegészítve `tests/test_resegment.py`.
+
+**Eltérések a tervtől:**
+
+- **Kész felirat:** a `Season NN/` mappák (nem csak a `Season 01`), azon belül
+  ami nincs, az `output/…hun.merge.srt`, végül az `output/…hun.srt`.
+- **Szigorúbb párosítás:** egy előfordulás csak akkor számít, ha a forrás-cue
+  legalább 75%-a ebbe a magyar cue-ba esik, és legfeljebb 25%-a lóg át egy azonos
+  fajtájú (tábla / szöveg) másik cue-ba. A dal-cue kimarad, ha párbeszédsor,
+  zárójel nélküli tábla vagy vegyes jelölésű sor is van benne. Enélkül a
+  `--decisions` sorokat törölt vagy duplázott volna.
+- **Táblánál** csak az egytáblás cue számít: több táblánál a fordító sorrendje
+  eltérhet a forrásétól.
+- **Írásmód-változatok:** szerkesztési távolság helyett „név-váz”: ékezet,
+  kötőjel, szóköz és aposztróf nélkül, 5 karaktertől a pinyin sh/zh/ch = s/z/c.
+  A szomszédos nagybetűs szavak egy névként számítanak (a „Li Si” nem keveredik
+  a „Nagy Shi”-vel). A magyar ragozás (Szívet / Szívét, Hegyet / Hegyét) nem
+  jelez. A kötőjeles ragozás (Fang-ot / Fangot) külön listában szerepel.
+- **Normalizálás** a `consistency.py`-ban maradt, nem a `subtr/glossary.py`-ba
+  került: csak itt kell.
+- **Plusz, a tervben nem szerepelt:** a `resegment reflow` és `merge` a sor eleji
+  párbeszéd-gondolatjel után szóközt tesz (`-Gyere!` → `- Gyere!`), a `report`
+  `DASH` flaggel jelzi. A szóköz nélküli kötőjeles sort a resegment eddig nem
+  ismerte fel párbeszédként, és két szereplő sorát egy mondatba tördelhette.
+- **Valódi próba:** a `sandbox/` helyett két kész sorozat `Season 01` mappáján,
+  csak olvasva. Mindkettőben talált valódi eltérést (táblák, betétdalok,
+  névírás), ezeket a felhasználó jóváhagyásával egységesítettük.
 
 ## Érintett kód
 
-- új: `addons/align-source/`; `subtr/tasks/consistency.py`; a prefilter vagy a
-  `subtr/tasks/` alatt, vagy a skill segédszkriptjeként;
-- `subtr/cli.py`: az új alparancsok;
-- `subtr/glossary.py`: a megerősítő normalizálás (tag, daljel, írásjel);
-- `subtr/tasks/bases.py`: a `_translated_pairs` és az `overridden` újrahasznosítása;
+- ✅ új: `addons/align-source/`, `subtr/timing.py`, `subtr/tasks/consistency.py`;
+- ⏳ új: a prefilter a `subtr/tasks/` alatt, vagy a skill segédszkriptjeként;
+- ✅ `subtr/cli.py`: a `consistency` alparancs (⏳ a prefilteré);
+- ✅ `subtr/tasks/resegment.py`: párbeszéd-gondolatjel (a tervben nem szerepelt);
+- ~~`subtr/glossary.py`: a megerősítő normalizálás~~ — a `consistency.py`-ban maradt;
+- ⏳ `subtr/tasks/bases.py`: az `overridden` újrahasznosítása (2. fázis);
 - `.claude/skills/review-triage/SKILL.md`: előszűrés, `hun_triage.json` zárt
   okkódokkal, „Lektori döntések” javaslata;
 - `TRANSLATION.md` és a sablon: a „Lektori döntések” szakasz leírása;
 - a 4. fázisban `subtr/tasks/translate.py` és `subtr/tasks/review.py`;
-- `docs/`: a `consistency` parancs és a döntés-szakasz.
+- ✅ `docs/`: a `consistency` parancs és az align-source (⏳ a döntés-szakasz).
 
 ## Tesztelés
 
-- Egységtesztek: időbélyeg-párosítás (1:1, n:1, átszámozott merge), normalizálás,
-  SDH-felismerés, írásmód-klaszterezés, prefilter (no-op, drift, felülírt
-  alap-alak).
-- Szintetikus 3 részes minta, tudatosan elrontott dalsorral és tábla-írásmóddal.
-- Valódi próba a `sandbox/` teszt-sorozaton, nem éles mappán.
+- ✅ Egységtesztek: időbélyeg-párosítás (1:1, n:1, átszámozott merge, rendezetlen
+  bemenet, stáblista), normalizálás, SDH, írásmód-klaszterezés, javaslatfájl,
+  a három review összes esete regressziós tesztként.
+- ✅ Szintetikus 3 részes minta, tudatosan elrontott dalsorral és tábla-írásmóddal.
+- ✅ Valódi próba két kész sorozaton, csak olvasva (a `sandbox/` helyett).
+- ⏳ Prefilter-tesztek (no-op, drift, felülírt alap-alak) — a 2. fázissal.
 
 ## Nyitott kérdések
 
 1. Ki vegye fel a rögzített sorokat: a felhasználó kézzel, vagy egy
-   `consistency --promote` parancs jóváhagyás után?
+   `consistency --promote` parancs jóváhagyás után? (3. fázis)
 2. A párbeszéd-egyezés minimális hossza (a 25 karakter csak kiinduló érték).
+   Az első két valódi sorozaton a párbeszéd-ág jelzései többnyire jogos,
+   jelenettől függő eltérések voltak — ez a hossz vagy a párbeszéd-ág
+   alapértelmezése még hangolható.
 3. Kell-e a 4. fázis egyáltalán? Ez az 1–3. fázis után egy valódi sorozaton
    mérhető.
